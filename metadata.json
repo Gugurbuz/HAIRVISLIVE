@@ -1,0 +1,7 @@
+{
+  "name": "HairVis - Visual Simulator",
+  "description": "A high-end AI-powered hair visualization platform featuring photo-based estimation and visual preview generation.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

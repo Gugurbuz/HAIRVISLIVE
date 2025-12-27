@@ -1,0 +1,134 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --clinical-bg: #F7F8FA;
+    --clinical-blue: #0E1A2B;
+    --clinical-teal: #14B8A6;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--clinical-bg);
+    color: var(--clinical-blue);
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  .grain {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0.03;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .medical-glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(14, 26, 43, 0.05);
+  }
+
+  .surgical-shadow {
+    shadow-color: rgba(14, 26, 43, 0.1);
+    box-shadow: 0 20px 50px -12px rgba(14, 26, 43, 0.12), 0 10px 20px -10px rgba(14, 26, 43, 0.08);
+  }
+}
+
+@layer utilities {
+  @keyframes logoWaveVertical1 {
+    0%, 100% { d: path("M7 4c4 4-4 12 0 16"); }
+    50% { d: path("M7 4c-4 4 4 12 0 16"); }
+  }
+
+  @keyframes logoWaveVertical2 {
+    0%, 100% { d: path("M12 4c4 4-4 12 0 16"); }
+    50% { d: path("M12 4c-4 4 4 12 0 16"); }
+  }
+
+  @keyframes logoWaveVertical3 {
+    0%, 100% { d: path("M17 4c4 4-4 12 0 16"); }
+    50% { d: path("M17 4c-4 4 4 12 0 16"); }
+  }
+
+  .wave-1 { animation: logoWaveVertical1 2.5s ease-in-out infinite; }
+  .wave-2 { animation: logoWaveVertical2 2.5s ease-in-out infinite -0.4s; }
+  .wave-3 { animation: logoWaveVertical3 2.5s ease-in-out infinite -0.8s; }
+
+  @keyframes floatingHair {
+    0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+    33% { transform: translate3d(20px, -15px, 0) rotate(0.5deg); }
+    66% { transform: translate3d(-15px, 10px, 0) rotate(-0.5deg); }
+    100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  }
+
+  @keyframes hairWave {
+    0% { stroke-dashoffset: 1000; opacity: 0.1; }
+    50% { opacity: 0.4; }
+    100% { stroke-dashoffset: 0; opacity: 0.1; }
+  }
+
+  @keyframes scanline {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(1000%); }
+  }
+
+  .shimmer-line {
+    stroke-dasharray: 400;
+    animation: hairWave 15s linear infinite;
+  }
+
+  .animate-strand {
+    animation: floatingHair 20s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  .scan-line {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--clinical-teal), transparent);
+    animation: scanline 3s linear infinite;
+  }
+
+  svg path {
+    will-change: transform, opacity;
+    transform-origin: center;
+  }
+}
+
+@media print {
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important;
+    overflow: visible !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .report-page-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin-bottom: 2rem;
+    display: block;
+    box-shadow: none !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  .grain {
+    display: none;
+  }
+
+  @page {
+    margin: 0;
+    size: auto;
+  }
+}
