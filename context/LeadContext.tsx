@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ScalpAnalysisResult } from '../geminiService';
+import { supabase } from '../lib/supabase';
 
 export interface ProposalDetails {
   clinicName: string;
@@ -72,77 +73,193 @@ export interface LeadData {
 
 interface LeadContextType {
   leads: LeadData[];
-  addLead: (lead: LeadData) => void;
-  unlockLead: (id: string) => void;
-  updateLeadStatus: (id: string, status: LeadData['status'], bid?: number, proposalDetails?: ProposalDetails) => void;
+  loading: boolean;
+  error: string | null;
+  addLead: (lead: LeadData) => Promise<void>;
+  unlockLead: (id: string) => Promise<void>;
+  updateLeadStatus: (id: string, status: LeadData['status'], bid?: number, proposalDetails?: ProposalDetails) => Promise<void>;
   getLeadByIdOrEmail: (identifier: string) => LeadData | undefined;
+  refreshLeads: () => Promise<void>;
 }
 
 const LeadContext = createContext<LeadContextType | undefined>(undefined);
 
 export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Initialize with some mock data so the portal isn't empty on first load
-  // In a real app, this would load from a database or localStorage
-  const [leads, setLeads] = useState<LeadData[]>([
-    {
-      id: 'L-8392',
-      countryCode: 'GB',
-      age: 34,
-      gender: 'Male',
-      norwoodScale: 'Type 3V',
-      estimatedGrafts: '2800 - 3200',
-      registrationDate: '2 mins ago',
-      timestamp: Date.now() - 120000,
-      thumbnailUrl: 'https://images.unsplash.com/photo-1633332755192-727a05c4013d?w=400&h=400&fit=crop&q=80',
-      status: 'AVAILABLE',
-      price: 80,
-      proposalPrice: 15,
-      isUnlocked: false,
-      isNegotiable: true,
-      patientDetails: {
-        fullName: "James Stirling",
-        email: "james@example.com",
-        phone: "+44 7700 900077",
-        consent: true,
-        kvkk: true
-      },
-      intake: {
-          timeline: 'ASAP',
-          budget: 'Premium',
-          location: 'Turkey'
-      }
+  const [leads, setLeads] = useState<LeadData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const mapDbLeadToLeadData = (dbLead: any): LeadData => {
+    const timeAgo = Math.floor((Date.now() - new Date(dbLead.created_at).getTime()) / 60000);
+    const timeString = timeAgo < 60
+      ? `${timeAgo} mins ago`
+      : timeAgo < 1440
+      ? `${Math.floor(timeAgo / 60)} hours ago`
+      : `${Math.floor(timeAgo / 1440)} days ago`;
+
+    return {
+      id: dbLead.id,
+      countryCode: dbLead.country_code,
+      age: dbLead.age,
+      gender: dbLead.gender,
+      norwoodScale: dbLead.norwood_scale,
+      estimatedGrafts: dbLead.estimated_grafts,
+      registrationDate: timeString,
+      timestamp: new Date(dbLead.created_at).getTime(),
+      thumbnailUrl: dbLead.thumbnail_url || '',
+      status: dbLead.status,
+      price: dbLead.price,
+      proposalPrice: dbLead.proposal_price,
+      isUnlocked: dbLead.is_unlocked,
+      isNegotiable: dbLead.is_negotiable,
+      patientDetails: dbLead.patient_details,
+      analysisData: dbLead.analysis_data,
+      intake: dbLead.intake_data,
+    };
+  };
+
+  const fetchLeads = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      const mappedLeads = (data || []).map(mapDbLeadToLeadData);
+      setLeads(mappedLeads);
+    } catch (err: any) {
+      console.error('Error fetching leads:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-  ]);
-
-  const addLead = (lead: LeadData) => {
-    setLeads(prev => [lead, ...prev]);
-    // Simulate persist
-    console.log("New Lead Saved:", lead);
   };
 
-  const unlockLead = (id: string) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, isUnlocked: true, status: 'PURCHASED' } : l));
+  useEffect(() => {
+    fetchLeads();
+
+    const channel = supabase
+      .channel('leads_changes')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'leads' },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newLead = mapDbLeadToLeadData(payload.new);
+            setLeads(prev => [newLead, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedLead = mapDbLeadToLeadData(payload.new);
+            setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
+          } else if (payload.eventType === 'DELETE') {
+            setLeads(prev => prev.filter(l => l.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const addLead = async (lead: LeadData) => {
+    try {
+      const { error: insertError } = await supabase
+        .from('leads')
+        .insert({
+          country_code: lead.countryCode,
+          age: lead.age,
+          gender: lead.gender,
+          norwood_scale: lead.norwoodScale,
+          estimated_grafts: lead.estimatedGrafts,
+          thumbnail_url: lead.thumbnailUrl,
+          status: lead.status,
+          price: lead.price,
+          proposal_price: lead.proposalPrice,
+          is_unlocked: lead.isUnlocked,
+          is_negotiable: lead.isNegotiable,
+          patient_details: lead.patientDetails,
+          analysis_data: lead.analysisData,
+          intake_data: lead.intake,
+        });
+
+      if (insertError) throw insertError;
+    } catch (err: any) {
+      console.error('Error adding lead:', err);
+      setError(err.message);
+      throw err;
+    }
   };
 
-  const updateLeadStatus = (id: string, status: LeadData['status'], bid?: number, proposalDetails?: ProposalDetails) => {
-    setLeads(prev => prev.map(l => l.id === id ? { 
-        ...l, 
-        status, 
+  const unlockLead = async (id: string) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ is_unlocked: true, status: 'PURCHASED' })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+    } catch (err: any) {
+      console.error('Error unlocking lead:', err);
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const updateLeadStatus = async (
+    id: string,
+    status: LeadData['status'],
+    bid?: number,
+    proposalDetails?: ProposalDetails
+  ) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({ status })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      setLeads(prev => prev.map(l => l.id === id ? {
+        ...l,
+        status,
         myBid: bid,
         activeProposal: proposalDetails || l.activeProposal
-    } : l));
+      } : l));
+    } catch (err: any) {
+      console.error('Error updating lead status:', err);
+      setError(err.message);
+      throw err;
+    }
   };
 
   const getLeadByIdOrEmail = (identifier: string) => {
     const term = identifier.toLowerCase().trim();
-    return leads.find(l => 
-        l.id.toLowerCase() === term || 
-        l.patientDetails?.email.toLowerCase() === term
+    return leads.find(l =>
+      l.id.toLowerCase() === term ||
+      l.patientDetails?.email.toLowerCase() === term
     );
   };
 
+  const refreshLeads = async () => {
+    await fetchLeads();
+  };
+
   return (
-    <LeadContext.Provider value={{ leads, addLead, unlockLead, updateLeadStatus, getLeadByIdOrEmail }}>
+    <LeadContext.Provider value={{
+      leads,
+      loading,
+      error,
+      addLead,
+      unlockLead,
+      updateLeadStatus,
+      getLeadByIdOrEmail,
+      refreshLeads
+    }}>
       {children}
     </LeadContext.Provider>
   );

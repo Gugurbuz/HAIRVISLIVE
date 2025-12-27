@@ -1,22 +1,27 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { CheckCircle2, Globe, ChevronDown, LayoutDashboard, Menu, X, ArrowRight } from 'lucide-react';
 import LandingScreen from './components/LandingScreen';
-import ScannerScreen from './components/ScannerScreen';
-import PreScanScreen from './components/PreScanScreen';
-import LeadCaptureModal from './components/LeadCaptureModal';
-import DashboardScreen from './components/DashboardScreen';
-import PartnerPortalScreen from './components/PartnerPortalScreen';
-import PartnerJoinScreen from './components/PartnerJoinScreen';
-import PatientPortalScreen from './components/PatientPortalScreen';
-import ClinicLandingScreen from './components/ClinicLandingScreen'; 
-import ClinicScreen from './components/ClinicScreen';
-import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
-import PreReportIntakeScreen from './components/PreReportIntakeScreen';
 import Footer from './components/Footer';
+import LoadingScreen from './components/LoadingScreen';
+
+const ScannerScreen = lazy(() => import('./components/ScannerScreen'));
+const PreScanScreen = lazy(() => import('./components/PreScanScreen'));
+const LeadCaptureModal = lazy(() => import('./components/LeadCaptureModal'));
+const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
+const PartnerPortalScreen = lazy(() => import('./components/PartnerPortalScreen'));
+const PartnerJoinScreen = lazy(() => import('./components/PartnerJoinScreen'));
+const PatientPortalScreen = lazy(() => import('./components/PatientPortalScreen'));
+const ClinicLandingScreen = lazy(() => import('./components/ClinicLandingScreen'));
+const ClinicScreen = lazy(() => import('./components/ClinicScreen'));
+const ClinicDirectoryScreen = lazy(() => import('./components/ClinicDirectoryScreen'));
+const PreReportIntakeScreen = lazy(() => import('./components/PreReportIntakeScreen'));
+
 import { translations, LanguageCode } from './translations';
-import { geminiService, ScalpImages } from './geminiService';
+import { ScalpImages } from './geminiService';
+import { secureGeminiService } from './lib/geminiService';
 import { useLeads, LeadData, IntakeData } from './context/LeadContext';
+import { uploadLeadImage } from './lib/storage';
 import { AnimatePresence, motion } from 'framer-motion';
 
 type AppState = 
@@ -132,12 +137,12 @@ const App: React.FC = () => {
       const mainPhoto = viewImages.front; 
 
       // 1. Analyze
-      const result = await geminiService.analyzeScalp(viewImages);
+      const result = await secureGeminiService.analyzeScalp(viewImages);
       setAnalysisResult(result);
 
       // 2. Generate Images (Parallel or Sequential)
-      const timelinePromise = geminiService.generateMedicalTimelineImage(mainPhoto, result!);
-      const simPromise = geminiService.generateSimulation(mainPhoto, result!, { left: viewImages.left, donor: viewImages.donor });
+      const timelinePromise = secureGeminiService.generateMedicalTimelineImage(mainPhoto, result!);
+      const simPromise = secureGeminiService.generateSimulation(mainPhoto, result!, { left: viewImages.left, donor: viewImages.donor });
 
       const [timelineImg, simImg] = await Promise.all([timelinePromise, simPromise]);
       
@@ -343,7 +348,8 @@ const App: React.FC = () => {
         </nav>
       )}
 
-      <main className="relative flex-grow">
+      <Suspense fallback={<LoadingScreen />}>
+        <main className="relative flex-grow">
         {appState === 'LANDING' && (
           <LandingScreen 
             onStart={handleStartSimulation} 
@@ -435,7 +441,8 @@ const App: React.FC = () => {
             />
           </div>
         )}
-      </main>
+        </main>
+      </Suspense>
 
       {showFooter && <Footer lang={lang} onNavigate={(page) => setAppState(page as any)} />}
     </div>

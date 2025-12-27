@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { LeadProvider } from './context/LeadContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import './src/index.css';
 
 const rootElement = document.getElementById('root');
@@ -13,8 +14,10 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <LeadProvider>
-      <App />
-    </LeadProvider>
+    <ErrorBoundary>
+      <LeadProvider>
+        <App />
+      </LeadProvider>
+    </ErrorBoundary>
   </React.StrictMode>
 );
