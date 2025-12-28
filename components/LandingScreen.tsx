@@ -14,15 +14,14 @@ import {
   PlusCircle,
   Activity,
   FileText,
-  CheckCircle2
+  CheckCircle2,
 } from 'lucide-react';
 import { translations, LanguageCode } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CLINICS_DATA, CATEGORIES, ClinicCategory } from '../data/clinics';
 
-// ✅ 1) BUNU EKLE: supabase client import
-// Not: senin projende supabase client dosyası neredeyse path’i ona göre düzelt.
-// Örn: '../lib/supabase' değilse doğru path'i yaz.
+// ✅ Supabase client import (path’i projene göre düzenle)
+// Projende "lib/supabase.ts" varsa genelde LandingScreen (src/screens) içinden "../lib/supabase" olur.
 import { supabase } from '../lib/supabase';
 
 interface LandingScreenProps {
@@ -35,7 +34,7 @@ interface LandingScreenProps {
 const LivingBackground = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden select-none z-0 bg-[#F7F8FA]">
     {/* 1. Grid Pattern */}
-    <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+    <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
     {/* 2. Living Teal Blob */}
     <motion.div
@@ -43,7 +42,7 @@ const LivingBackground = () => (
         scale: [1, 1.2, 1],
         opacity: [0.15, 0.25, 0.15],
         x: [0, 20, 0],
-        y: [0, -20, 0]
+        y: [0, -20, 0],
       }}
       transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
       className="absolute left-0 right-0 top-[-10%] m-auto h-[400px] w-[400px] rounded-full bg-teal-500 blur-[100px]"
@@ -54,7 +53,7 @@ const LivingBackground = () => (
       animate={{
         scale: [1, 1.3, 1],
         opacity: [0.1, 0.2, 0.1],
-        x: [0, -30, 0]
+        x: [0, -30, 0],
       }}
       transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
       className="absolute right-[-10%] bottom-0 h-[500px] w-[500px] rounded-full bg-indigo-500 blur-[120px]"
@@ -62,31 +61,20 @@ const LivingBackground = () => (
   </div>
 );
 
-const BeforeAfterSlider = ({
-  lang,
-  className,
-  beforeImage,
-  afterImage
-}: {
+type BeforeAfterSliderProps = {
   lang: LanguageCode;
   className?: string;
-  beforeImage?: string | null;
-  afterImage?: string | null;
-}) => {
+  beforeImage: string;
+  afterImage: string;
+};
+
+const BeforeAfterSlider = ({ lang, className, beforeImage, afterImage }: BeforeAfterSliderProps) => {
   const [sliderPos, setSliderPos] = useState(50);
-  const t = translations[lang];
   const isRTL = lang === 'AR';
-
-  // Fallback (Supabase URL gelene kadar veya hata olursa)
-  const fallbackBefore =
-    'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200';
-  const fallbackAfter = fallbackBefore;
-
-  const beforeSrc = beforeImage || fallbackBefore;
-  const afterSrc = afterImage || fallbackAfter;
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      // small hint movement
       const start = 50;
       const end = 55;
       let step = 0;
@@ -117,10 +105,10 @@ const BeforeAfterSlider = ({
         className || 'aspect-[16/9] rounded-[2.5rem] md:rounded-[4rem]'
       }`}
     >
-      {/* --- AFTER STATE --- */}
+      {/* --- AFTER STATE (right side) --- */}
       <div className="absolute inset-0">
         <img
-          src={afterSrc}
+          src={afterImage}
           alt="After Result"
           loading="lazy"
           decoding="async"
@@ -128,8 +116,9 @@ const BeforeAfterSlider = ({
           style={{ objectPosition: '50% 25%' }}
         />
 
-        {/* SURGICAL PLAN OVERLAY - Only visible on the "After" side */}
+        {/* SURGICAL PLAN OVERLAY - only on After layer */}
         <div className="absolute inset-0 z-10 pointer-events-none">
+          {/* Hairline Guide (SVG) */}
           <svg
             className="absolute top-[22%] left-1/2 -translate-x-1/2 w-[35%] h-[20%] opacity-80"
             viewBox="0 0 200 100"
@@ -154,41 +143,27 @@ const BeforeAfterSlider = ({
             </defs>
           </svg>
 
-          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[40%] h-[30%] border border-teal-500/30 rounded-[3rem] opacity-40"></div>
-          <div className="absolute top-[25%] left-1/2 -translate-x-1/2 w-1 h-10 bg-teal-500/50"></div>
+          {/* Face Grid Overlay */}
+          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[40%] h-[30%] border border-teal-500/30 rounded-[3rem] opacity-40" />
+          <div className="absolute top-[25%] left-1/2 -translate-x-1/2 w-1 h-10 bg-teal-500/50" />
         </div>
 
-        <div className="absolute inset-0 bg-teal-500/10 mix-blend-overlay pointer-events-none"></div>
-
-        <div
-          className={`absolute top-6 md:top-10 ${
-            isRTL ? 'left-6 md:left-10' : 'right-6 md:right-10'
-          } px-4 md:px-6 py-2 md:py-3 bg-[#14B8A6] rounded-full text-white text-[9px] md:text-[10px] font-black tracking-widest uppercase shadow-2xl z-20`}
-        >
-          {t.afterLabel}
-        </div>
+        <div className="absolute inset-0 bg-teal-500/10 mix-blend-overlay pointer-events-none" />
       </div>
 
-      {/* --- BEFORE STATE --- */}
+      {/* --- BEFORE STATE (left side, clipped) --- */}
       <div
         className="absolute inset-0 z-20 overflow-hidden pointer-events-none bg-white"
         style={{ clipPath: `inset(0 ${isRTL ? 0 : 100 - sliderPos}% 0 ${isRTL ? sliderPos : 0}%)` }}
       >
         <img
-          src={beforeSrc}
+          src={beforeImage}
           alt="Before State"
           loading="lazy"
           decoding="async"
           className="w-full h-full object-cover grayscale contrast-110"
           style={{ objectPosition: '50% 25%' }}
         />
-        <div
-          className={`absolute top-6 md:top-10 ${
-            isRTL ? 'right-6 md:right-10' : 'left-6 md:left-10'
-          } px-4 md:px-6 py-2 md:py-3 bg-white rounded-full text-[#0E1A2B] text-[9px] md:text-[10px] font-black tracking-widest uppercase shadow-xl`}
-        >
-          {t.beforeLabel}
-        </div>
       </div>
 
       {/* --- SLIDER CONTROLS --- */}
@@ -204,7 +179,7 @@ const BeforeAfterSlider = ({
         />
         <div
           className="absolute top-0 bottom-0 w-0.5 bg-white pointer-events-none shadow-[0_0_30px_rgba(255,255,255,1)]"
-          style={{ [isRTL ? 'right' : 'left']: `${sliderPos}%` }}
+          style={{ [isRTL ? 'right' : 'left']: `${sliderPos}%` } as React.CSSProperties}
         >
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 md:w-14 h-10 md:h-14 bg-white rounded-full shadow-2xl flex items-center justify-center border-[4px] md:border-[6px] border-[#0E1A2B]">
             <div className="flex gap-0.5">
@@ -221,7 +196,7 @@ const BeforeAfterSlider = ({
 
 const TopClinics = ({
   onViewDetail,
-  onBrowseDirectory
+  onBrowseDirectory,
 }: {
   onViewDetail: () => void;
   onBrowseDirectory: () => void;
@@ -446,35 +421,40 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
   const showcaseRef = useRef<HTMLDivElement>(null);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
 
-  // ✅ 2) SLIDER RESİMLERİ SUPABASE PUBLIC URL
-  const [sliderBeforeUrl, setSliderBeforeUrl] = useState<string | null>(null);
-  const [sliderAfterUrl, setSliderAfterUrl] = useState<string | null>(null);
-
-  // ✅ 3) BU KISIMDA: bucket + path’leri senin eklediğin dosya path’leriyle aynı olmalı
-  useEffect(() => {
-    // Burada sadece path değiştirirsin:
-    // Bucket: public-assets
-    // Files:
-    //  - landing/slider/before.webp
-    //  - landing/slider/after.webp
-
-    const before = supabase.storage.from('public-assets').getPublicUrl('landing/slider/before.webp');
-    const after = supabase.storage.from('public-assets').getPublicUrl('landing/slider/after.webp');
-
-    setSliderBeforeUrl(before.data.publicUrl);
-    setSliderAfterUrl(after.data.publicUrl);
-
-    // Debug istersen aç:
-    // console.log('Slider BEFORE:', before.data.publicUrl);
-    // console.log('Slider AFTER :', after.data.publicUrl);
-  }, []);
-
-  const scrollToShowcase = () => showcaseRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToShowcase = () => {
+    showcaseRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    const handleScroll = () => setShowStickyCTA(window.scrollY > 500);
+    const handleScroll = () => {
+      if (window.scrollY > 500) setShowStickyCTA(true);
+      else setShowStickyCTA(false);
+    };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // ============================================================
+  // ✅ SUPABASE STORAGE PUBLIC URLS (Seçenek A)
+  // Bucket: public-assets
+  // Paths:
+  //   landing/slider/before.webp
+  //   landing/slider/after.webp
+  //
+  // 🔧 Sadece burada path’leri değiştirmen yeterli:
+  // ============================================================
+  const SLIDER_BUCKET = 'public-assets';
+  const SLIDER_BEFORE_PATH = 'landing/slider/before.webp'; // 👈 BURAYA
+  const SLIDER_AFTER_PATH = 'landing/slider/after.webp'; // 👈 BURAYA
+
+  const sliderBeforeUrl = useMemo(() => {
+    const { data } = supabase.storage.from(SLIDER_BUCKET).getPublicUrl(SLIDER_BEFORE_PATH);
+    return data.publicUrl;
+  }, []);
+
+  const sliderAfterUrl = useMemo(() => {
+    const { data } = supabase.storage.from(SLIDER_BUCKET).getPublicUrl(SLIDER_AFTER_PATH);
+    return data.publicUrl;
   }, []);
 
   return (
@@ -529,7 +509,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
             </motion.div>
           </div>
 
-          {/* Right Column */}
+          {/* Right Column: Visual Anchor */}
           <div className="order-1 lg:order-2 relative">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[80px] rounded-full pointer-events-none" />
 
@@ -539,47 +519,13 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
               transition={{ duration: 0.8 }}
               className="relative z-10"
             >
-              {/* ✅ 4) SLIDER’A SUPABASE’DEN GELEN URL’LERİ BURADA VERİYORSUN */}
+              {/* ✅ HEIGHT INCREASED + ✅ Yellow-marked overlays removed */}
               <BeforeAfterSlider
                 lang={lang}
-                className="aspect-square md:aspect-[4/3] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-4 border-white"
                 beforeImage={sliderBeforeUrl}
                 afterImage={sliderAfterUrl}
+                className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-4 border-white"
               />
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="absolute -top-6 -left-6 bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-white/50 hidden md:flex items-center gap-3"
-              >
-                <div className="w-10 h-10 bg-teal-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-teal-500/30">
-                  <ScanFace size={20} />
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">AI Analysis</p>
-                  <p className="text-sm font-bold text-[#0E1A2B]">Texture Mapped</p>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                className="absolute -bottom-8 -right-4 bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-white/50 hidden md:flex flex-col gap-2 min-w-[140px]"
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Graft Est.</span>
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                </div>
-                <div className="flex items-end gap-1">
-                  <span className="text-2xl font-black text-[#0E1A2B] leading-none">3,200</span>
-                  <span className="text-[10px] font-bold text-slate-400 mb-0.5">grafts</span>
-                </div>
-                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                  <div className="w-[75%] h-full bg-teal-500 rounded-full" />
-                </div>
-              </motion.div>
             </motion.div>
           </div>
         </div>
@@ -612,7 +558,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           />
         </div>
 
-        {/* REPORT PREVIEW */}
+        {/* REPORT PREVIEW SECTION */}
         <div className="max-w-7xl mx-auto mb-32">
           <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[120px] pointer-events-none" />
@@ -638,7 +584,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
                     'Norwood Scale Classification & Zone Mapping',
                     'Precise Graft Estimate Range (Min - Max)',
                     'Donor Area Density Assessment',
-                    'Personalized 12-Month Simulation'
+                    'Personalized 12-Month Simulation',
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
                       <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
@@ -742,3 +688,32 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 };
 
 export default LandingScreen;
+
+/*
+============================================================
+✅ NEREYE HANGİ URL’Yİ EKLEYECEKSİN?
+============================================================
+
+LandingScreen içinde şu 2 satır var:
+
+const SLIDER_BEFORE_PATH = 'landing/slider/before.webp';
+const SLIDER_AFTER_PATH  = 'landing/slider/after.webp';
+
+- Supabase Storage bucket: public-assets
+- Storage içinde dosyaları bu path’lere upload et.
+- Sonra sayfada otomatik public URL ile yüklenir.
+
+Örnek:
+public-assets
+  /landing/slider/before.webp
+  /landing/slider/after.webp
+
+============================================================
+✅ SARI İŞARETLİ ALANLAR NEREDE KALDIRILDI?
+============================================================
+1) LandingScreen’deki iki floating kart tamamen kaldırıldı.
+2) BeforeAfterSlider içindeki BEFORE/AFTER badge’ler kaldırıldı.
+3) Slider height:
+   className="w-full h-[520px] md:h-[640px] ..."
+   burayı istediğin gibi büyütebilirsin.
+*/
