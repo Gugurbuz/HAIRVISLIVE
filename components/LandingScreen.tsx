@@ -74,21 +74,23 @@ const BeforeAfterSlider = ({
   const rafRef = useRef<number | null>(null);
   const [sliderPos, setSliderPos] = useState(50);
 
-  // Otomatik animasyon döngüsü (Kullanıcı müdahalesi yok)
+  // Otomatik animasyon döngüsü
   useEffect(() => {
     const tick = (ts: number) => {
-      // Sayfa görünür değilse duraklat (performans)
       if (document.visibilityState !== 'visible') {
         rafRef.current = requestAnimationFrame(tick);
         return;
       }
 
       const t = ts / autoPeriodMs;
-      // Sinus dalgası ile yumuşak git-gel hareketi (0..100 arası)
-      // Biraz kenar payı bırakıyoruz (10..90) ki resimler tam kapanmasın
       const s = Math.sin(t * Math.PI * 2); 
-      const next = 50 + s * 40; 
-      setSliderPos(next);
+      
+      // GÜNCELLEME: * 50 yaparak tam 0 ve 100 aralığına gitmesini sağladık.
+      // (50 + (-1 * 50) = 0)  <-> (50 + (1 * 50) = 100)
+      const next = 50 + s * 50; 
+      
+      // Sınırları 0-100 arasında kesin tutalım
+      setSliderPos(Math.max(0, Math.min(100, next)));
       
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -100,16 +102,12 @@ const BeforeAfterSlider = ({
     };
   }, [autoPeriodMs]);
 
-  // 1. Maske (Slider Geçişi): "Before" resmini maskeler.
-  // Keskin çizgi yerine yumuşak geçiş (gradient)
+  // 1. Maske (Slider Geçişi)
   const sliderMaskStyle = isRTL
     ? `linear-gradient(to left, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`
     : `linear-gradient(to right, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`;
 
-  // 2. Maske (Vinyet/Çerçeve): Tüm konteyneri kenarlardan siler.
-  // GÜNCELLENDİ: Daha geniş ve yumuşak bir eliptik geçiş ("Katmanlı Şeffaflık")
-  // black 60% -> görselin %60'ı net.
-  // transparent 100% -> kenarlara doğru tamamen kaybolur.
+  // 2. Maske (Vinyet/Çerçeve) - Katmanlı Şeffaflık
   const edgeFadeMask = `radial-gradient(ellipse at center, black 60%, transparent 100%)`;
 
   return (
@@ -118,14 +116,12 @@ const BeforeAfterSlider = ({
         className || 'aspect-[16/9] rounded-[2.5rem] md:rounded-[4rem]'
       }`}
       style={{ 
-        // Dış kenarları yumuşakça silen maske
         WebkitMaskImage: edgeFadeMask,
         maskImage: edgeFadeMask,
-        // Hafif bir iç gölge ile derinlik katıyoruz (Değer artırıldı: 80px)
         boxShadow: 'inset 0 0 80px rgba(14, 26, 43, 0.08)'
       }}
     >
-      {/* 1. AFTER Image (Alt Katman - Base) */}
+      {/* 1. AFTER Image (Alt Katman) */}
       <div className="absolute inset-0 z-0">
         <img
           src={afterImage}
@@ -161,18 +157,12 @@ const BeforeAfterSlider = ({
           width: '100%'
         }}
       >
-        {/* HairVis Teal Renginde Işık Hüzmesi */}
         <div className="absolute top-0 bottom-0 left-0 w-[2px] -ml-[1px]">
-          {/* Ana Çizgi */}
           <div className="absolute inset-0 bg-teal-400/80" />
-          {/* Parlama Efekti (Glow) */}
           <div className="absolute inset-0 bg-teal-400 blur-[8px] opacity-60 w-[4px] -ml-[1px]" />
-          {/* Uzun Parlama (Ambiyans) */}
           <div className="absolute inset-0 bg-teal-300 blur-[20px] opacity-30 w-[20px] -ml-[9px]" />
         </div>
       </div>
-      
-      {/* Etkileşim katmanı tamamen kaldırıldı */}
     </div>
   );
 };
