@@ -32,6 +32,76 @@ export interface Language {
   transformationDesc: string;
   beforeLabel: string;
   afterLabel: string;
+  common: {
+    back: string;
+    search: string;
+    clear: string;
+    view: string;
+    loading: string;
+  };
+  blog: {
+    title: string;
+    latest: string;
+    readTime: string;
+    searchPlaceholder: string;
+    backToArticles: string;
+    ctaTitle: string;
+    ctaDesc: string;
+    ctaBtn: string;
+  };
+  directory: {
+    title: string;
+    subtitle: string;
+    filters: string;
+    location: string;
+    budget: string;
+    technique: string;
+    amenities: string;
+    reset: string;
+    noResults: string;
+    verified: string;
+    from: string;
+    findClinics: string;
+  };
+  clinic: {
+    book: string;
+    startingFrom: string;
+    verifiedPartner: string;
+    topRated: string;
+    accredited: string;
+    tabs: {
+      overview: string;
+      team: string;
+      technique: string;
+      packages: string;
+      reviews: string;
+    };
+  };
+  dashboard: {
+    reportId: string;
+    privateReport: string;
+    visualEstimate: string;
+    notMedical: string;
+    norwood: string;
+    donor: string;
+    grafts: string;
+    visualProjection: string;
+    download: string;
+    clinicConnect: string;
+    clinicConnectDesc: string;
+    unlockSharing: string;
+    securityBadge: string;
+    dataRetention: string;
+  };
+  footer: {
+    patients: string;
+    partners: string;
+    compliance: string;
+    contact: string;
+    disclaimerTitle: string;
+    disclaimerText: string;
+    rights: string;
+  };
   preScan: {
     title: string;
     desc: string;
@@ -46,6 +116,12 @@ export interface Language {
     cameraError: string;
     startBtn: string;
     cancelBtn: string;
+    legalTitle: string;
+    legalDesc: string;
+    consentProcessing: string;
+    consentNotMedical: string;
+    consentPrivacy: string;
+    continueBtn: string;
   };
   scannerSteps: {
     frontLabel: string;
@@ -80,7 +156,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle2: 'Explore the future.',
     heroDesc: 'Explore potential outcomes with our AI. Our system analyzes the visual patterns in your photos to suggest a preliminary, indicative hair restoration design.',
     heroDisclaimer: 'Visual, non-medical preview. Not medical advice.',
-    startBtn: 'Start Visual Preview',
+    startBtn: 'Get Your Free Analysis',
     methodBtn: 'How it Works',
     navCapture: 'UPLOAD',
     navAnalysis: 'PROCESSING',
@@ -105,6 +181,76 @@ export const translations: Record<LanguageCode, Language> = {
     transformationDesc: 'Toggle between your current photo and the AI-generated visualization.',
     beforeLabel: 'ORIGINAL',
     afterLabel: 'AI PREVIEW',
+    common: {
+      back: "Back",
+      search: "Search",
+      clear: "Clear",
+      view: "View",
+      loading: "Loading..."
+    },
+    blog: {
+      title: "Knowledge Hub",
+      latest: "Latest Articles",
+      readTime: "read",
+      searchPlaceholder: "Search knowledge base...",
+      backToArticles: "Back to Articles",
+      ctaTitle: "Curious about your own case?",
+      ctaDesc: "Get a free AI analysis and personalized estimate based on the medical standards discussed.",
+      ctaBtn: "Start Free Analysis"
+    },
+    directory: {
+      title: "Centers of Excellence",
+      subtitle: "Verified Partner Clinics",
+      filters: "Filters",
+      location: "Location",
+      budget: "Pricing",
+      technique: "Technique",
+      amenities: "Amenities",
+      reset: "Reset Filters",
+      noResults: "No clinics found matching your criteria.",
+      verified: "Verified",
+      from: "From",
+      findClinics: "Find Clinics Now"
+    },
+    clinic: {
+      book: "Book Consultation",
+      startingFrom: "Starting from",
+      verifiedPartner: "Verified Partner",
+      topRated: "Top Rated",
+      accredited: "Accredited",
+      tabs: {
+        overview: "Overview",
+        team: "Medical Team",
+        technique: "Technique",
+        packages: "Packages",
+        reviews: "Reviews"
+      }
+    },
+    dashboard: {
+      reportId: "Report ID",
+      privateReport: "Private Report",
+      visualEstimate: "Visual Estimate",
+      notMedical: "Not Medical Advice",
+      norwood: "Norwood Scale",
+      donor: "Donor Rating",
+      grafts: "Est. Grafts",
+      visualProjection: "Visual Projection",
+      download: "Download PDF",
+      clinicConnect: "Get Quotes from Top Surgeons",
+      clinicConnectDesc: "Share your anonymized visual report with our verified network to get precise price quotes.",
+      unlockSharing: "Unlock Sharing",
+      securityBadge: "HIPAA Aligned Security",
+      dataRetention: "Data stored temporarily for analysis."
+    },
+    footer: {
+      patients: "Patients",
+      partners: "Partners",
+      compliance: "Compliance",
+      contact: "Contact",
+      disclaimerTitle: "Important Disclaimer",
+      disclaimerText: "This is a visual, non-medical tool designed to help you visualize potential results. It does not provide a medical diagnosis, treatment plan, or guaranteed outcome. Always consult with a certified physician.",
+      rights: "All rights reserved."
+    },
     preScan: {
       title: "Before We Start",
       desc: "To ensure the most accurate AI analysis, please follow these guidelines.",
@@ -118,7 +264,13 @@ export const translations: Record<LanguageCode, Language> = {
       automationDesc: "No need to tap. The AI captures automatically when focused.",
       cameraError: "Camera access is required to perform the AI analysis. Please enable camera permissions in your browser settings.",
       startBtn: "Enable Camera & Start",
-      cancelBtn: "Cancel"
+      cancelBtn: "Cancel",
+      legalTitle: "Data Processing Consent",
+      legalDesc: "Before we analyze your photos, please confirm you understand how your data is used.",
+      consentProcessing: "I consent to the processing of my images for visual analysis.",
+      consentNotMedical: "I understand this is a simulation, NOT a medical diagnosis.",
+      consentPrivacy: "I agree to the Privacy Policy (Data is encrypted & minimized).",
+      continueBtn: "Confirm & Continue"
     },
     scannerSteps: {
         frontLabel: 'Front View',
@@ -151,7 +303,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle2: 'Geleceği keşfedin.',
     heroDesc: 'Yapay zeka ile potansiyel sonuçları keşfedin. Sistemimiz, fotoğraflarınızdaki görsel desenleri analiz ederek ön bilgi amaçlı bir saç tasarımı önerir.',
     heroDisclaimer: 'Görsel, tıbbi olmayan ön izleme. Tıbbi tavsiye değildir.',
-    startBtn: 'Görsel Önizlemeyi Başlat',
+    startBtn: 'Ücretsiz Analizini Al',
     methodBtn: 'Nasıl Çalışır?',
     navCapture: 'YÜKLEME',
     navAnalysis: 'İŞLENİYOR',
@@ -176,6 +328,76 @@ export const translations: Record<LanguageCode, Language> = {
     transformationDesc: 'Mevcut fotoğrafınız ile yapay zeka tarafından oluşturulan görselleştirme arasında geçiş yapın.',
     beforeLabel: 'ORİJİNAL',
     afterLabel: 'AI ÖNİZLEME',
+    common: {
+      back: "Geri",
+      search: "Ara",
+      clear: "Temizle",
+      view: "Görüntüle",
+      loading: "Yükleniyor..."
+    },
+    blog: {
+      title: "Bilgi Merkezi",
+      latest: "Son Makaleler",
+      readTime: "okuma",
+      searchPlaceholder: "Bilgi bankasında ara...",
+      backToArticles: "Makalelere Dön",
+      ctaTitle: "Kendi durumunuzu merak mı ediyorsunuz?",
+      ctaDesc: "Tartışılan tıbbi standartlara dayalı ücretsiz bir AI analizi ve kişiselleştirilmiş tahmin alın.",
+      ctaBtn: "Ücretsiz Analizi Başlat"
+    },
+    directory: {
+      title: "Mükemmeliyet Merkezleri",
+      subtitle: "Onaylı Partner Klinikler",
+      filters: "Filtreler",
+      location: "Konum",
+      budget: "Fiyatlandırma",
+      technique: "Teknik",
+      amenities: "Hizmetler",
+      reset: "Filtreleri Sıfırla",
+      noResults: "Kriterlerinize uygun klinik bulunamadı.",
+      verified: "Onaylı",
+      from: "Başlangıç",
+      findClinics: "Klinik Bul"
+    },
+    clinic: {
+      book: "Randevu Al",
+      startingFrom: "Başlangıç Fiyatı",
+      verifiedPartner: "Onaylı Partner",
+      topRated: "En İyi Puan",
+      accredited: "Akredite",
+      tabs: {
+        overview: "Genel Bakış",
+        team: "Medikal Ekip",
+        technique: "Teknik",
+        packages: "Paketler",
+        reviews: "Yorumlar"
+      }
+    },
+    dashboard: {
+      reportId: "Rapor ID",
+      privateReport: "Özel Rapor",
+      visualEstimate: "Görsel Tahmin",
+      notMedical: "Tıbbi Tavsiye Değildir",
+      norwood: "Norwood Ölçeği",
+      donor: "Donör Derecesi",
+      grafts: "Tahmini Greft",
+      visualProjection: "Görsel Projeksiyon",
+      download: "PDF İndir",
+      clinicConnect: "En İyi Cerrahlardan Teklif Alın",
+      clinicConnectDesc: "Anonim görsel raporunuzu onaylı ağımızla paylaşarak kesin fiyat teklifleri alın.",
+      unlockSharing: "Paylaşımı Aç",
+      securityBadge: "KVKK Uyumlu Güvenlik",
+      dataRetention: "Veriler analiz için geçici saklanır."
+    },
+    footer: {
+      patients: "Hastalar",
+      partners: "Partnerler",
+      compliance: "Uyumluluk",
+      contact: "İletişim",
+      disclaimerTitle: "Önemli Yasal Uyarı",
+      disclaimerText: "Bu, potansiyel sonuçları görselleştirmenize yardımcı olmak için tasarlanmış görsel, tıbbi olmayan bir araçtır. Tıbbi teşhis, tedavi planı veya garantili sonuç sağlamaz. Her zaman sertifikalı bir hekime danışın.",
+      rights: "Tüm hakları saklıdır."
+    },
     preScan: {
       title: "Başlamadan Önce",
       desc: "En doğru AI analizi için lütfen aşağıdaki yönergeleri izleyin.",
@@ -189,7 +411,13 @@ export const translations: Record<LanguageCode, Language> = {
       automationDesc: "Dokunmanıza gerek yok. AI odaklandığında otomatik olarak çeker.",
       cameraError: "AI analizini gerçekleştirmek için kamera erişimi gereklidir. Lütfen tarayıcı ayarlarınızdan kamera izinlerini etkinleştirin.",
       startBtn: "Kamerayı Aç ve Başla",
-      cancelBtn: "İptal"
+      cancelBtn: "İptal",
+      legalTitle: "Veri İşleme Onayı",
+      legalDesc: "Analize başlamadan önce, verilerinizin nasıl kullanılacağını anladığınızı onaylayın.",
+      consentProcessing: "Görüntülerimin görsel analiz için işlenmesini onaylıyorum.",
+      consentNotMedical: "Bunun bir tıbbi teşhis DEĞİL, simülasyon olduğunu anlıyorum.",
+      consentPrivacy: "Gizlilik Politikasını kabul ediyorum (Şifreli veri & minimum kayıt).",
+      continueBtn: "Onayla ve Devam Et"
     },
     scannerSteps: {
         frontLabel: 'Ön Profil',
@@ -222,7 +450,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle2: 'Zukunft erkunden.',
     heroDesc: 'Erkunden Sie potenzielle Ergebnisse mit KI. Unser System analysiert die visuellen Muster in Ihren Fotos, um ein unverbindliches Design vorzuschlagen.',
     heroDisclaimer: 'Visuelle, nicht-medizinische Vorschau. Kein medizinischer Rat.',
-    startBtn: 'Visuelle Vorschau starten',
+    startBtn: 'Kostenlose Analyse erhalten',
     methodBtn: 'Wie es funktioniert',
     navCapture: 'UPLOAD',
     navAnalysis: 'VERARBEITUNG',
@@ -247,6 +475,76 @@ export const translations: Record<LanguageCode, Language> = {
     transformationDesc: 'Wechseln Sie zwischen Ihrem aktuellen Foto und der KI-generierten Visualisierung.',
     beforeLabel: 'ORIGINAL',
     afterLabel: 'KI-VORSCHAU',
+    common: {
+      back: "Zurück",
+      search: "Suche",
+      clear: "Löschen",
+      view: "Ansehen",
+      loading: "Laden..."
+    },
+    blog: {
+      title: "Wissensdatenbank",
+      latest: "Neueste Artikel",
+      readTime: "Lesezeit",
+      searchPlaceholder: "Wissensdatenbank durchsuchen...",
+      backToArticles: "Zurück zu Artikeln",
+      ctaTitle: "Neugierig auf Ihren Fall?",
+      ctaDesc: "Erhalten Sie eine kostenlose KI-Analyse und eine personalisierte Schätzung basierend auf medizinischen Standards.",
+      ctaBtn: "Kostenlose Analyse starten"
+    },
+    directory: {
+      title: "Exzellenzzentren",
+      subtitle: "Verifizierte Partnerkliniken",
+      filters: "Filter",
+      location: "Standort",
+      budget: "Preisgestaltung",
+      technique: "Technik",
+      amenities: "Ausstattung",
+      reset: "Filter zurücksetzen",
+      noResults: "Keine Kliniken gefunden.",
+      verified: "Verifiziert",
+      from: "Ab",
+      findClinics: "Kliniken finden"
+    },
+    clinic: {
+      book: "Beratung buchen",
+      startingFrom: "Ab",
+      verifiedPartner: "Verifizierter Partner",
+      topRated: "Bestbewertet",
+      accredited: "Akkreditiert",
+      tabs: {
+        overview: "Übersicht",
+        team: "Ärzteteam",
+        technique: "Technik",
+        packages: "Pakete",
+        reviews: "Bewertungen"
+      }
+    },
+    dashboard: {
+      reportId: "Berichts-ID",
+      privateReport: "Privater Bericht",
+      visualEstimate: "Visuelle Schätzung",
+      notMedical: "Kein medizinischer Rat",
+      norwood: "Norwood-Skala",
+      donor: "Spenderbewertung",
+      grafts: "Geschätzte Grafts",
+      visualProjection: "Visuelle Projektion",
+      download: "PDF Herunterladen",
+      clinicConnect: "Angebote von Top-Chirurgen",
+      clinicConnectDesc: "Teilen Sie Ihren anonymisierten Bericht mit unserem verifizierten Netzwerk für genaue Angebote.",
+      unlockSharing: "Teilen freischalten",
+      securityBadge: "DSGVO-konforme Sicherheit",
+      dataRetention: "Daten temporär gespeichert."
+    },
+    footer: {
+      patients: "Patienten",
+      partners: "Partner",
+      compliance: "Compliance",
+      contact: "Kontakt",
+      disclaimerTitle: "Wichtiger Haftungsausschluss",
+      disclaimerText: "Dies ist ein visuelles, nicht-medizinisches Tool zur Visualisierung potenzieller Ergebnisse. Es stellt keine medizinische Diagnose, keinen Behandlungsplan und kein garantiertes Ergebnis dar. Konsultieren Sie immer einen zertifizierten Arzt.",
+      rights: "Alle Rechte vorbehalten."
+    },
     preScan: {
       title: "Bevor wir beginnen",
       desc: "Für die genaueste KI-Analyse befolgen Sie bitte diese Richtlinien.",
@@ -260,7 +558,13 @@ export const translations: Record<LanguageCode, Language> = {
       automationDesc: "Kein Tippen nötig. Die KI nimmt automatisch auf, wenn fokussiert.",
       cameraError: "Kamerazugriff ist für die KI-Analyse erforderlich. Bitte aktivieren Sie die Kameraberechtigungen in Ihren Browsereinstellungen.",
       startBtn: "Kamera aktivieren & Starten",
-      cancelBtn: "Abbrechen"
+      cancelBtn: "Abbrechen",
+      legalTitle: "Einwilligung zur Datenverarbeitung",
+      legalDesc: "Bitte bestätigen Sie vor der Analyse, dass Sie die Datennutzung verstehen.",
+      consentProcessing: "Ich stimme der Verarbeitung meiner Bilder zur visuellen Analyse zu.",
+      consentNotMedical: "Ich verstehe, dass dies KEINE medizinische Diagnose ist.",
+      consentPrivacy: "Ich stimme der Datenschutzrichtlinie zu.",
+      continueBtn: "Bestätigen & Weiter"
     },
     scannerSteps: {
         frontLabel: 'Vorderansicht',
@@ -293,7 +597,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle2: 'Explorez l\'avenir.',
     heroDesc: 'Explorez les résultats potentiels avec notre IA. Notre système analyse les motifs visuels de vos photos pour suggérer un design indicatif.',
     heroDisclaimer: 'Aperçu visuel non médical. Pas un avis médical.',
-    startBtn: 'Lancer l\'aperçu visuel',
+    startBtn: 'Obtenez votre analyse gratuite',
     methodBtn: 'Comment ça marche',
     navCapture: 'UPLOAD',
     navAnalysis: 'TRAITEMENT',
@@ -318,6 +622,76 @@ export const translations: Record<LanguageCode, Language> = {
     transformationDesc: 'Basculez entre votre photo actuelle et la visualisation générée par l\'IA.',
     beforeLabel: 'ORIGINAL',
     afterLabel: 'APERÇU IA',
+    common: {
+      back: "Retour",
+      search: "Rechercher",
+      clear: "Effacer",
+      view: "Voir",
+      loading: "Chargement..."
+    },
+    blog: {
+      title: "Centre de Connaissances",
+      latest: "Derniers Articles",
+      readTime: "lecture",
+      searchPlaceholder: "Rechercher...",
+      backToArticles: "Retour aux articles",
+      ctaTitle: "Curieux de votre cas ?",
+      ctaDesc: "Obtenez une analyse IA gratuite et une estimation personnalisée.",
+      ctaBtn: "Démarrer l'analyse gratuite"
+    },
+    directory: {
+      title: "Centres d'Excellence",
+      subtitle: "Cliniques Partenaires Vérifiées",
+      filters: "Filtres",
+      location: "Emplacement",
+      budget: "Prix",
+      technique: "Technique",
+      amenities: "Services",
+      reset: "Réinitialiser",
+      noResults: "Aucune clinique trouvée.",
+      verified: "Vérifié",
+      from: "À partir de",
+      findClinics: "Trouver des cliniques"
+    },
+    clinic: {
+      book: "Réserver une consultation",
+      startingFrom: "À partir de",
+      verifiedPartner: "Partenaire Vérifié",
+      topRated: "Mieux Noté",
+      accredited: "Accrédité",
+      tabs: {
+        overview: "Aperçu",
+        team: "Équipe Médicale",
+        technique: "Technique",
+        packages: "Forfaits",
+        reviews: "Avis"
+      }
+    },
+    dashboard: {
+      reportId: "ID Rapport",
+      privateReport: "Rapport Privé",
+      visualEstimate: "Estimation Visuelle",
+      notMedical: "Pas un avis médical",
+      norwood: "Échelle Norwood",
+      donor: "Note Donneur",
+      grafts: "Greffons Est.",
+      visualProjection: "Projection Visuelle",
+      download: "Télécharger PDF",
+      clinicConnect: "Devis des Meilleurs Chirurgiens",
+      clinicConnectDesc: "Partagez votre rapport anonymisé avec notre réseau pour des devis précis.",
+      unlockSharing: "Débloquer le partage",
+      securityBadge: "Sécurité RGPD",
+      dataRetention: "Données stockées temporairement."
+    },
+    footer: {
+      patients: "Patients",
+      partners: "Partenaires",
+      compliance: "Conformité",
+      contact: "Contact",
+      disclaimerTitle: "Avis Important",
+      disclaimerText: "Ceci est un outil visuel non médical. Il ne fournit pas de diagnostic médical ni de garantie de résultat. Consultez toujours un médecin certifié.",
+      rights: "Tous droits réservés."
+    },
     preScan: {
       title: "Avant de commencer",
       desc: "Pour assurer l'analyse IA la plus précise, veuillez suivre ces directives.",
@@ -331,7 +705,13 @@ export const translations: Record<LanguageCode, Language> = {
       automationDesc: "Pas besoin d'appuyer. L'IA capture automatiquement une fois la mise au point faite.",
       cameraError: "L'accès à la caméra est requis pour l'analyse IA. Veuillez activer les permissions de caméra dans les paramètres de votre navigateur.",
       startBtn: "Activer la caméra & Commencer",
-      cancelBtn: "Annuler"
+      cancelBtn: "Annuler",
+      legalTitle: "Consentement",
+      legalDesc: "Veuillez confirmer que vous comprenez comment vos données sont utilisées.",
+      consentProcessing: "Je consens au traitement de mes images.",
+      consentNotMedical: "Je comprends qu'il ne s'agit PAS d'un diagnostic médical.",
+      consentPrivacy: "J'accepte la politique de confidentialité.",
+      continueBtn: "Confirmer & Continuer"
     },
     scannerSteps: {
         frontLabel: 'Vue de Face',
@@ -364,7 +744,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle2: 'Odkryj przyszłość.',
     heroDesc: 'Odkryj potencjalne rezultaty dzięki AI. Nasz system analizuje wzorce wizualne na zdjęciach, aby zasugerować wstępny projekt.',
     heroDisclaimer: 'Wizualny podgląd, nie medyczny. Nie stanowi porady medycznej.',
-    startBtn: 'Rozpocznij Podgląd',
+    startBtn: 'Uzyskaj darmową analizę',
     methodBtn: 'Jak to działa',
     navCapture: 'PRZEŚLIJ',
     navAnalysis: 'PRZETWARZANIE',
@@ -389,6 +769,76 @@ export const translations: Record<LanguageCode, Language> = {
     transformationDesc: 'Przełączaj między obecnym zdjęciem a wizualizacją wygenerowaną przez AI.',
     beforeLabel: 'ORYGINAŁ',
     afterLabel: 'PODGLĄD AI',
+    common: {
+      back: "Wstecz",
+      search: "Szukaj",
+      clear: "Wyczyść",
+      view: "Widok",
+      loading: "Ładowanie..."
+    },
+    blog: {
+      title: "Centrum Wiedzy",
+      latest: "Najnowsze Artykuły",
+      readTime: "czytania",
+      searchPlaceholder: "Przeszukaj bazę wiedzy...",
+      backToArticles: "Powrót do artykułów",
+      ctaTitle: "Ciekawy swojego przypadku?",
+      ctaDesc: "Uzyskaj darmową analizę AI i spersonalizowaną wycenę.",
+      ctaBtn: "Rozpocznij analizę"
+    },
+    directory: {
+      title: "Centra Doskonałości",
+      subtitle: "Zweryfikowane Kliniki Partnerskie",
+      filters: "Filtry",
+      location: "Lokalizacja",
+      budget: "Cena",
+      technique: "Technika",
+      amenities: "Udogodnienia",
+      reset: "Resetuj Filtry",
+      noResults: "Nie znaleziono klinik.",
+      verified: "Zweryfikowana",
+      from: "Od",
+      findClinics: "Znajdź Kliniki"
+    },
+    clinic: {
+      book: "Umów Konsultację",
+      startingFrom: "Cena od",
+      verifiedPartner: "Zweryfikowany Partner",
+      topRated: "Najwyżej Oceniane",
+      accredited: "Akredytowane",
+      tabs: {
+        overview: "Przegląd",
+        team: "Zespół Medyczny",
+        technique: "Technika",
+        packages: "Pakiety",
+        reviews: "Opinie"
+      }
+    },
+    dashboard: {
+      reportId: "ID Raportu",
+      privateReport: "Prywatny Raport",
+      visualEstimate: "Szacunek Wizualny",
+      notMedical: "To nie porada medyczna",
+      norwood: "Skala Norwooda",
+      donor: "Ocena Dawcy",
+      grafts: "Szac. Grafty",
+      visualProjection: "Projekcja Wizualna",
+      download: "Pobierz PDF",
+      clinicConnect: "Oferty od Najlepszych Chirurgów",
+      clinicConnectDesc: "Udostępnij zanonimizowany raport, aby otrzymać dokładne wyceny.",
+      unlockSharing: "Odblokuj Udostępnianie",
+      securityBadge: "Zgodność z RODO",
+      dataRetention: "Dane przechowywane tymczasowo."
+    },
+    footer: {
+      patients: "Pacjenci",
+      partners: "Partnerzy",
+      compliance: "Zgodność",
+      contact: "Kontakt",
+      disclaimerTitle: "Ważne Zastrzeżenie",
+      disclaimerText: "To wizualne narzędzie niemedyczne. Nie stanowi diagnozy medycznej ani gwarancji wyników. Zawsze konsultuj się z lekarzem.",
+      rights: "Wszelkie prawa zastrzeżone."
+    },
     preScan: {
       title: "Zanim zaczniemy",
       desc: "Aby zapewnić najdokładniejszą analizę AI, postępuj zgodnie z tymi wytycznymi.",
@@ -402,7 +852,13 @@ export const translations: Record<LanguageCode, Language> = {
       automationDesc: "Nie musisz klikać. AI automatycznie zrobi zdjęcie po ustawieniu ostrości.",
       cameraError: "Dostęp do kamery jest wymagany do analizy AI. Włącz uprawnienia kamery w ustawieniach przeglądarki.",
       startBtn: "Włącz kamerę i Start",
-      cancelBtn: "Anuluj"
+      cancelBtn: "Anuluj",
+      legalTitle: "Zgoda na przetwarzanie",
+      legalDesc: "Potwierdź, że rozumiesz, jak wykorzystywane są Twoje dane.",
+      consentProcessing: "Wyrażam zgodę na przetwarzanie obrazu.",
+      consentNotMedical: "Rozumiem, że to NIE jest diagnoza medyczna.",
+      consentPrivacy: "Akceptuję Politykę Prywatności.",
+      continueBtn: "Zatwierdź i Kontynuuj"
     },
     scannerSteps: {
         frontLabel: 'Widok z Przodu',
@@ -435,7 +891,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle2: 'استكشف المستقبل.',
     heroDesc: 'استكشف النتائج المحتملة باستخدام الذكاء الاصطناعي. يقوم نظامنا بتحليل الأنماط المرئية في صورك لاقتراح تصميم أولي.',
     heroDisclaimer: 'معاينة بصرية غير طبية. ليست نصيحة طبية.',
-    startBtn: 'ابدأ المعاينة المرئية',
+    startBtn: 'احصل على تحليلك المجاني',
     methodBtn: 'كيف يعمل',
     navCapture: 'رفع',
     navAnalysis: 'معالجة',
@@ -460,6 +916,76 @@ export const translations: Record<LanguageCode, Language> = {
     transformationDesc: 'بدّل بين صورتك الحالية والتصور الذي أنشأه الذكاء الاصطناعي.',
     beforeLabel: 'الأصل',
     afterLabel: 'معاينة AI',
+    common: {
+      back: "عودة",
+      search: "بحث",
+      clear: "مسح",
+      view: "عرض",
+      loading: "جار التحميل..."
+    },
+    blog: {
+      title: "مركز المعرفة",
+      latest: "أحدث المقالات",
+      readTime: "قراءة",
+      searchPlaceholder: "البحث في قاعدة المعرفة...",
+      backToArticles: "العودة للمقالات",
+      ctaTitle: "هل لديك فضول حول حالتك؟",
+      ctaDesc: "احصل على تحليل مجاني بالذكاء الاصطناعي وتقدير مخصص.",
+      ctaBtn: "ابدأ التحليل المجاني"
+    },
+    directory: {
+      title: "مراكز التميز",
+      subtitle: "عيادات شريكة معتمدة",
+      filters: "تصفية",
+      location: "الموقع",
+      budget: "التسعير",
+      technique: "التقنية",
+      amenities: "المرافق",
+      reset: "إعادة تعيين",
+      noResults: "لم يتم العثور على عيادات.",
+      verified: "مؤكد",
+      from: "من",
+      findClinics: "اعثر على عيادات"
+    },
+    clinic: {
+      book: "حجز استشارة",
+      startingFrom: "يبدأ من",
+      verifiedPartner: "شريك معتمد",
+      topRated: "الأعلى تقييماً",
+      accredited: "معتمد",
+      tabs: {
+        overview: "نظرة عامة",
+        team: "الفريق الطبي",
+        technique: "التقنية",
+        packages: "الباقات",
+        reviews: "التقييمات"
+      }
+    },
+    dashboard: {
+      reportId: "رقم التقرير",
+      privateReport: "تقرير خاص",
+      visualEstimate: "تقدير بصري",
+      notMedical: "ليست نصيحة طبية",
+      norwood: "مقياس نوروود",
+      donor: "تصنيف المانح",
+      grafts: "عدد البصيلات",
+      visualProjection: "إسقاط بصري",
+      download: "تحميل PDF",
+      clinicConnect: "عروض من أفضل الجراحين",
+      clinicConnectDesc: "شارك تقريرك المجهول مع شبكتنا المعتمدة للحصول على عروض دقيقة.",
+      unlockSharing: "فتح المشاركة",
+      securityBadge: "أمن متوافق مع HIPAA",
+      dataRetention: "يتم تخزين البيانات مؤقتًا."
+    },
+    footer: {
+      patients: "المرضى",
+      partners: "الشركاء",
+      compliance: "الامتثال",
+      contact: "اتصال",
+      disclaimerTitle: "إخلاء مسؤولية هام",
+      disclaimerText: "هذه أداة بصرية غير طبية للمساعدة في تصور النتائج. لا تقدم تشخيصًا طبيًا أو ضمانًا للنتائج. استشر طبيبًا معتمدًا دائمًا.",
+      rights: "جميع الحقوق محفوظة."
+    },
     preScan: {
       title: "قبل أن نبدأ",
       desc: "لضمان أدق تحليل للذكاء الاصطناعي، يرجى اتباع هذه الإرشادات.",
@@ -473,7 +999,13 @@ export const translations: Record<LanguageCode, Language> = {
       automationDesc: "لا حاجة للنقر. يلتقط الذكاء الاصطناعي الصور تلقائيًا عند التركيز.",
       cameraError: "الوصول إلى الكاميرا مطلوب لإجراء تحليل الذكاء الاصطناعي. يرجى تمكين أذونات الكاميرا في إعدادات المتصفح.",
       startBtn: "تفعيل الكاميرا والبدء",
-      cancelBtn: "إلغاء"
+      cancelBtn: "إلغاء",
+      legalTitle: "الموافقة على معالجة البيانات",
+      legalDesc: "قبل أن نحلل صورك، يرجى تأكيد فهمك لكيفية استخدام بياناتك.",
+      consentProcessing: "أوافق على معالجة صوري للتحليل البصري.",
+      consentNotMedical: "أفهم أن هذا محاكاة، وليس تشخيصًا طبيًا.",
+      consentPrivacy: "أوافق على سياسة الخصوصية.",
+      continueBtn: "تأكيد ومتابعة"
     },
     scannerSteps: {
         frontLabel: 'منظر أمامي',
