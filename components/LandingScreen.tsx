@@ -21,7 +21,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CLINICS_DATA, CATEGORIES, ClinicCategory } from '../data/clinics';
 
 // ✅ Supabase client import (path’i projene göre düzenle)
-// Projende "lib/supabase.ts" varsa genelde LandingScreen (src/screens) içinden "../lib/supabase" olur.
 import { supabase } from '../lib/supabase';
 
 interface LandingScreenProps {
@@ -66,46 +65,100 @@ type BeforeAfterSliderProps = {
   className?: string;
   beforeImage: string;
   afterImage: string;
+  auto?: boolean; // default true
+  autoPeriodMs?: number; // default 3800
 };
 
-const BeforeAfterSlider = ({ lang, className, beforeImage, afterImage }: BeforeAfterSliderProps) => {
-  const [sliderPos, setSliderPos] = useState(50);
+const BeforeAfterSlider = ({
+  lang,
+  className,
+  beforeImage,
+  afterImage,
+  auto = true,
+  autoPeriodMs = 3800,
+}: BeforeAfterSliderProps) => {
   const isRTL = lang === 'AR';
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const rafRef = useRef<number | null>(null);
+  const hoverRef = useRef(false);
+  const draggingRef = useRef(false);
+
+  const [sliderPos, setSliderPos] = useState(50);
+
+  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
+
+  const setFromClientX = (clientX: number) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = clamp(clientX - rect.left, 0, rect.width);
+    const pct = (x / rect.width) * 100;
+    const next = isRTL ? 100 - pct : pct;
+    setSliderPos(clamp(next, 0, 100));
+  };
+
+  // --- Pointer drag (NO visible handle) ---
+  const onPointerDown = (e: React.PointerEvent) => {
+    draggingRef.current = true;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setFromClientX(e.clientX);
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!draggingRef.current) return;
+    setFromClientX(e.clientX);
+  };
+
+  const onPointerUp = () => {
+    draggingRef.current = false;
+  };
+
+  // --- Auto “toggle wave” (smooth ping-pong) ---
   useEffect(() => {
-    const timer = setTimeout(() => {
-      // small hint movement
-      const start = 50;
-      const end = 55;
-      let step = 0;
-      const frames = 20;
+    if (!auto) return;
 
-      const animateHint = () => {
-        step++;
-        const progress = step / frames;
-        const val =
-          progress < 0.5
-            ? start + (end - start) * (progress * 2)
-            : end - (end - start) * ((progress - 0.5) * 2);
+    const center = 50;
+    const amplitude = 22; // 50±22 => 28..72 (pleasant, avoids edges)
+    const minClamp = 12;
+    const maxClamp = 88;
 
-        setSliderPos(val);
-        if (step < frames) requestAnimationFrame(animateHint);
-        else setSliderPos(50);
-      };
+    const tick = (ts: number) => {
+      // pause on hover or dragging
+      if (!hoverRef.current && !draggingRef.current && document.visibilityState === 'visible') {
+        const t = ts / autoPeriodMs;
+        const s = Math.sin(t * Math.PI * 2); // -1..1
+        const next = clamp(center + s * amplitude, minClamp, maxClamp);
+        setSliderPos(next);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    };
 
-      requestAnimationFrame(animateHint);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+  }, [auto, autoPeriodMs]);
 
   return (
     <div
-      className={`relative w-full overflow-hidden surgical-shadow border border-slate-200 bg-slate-100 group cursor-ew-resize select-none ${
+      ref={containerRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onMouseEnter={() => (hoverRef.current = true)}
+      onMouseLeave={() => (hoverRef.current = false)}
+      className={`relative w-full overflow-hidden surgical-shadow border border-slate-200 bg-slate-100 select-none ${
         className || 'aspect-[16/9] rounded-[2.5rem] md:rounded-[4rem]'
       }`}
+      style={{ touchAction: 'none' }}
+      aria-label="Before and After comparison"
+      role="application"
     >
-      {/* --- AFTER STATE (right side) --- */}
+      {/* AFTER (base layer) — ✅ NO overlays, NO guides */}
       <div className="absolute inset-0">
         <img
           src={afterImage}
@@ -115,81 +168,51 @@ const BeforeAfterSlider = ({ lang, className, beforeImage, afterImage }: BeforeA
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
         />
-
-        {/* SURGICAL PLAN OVERLAY - only on After layer */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          {/* Hairline Guide (SVG) */}
-          <svg
-            className="absolute top-[22%] left-1/2 -translate-x-1/2 w-[35%] h-[20%] opacity-80"
-            viewBox="0 0 200 100"
-          >
-            <path
-              d="M10,80 Q50,40 100,40 Q150,40 190,80"
-              fill="none"
-              stroke="#14B8A6"
-              strokeWidth="3"
-              strokeDasharray="8 4"
-              className="drop-shadow-[0_0_8px_rgba(20,184,166,0.8)]"
-            />
-            <path
-              d="M10,80 Q50,40 100,40 Q150,40 190,80 L190,0 L10,0 Z"
-              fill="url(#graftPattern)"
-              opacity="0.4"
-            />
-            <defs>
-              <pattern id="graftPattern" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
-                <circle cx="2" cy="2" r="1.5" fill="#14B8A6" />
-              </pattern>
-            </defs>
-          </svg>
-
-          {/* Face Grid Overlay */}
-          <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[40%] h-[30%] border border-teal-500/30 rounded-[3rem] opacity-40" />
-          <div className="absolute top-[25%] left-1/2 -translate-x-1/2 w-1 h-10 bg-teal-500/50" />
-        </div>
-
-        <div className="absolute inset-0 bg-teal-500/10 mix-blend-overlay pointer-events-none" />
       </div>
 
-      {/* --- BEFORE STATE (left side, clipped) --- */}
+      {/* BEFORE (clipped layer) — ✅ no border/frame overlays */}
       <div
         className="absolute inset-0 z-20 overflow-hidden pointer-events-none bg-white"
-        style={{ clipPath: `inset(0 ${isRTL ? 0 : 100 - sliderPos}% 0 ${isRTL ? sliderPos : 0}%)` }}
+        style={{
+          clipPath: `inset(0 ${isRTL ? 0 : 100 - sliderPos}% 0 ${isRTL ? sliderPos : 0}%)`,
+        }}
       >
         <img
           src={beforeImage}
           alt="Before State"
           loading="lazy"
           decoding="async"
-          className="w-full h-full object-cover grayscale contrast-110"
+          className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
         />
       </div>
 
-      {/* --- SLIDER CONTROLS --- */}
-      <div className="absolute inset-0 z-30">
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={sliderPos}
-          onChange={(e) => setSliderPos(Number(e.target.value))}
-          className="w-full h-full opacity-0 cursor-ew-resize"
-          aria-label="Compare Before and After images"
-        />
+      {/* Divider line — ✅ HairVis teal + soft glow, ✅ NO knob/handle */}
+      <div className="absolute inset-0 z-30 pointer-events-none">
+        {/* outer glow */}
         <div
-          className="absolute top-0 bottom-0 w-0.5 bg-white pointer-events-none shadow-[0_0_30px_rgba(255,255,255,1)]"
-          style={{ [isRTL ? 'right' : 'left']: `${sliderPos}%` } as React.CSSProperties}
-        >
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 md:w-14 h-10 md:h-14 bg-white rounded-full shadow-2xl flex items-center justify-center border-[4px] md:border-[6px] border-[#0E1A2B]">
-            <div className="flex gap-0.5">
-              <div className="w-0.5 h-3 md:h-4 bg-[#0E1A2B]/20 rounded-full" />
-              <div className="w-0.5 h-3 md:h-4 bg-[#0E1A2B] rounded-full" />
-              <div className="w-0.5 h-3 md:h-4 bg-[#0E1A2B]/20 rounded-full" />
-            </div>
-          </div>
-        </div>
+          className="absolute top-0 bottom-0 w-[10px] opacity-70 blur-[10px]"
+          style={{
+            [isRTL ? 'right' : 'left']: `${sliderPos}%`,
+            transform: 'translateX(-50%)',
+            background: 'rgba(20,184,166,0.45)',
+          } as React.CSSProperties}
+        />
+        {/* crisp line */}
+        <div
+          className="absolute top-0 bottom-0 w-[2px]"
+          style={{
+            [isRTL ? 'right' : 'left']: `${sliderPos}%`,
+            transform: 'translateX(-50%)',
+            background:
+              'linear-gradient(to bottom, rgba(20,184,166,0.15), rgba(20,184,166,0.95), rgba(20,184,166,0.15))',
+            boxShadow: '0 0 18px rgba(20,184,166,0.55), 0 0 42px rgba(20,184,166,0.25)',
+          } as React.CSSProperties}
+        />
       </div>
+
+      {/* Invisible interactive layer (keeps cursor affordance) */}
+      <div className="absolute inset-0 z-40 cursor-ew-resize" />
     </div>
   );
 };
@@ -435,17 +458,15 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
   }, []);
 
   // ============================================================
-  // ✅ SUPABASE STORAGE PUBLIC URLS (Seçenek A)
+  // ✅ SUPABASE STORAGE PUBLIC URLS
   // Bucket: public-assets
   // Paths:
   //   landing/slider/before.webp
   //   landing/slider/after.webp
-  //
-  // 🔧 Sadece burada path’leri değiştirmen yeterli:
   // ============================================================
   const SLIDER_BUCKET = 'public-assets';
-  const SLIDER_BEFORE_PATH = 'landing/slider/before.webp'; // 👈 BURAYA
-  const SLIDER_AFTER_PATH = 'landing/slider/after.webp'; // 👈 BURAYA
+  const SLIDER_BEFORE_PATH = 'landing/slider/before.webp';
+  const SLIDER_AFTER_PATH = 'landing/slider/after.webp';
 
   const sliderBeforeUrl = useMemo(() => {
     const { data } = supabase.storage.from(SLIDER_BUCKET).getPublicUrl(SLIDER_BEFORE_PATH);
@@ -519,11 +540,13 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
               transition={{ duration: 0.8 }}
               className="relative z-10"
             >
-              {/* ✅ HEIGHT INCREASED + ✅ Yellow-marked overlays removed */}
+              {/* ✅ AUTO TOGGLE WAVE + DRAG + NO HANDLE + TEAL GLOW LINE + NO AFTER OVERLAYS */}
               <BeforeAfterSlider
                 lang={lang}
                 beforeImage={sliderBeforeUrl}
                 afterImage={sliderAfterUrl}
+                auto={true}
+                autoPeriodMs={3800}
                 className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-4 border-white"
               />
             </motion.div>
@@ -688,32 +711,3 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 };
 
 export default LandingScreen;
-
-/*
-============================================================
-✅ NEREYE HANGİ URL’Yİ EKLEYECEKSİN?
-============================================================
-
-LandingScreen içinde şu 2 satır var:
-
-const SLIDER_BEFORE_PATH = 'landing/slider/before.webp';
-const SLIDER_AFTER_PATH  = 'landing/slider/after.webp';
-
-- Supabase Storage bucket: public-assets
-- Storage içinde dosyaları bu path’lere upload et.
-- Sonra sayfada otomatik public URL ile yüklenir.
-
-Örnek:
-public-assets
-  /landing/slider/before.webp
-  /landing/slider/after.webp
-
-============================================================
-✅ SARI İŞARETLİ ALANLAR NEREDE KALDIRILDI?
-============================================================
-1) LandingScreen’deki iki floating kart tamamen kaldırıldı.
-2) BeforeAfterSlider içindeki BEFORE/AFTER badge’ler kaldırıldı.
-3) Slider height:
-   className="w-full h-[520px] md:h-[640px] ..."
-   burayı istediğin gibi büyütebilirsin.
-*/
