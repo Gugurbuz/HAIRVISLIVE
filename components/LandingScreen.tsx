@@ -60,13 +60,9 @@ type BeforeAfterSliderProps = {
   className?: string;
   beforeImage: string;
   afterImage: string;
-
-  auto?: boolean;          // default true
-  autoPeriodMs?: number;   // default 4200
-  pauseOnHover?: boolean;  // default true
-
-  featherEdge?: boolean;   // default true  (soft transition so it doesn't look like a frame)
-  featherPx?: number;      // default 22
+  auto?: boolean;
+  autoPeriodMs?: number;
+  pauseOnHover?: boolean;
 };
 
 const BeforeAfterSlider = ({
@@ -77,13 +73,9 @@ const BeforeAfterSlider = ({
   auto = true,
   autoPeriodMs = 4200,
   pauseOnHover = true,
-  featherEdge = true,
-  featherPx = 22,
 }: BeforeAfterSliderProps) => {
   const isRTL = lang === 'AR';
-
   const containerRef = useRef<HTMLDivElement>(null);
-
   const rafRef = useRef<number | null>(null);
   const hoverRef = useRef(false);
   const draggingRef = useRef(false);
@@ -117,7 +109,6 @@ const BeforeAfterSlider = ({
     draggingRef.current = false;
   };
 
-  // ✅ FULL RANGE AUTO: 0 ↔ 100 (true ping-pong)
   useEffect(() => {
     if (!auto) return;
 
@@ -129,11 +120,10 @@ const BeforeAfterSlider = ({
 
       if (!shouldPause) {
         const t = ts / autoPeriodMs;
-        const s = Math.sin(t * Math.PI * 2); // -1..1
-        const next = 50 + s * 50;            // 0..100
+        const s = Math.sin(t * Math.PI * 2); 
+        const next = 50 + s * 50;            
         setSliderPos(clamp(next, 0, 100));
       }
-
       rafRef.current = requestAnimationFrame(tick);
     };
 
@@ -144,8 +134,12 @@ const BeforeAfterSlider = ({
     };
   }, [auto, autoPeriodMs, pauseOnHover]);
 
-  // BEFORE clip
-  const clip = `inset(0 ${isRTL ? 0 : 100 - sliderPos}% 0 ${isRTL ? sliderPos : 0}%)`;
+  // CSS Mask Logic for smooth blending instead of hard clip-path
+  // Mask gradient: Solid Black (Visible) -> Transparent (Hidden)
+  // We use a wider gradient area (e.g. 15%) for smoother transition
+  const maskStyle = isRTL
+    ? `linear-gradient(to left, black calc(${sliderPos}% - 10%), transparent calc(${sliderPos}% + 10%))`
+    : `linear-gradient(to right, black calc(${sliderPos}% - 10%), transparent calc(${sliderPos}% + 10%))`;
 
   return (
     <div
@@ -156,79 +150,60 @@ const BeforeAfterSlider = ({
       onPointerCancel={onPointerUp}
       onMouseEnter={() => (hoverRef.current = true)}
       onMouseLeave={() => (hoverRef.current = false)}
-      className={`relative w-full overflow-hidden surgical-shadow border border-slate-200 bg-slate-100 select-none ${
+      className={`relative w-full overflow-hidden surgical-shadow border border-slate-200 bg-slate-100 select-none transform-gpu ${
         className || 'aspect-[16/9] rounded-[2.5rem] md:rounded-[4rem]'
       }`}
       style={{ touchAction: 'none' }}
-      aria-label="Before and After comparison"
-      role="application"
     >
-      {/* AFTER (base layer) — ✅ NO overlays */}
-      <div className="absolute inset-0">
+      {/* 1. AFTER Image (Base Layer) */}
+      <div className="absolute inset-0 z-0">
         <img
           src={afterImage}
-          alt="After Result"
-          loading="lazy"
-          decoding="async"
+          alt="After"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
         />
       </div>
 
-      {/* BEFORE (clipped layer) — ✅ NO bg-white frame */}
+      {/* 2. BEFORE Image (Top Layer with Mask) */}
       <div
-        className="absolute inset-0 z-20 overflow-hidden pointer-events-none"
-        style={{ clipPath: clip }}
+        className="absolute inset-0 z-10 will-change-[mask-image]"
+        style={{
+          WebkitMaskImage: maskStyle,
+          maskImage: maskStyle,
+        }}
       >
         <img
           src={beforeImage}
-          alt="Before State"
-          loading="lazy"
-          decoding="async"
+          alt="Before"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
         />
-
-        {/* ✅ Soft feather at the cut edge so it doesn't look like a “frame” */}
-        {featherEdge && (
-          <div
-            className="absolute top-0 bottom-0 pointer-events-none"
-            style={{
-              width: `${featherPx}px`,
-              // Feather must sit on the moving edge:
-              ...(isRTL
-                ? { right: 0, background: 'linear-gradient(to left, rgba(14,26,43,0.00), rgba(14,26,43,0.08))' }
-                : { left: 'auto', right: 0, background: 'linear-gradient(to right, rgba(14,26,43,0.00), rgba(14,26,43,0.08))' }),
-            }}
-          />
-        )}
       </div>
 
-      {/* Divider line — ✅ teal glow, ✅ NO knob */}
-      <div className="absolute inset-0 z-30 pointer-events-none">
-        {/* outer glow */}
-        <div
-          className="absolute top-0 bottom-0 w-[10px] opacity-70 blur-[10px]"
-          style={{
-            [isRTL ? 'right' : 'left']: `${sliderPos}%`,
-            transform: 'translateX(-50%)',
-            background: 'rgba(20,184,166,0.45)',
-          } as React.CSSProperties}
-        />
-        {/* crisp line */}
-        <div
-          className="absolute top-0 bottom-0 w-[2px]"
-          style={{
-            [isRTL ? 'right' : 'left']: `${sliderPos}%`,
-            transform: 'translateX(-50%)',
-            background:
-              'linear-gradient(to bottom, rgba(20,184,166,0.10), rgba(20,184,166,0.98), rgba(20,184,166,0.10))',
-            boxShadow: '0 0 18px rgba(20,184,166,0.55), 0 0 42px rgba(20,184,166,0.25)',
-          } as React.CSSProperties}
-        />
+      {/* 3. Slider Line & Handle */}
+      <div 
+        className="absolute inset-0 z-20 pointer-events-none"
+        style={{ 
+          transform: `translate3d(${isRTL ? -sliderPos : sliderPos}%, 0, 0)`,
+          left: isRTL ? 'auto' : '0',
+          right: isRTL ? '0' : 'auto',
+          width: '100%' // Container wide to handle translation relative to it
+        }}
+      >
+        {/* The glowing line - centered on the translate point */}
+        <div className="absolute top-0 bottom-0 left-0 w-0.5 -ml-[1px] bg-white/60 shadow-[0_0_20px_rgba(20,184,166,0.8)] backdrop-blur-md">
+           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full border-2 border-white bg-white/20 backdrop-blur-md shadow-xl flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
+           </div>
+        </div>
       </div>
 
-      {/* Invisible interactive layer */}
+      {/* 4. Vignette / Inner Shadow (Outside-to-Inside Fade) */}
+      {/* This creates the gradual opacity fade from the edges inwards requested */}
+      <div className="absolute inset-0 z-30 pointer-events-none shadow-[inset_0_0_80px_rgba(0,0,0,0.15)] rounded-[inherit]" />
+      
+      {/* 5. Interactive Layer */}
       <div className="absolute inset-0 z-40 cursor-ew-resize" />
     </div>
   );
@@ -555,8 +530,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
                 auto={true}
                 autoPeriodMs={4200}
                 pauseOnHover={true}
-                featherEdge={true}
-                featherPx={22}
                 className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-4 border-white"
               />
             </motion.div>
