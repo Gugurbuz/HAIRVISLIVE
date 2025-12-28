@@ -60,169 +60,117 @@ type BeforeAfterSliderProps = {
   className?: string;
   beforeImage: string;
   afterImage: string;
-
-  /**
-   * ✅ AUTO ONLY:
-   * - kullanıcı dokunamaz (pointer/touch kapalı)
-   * - kendi kendine 0 ↔ 100 ping-pong
-   */
-  auto?: boolean; // default true
-  autoPeriodMs?: number; // default 5200
-
-  /**
-   * ✅ BEFORE layer dışında içe doğru kademeli opacity (performans-safe)
-   * - blur yok, mask-image yok (safari dert çıkarmaz)
-   * - sadece 4 linear-gradient (GPU-friendly)
-   */
-  outerFade?: boolean; // default true
-  outerFadePx?: number; // default 120
-  outerFadeStrength?: number; // default 0.85 (0..1)
-  outerFadeTintRgb?: string; // default '247,248,250' (sayfa bg)
+  autoPeriodMs?: number;
 };
 
-const BeforeAfterSlider: React.FC<BeforeAfterSliderProps> = ({
+const BeforeAfterSlider = ({
   lang,
   className,
   beforeImage,
   afterImage,
-  auto = true,
-  autoPeriodMs = 5200,
-  outerFade = true,
-  outerFadePx = 120,
-  outerFadeStrength = 0.85,
-  outerFadeTintRgb = '247,248,250',
-}) => {
+  autoPeriodMs = 4000,
+}: BeforeAfterSliderProps) => {
   const isRTL = lang === 'AR';
   const rafRef = useRef<number | null>(null);
   const [sliderPos, setSliderPos] = useState(50);
 
-  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
-
-  // ✅ FULL RANGE AUTO ONLY: 0 ↔ 100 (tam sağ / tam sol)
+  // Otomatik animasyon döngüsü (Kullanıcı müdahalesi yok)
   useEffect(() => {
-    if (!auto) return;
-
     const tick = (ts: number) => {
-      if (document.visibilityState === 'visible') {
-        const t = ts / autoPeriodMs;
-        const s = Math.sin(t * Math.PI * 2); // -1..1
-        const next = 50 + s * 50; // 0..100
-        setSliderPos(clamp(next, 0, 100));
+      // Sayfa görünür değilse duraklat (performans)
+      if (document.visibilityState !== 'visible') {
+        rafRef.current = requestAnimationFrame(tick);
+        return;
       }
+
+      const t = ts / autoPeriodMs;
+      // Sinus dalgası ile yumuşak git-gel hareketi (0..100 arası)
+      // Biraz kenar payı bırakıyoruz (10..90) ki resimler tam kapanmasın
+      const s = Math.sin(t * Math.PI * 2); 
+      const next = 50 + s * 40; 
+      setSliderPos(next);
+      
       rafRef.current = requestAnimationFrame(tick);
     };
 
     rafRef.current = requestAnimationFrame(tick);
-
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [auto, autoPeriodMs]);
+  }, [autoPeriodMs]);
 
-  const clip = `inset(0 ${isRTL ? 0 : 100 - sliderPos}% 0 ${isRTL ? sliderPos : 0}%)`;
+  // 1. Maske (Slider Geçişi): "Before" resmini maskeler.
+  // Keskin çizgi yerine yumuşak geçiş (gradient)
+  const sliderMaskStyle = isRTL
+    ? `linear-gradient(to left, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`
+    : `linear-gradient(to right, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`;
 
-  const a = clamp(outerFadeStrength, 0, 1);
-  const s = Math.max(24, outerFadePx);
-  const rgba = (alpha: number) => `rgba(${outerFadeTintRgb}, ${alpha})`;
-
-  // ✅ kademeli: dış güçlü -> iç sıfır
-  const gTop = `linear-gradient(to bottom,
-    ${rgba(a)} 0%,
-    ${rgba(a * 0.75)} ${Math.round(s * 0.25)}px,
-    ${rgba(a * 0.35)} ${Math.round(s * 0.6)}px,
-    ${rgba(0)} ${s}px
-  )`;
-
-  const gBottom = `linear-gradient(to top,
-    ${rgba(a)} 0%,
-    ${rgba(a * 0.75)} ${Math.round(s * 0.25)}px,
-    ${rgba(a * 0.35)} ${Math.round(s * 0.6)}px,
-    ${rgba(0)} ${s}px
-  )`;
-
-  const gLeft = `linear-gradient(to right,
-    ${rgba(a)} 0%,
-    ${rgba(a * 0.75)} ${Math.round(s * 0.25)}px,
-    ${rgba(a * 0.35)} ${Math.round(s * 0.6)}px,
-    ${rgba(0)} ${s}px
-  )`;
-
-  const gRight = `linear-gradient(to left,
-    ${rgba(a)} 0%,
-    ${rgba(a * 0.75)} ${Math.round(s * 0.25)}px,
-    ${rgba(a * 0.35)} ${Math.round(s * 0.6)}px,
-    ${rgba(0)} ${s}px
-  )`;
-
-  const outerFadeStyle: React.CSSProperties = outerFade
-    ? {
-        background: `${gTop}, ${gBottom}, ${gLeft}, ${gRight}`,
-        pointerEvents: 'none',
-      }
-    : { pointerEvents: 'none' };
+  // 2. Maske (Vinyet/Çerçeve): Tüm konteyneri kenarlardan siler.
+  // Bu "Doğal Şeffaf Çerçeve" görünümünü sağlar.
+  const edgeFadeMask = `radial-gradient(98% 98% at 50% 50%, black 85%, transparent 100%)`;
 
   return (
     <div
-      className={`relative w-full overflow-hidden surgical-shadow border border-slate-200 bg-slate-100 select-none ${
+      className={`relative w-full overflow-hidden select-none ${
         className || 'aspect-[16/9] rounded-[2.5rem] md:rounded-[4rem]'
       }`}
-      aria-label="Auto Before/After comparison"
-      role="img"
+      style={{ 
+        // Dış kenarları yumuşakça silen maske
+        WebkitMaskImage: edgeFadeMask,
+        maskImage: edgeFadeMask,
+        // Hafif bir iç gölge ile derinlik katıyoruz
+        boxShadow: 'inset 0 0 40px rgba(14, 26, 43, 0.05)'
+      }}
     >
-      {/* AFTER (base layer) — ✅ NO overlays / grid / frames */}
-      <div className="absolute inset-0">
+      {/* 1. AFTER Image (Alt Katman - Base) */}
+      <div className="absolute inset-0 z-0">
         <img
           src={afterImage}
-          alt="After Result"
-          loading="lazy"
-          decoding="async"
+          alt="After"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
         />
       </div>
 
-      {/* BEFORE (clipped layer) */}
-      <div className="absolute inset-0 z-20 overflow-hidden pointer-events-none" style={{ clipPath: clip }}>
+      {/* 2. BEFORE Image (Üst Katman - Maskeli) */}
+      <div
+        className="absolute inset-0 z-10 will-change-[mask-image]"
+        style={{
+          WebkitMaskImage: sliderMaskStyle,
+          maskImage: sliderMaskStyle,
+        }}
+      >
         <img
           src={beforeImage}
-          alt="Before State"
-          loading="lazy"
-          decoding="async"
-          className="w-full h-full object-cover grayscale contrast-110"
+          alt="Before"
+          className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
         />
-
-        {/* ✅ “2. fotonun etrafı sayfa gibi”: kademeli opacity (outside->inside) */}
-        {outerFade && <div className="absolute inset-0" style={outerFadeStyle} />}
       </div>
 
-      {/* Divider line — ✅ HairVis teal + soft glow — ✅ NO knob */}
-      <div className="absolute inset-0 z-30 pointer-events-none">
-        {/* soft glow band */}
-        <div
-          className="absolute top-0 bottom-0 w-[14px] opacity-80"
-          style={{
-            [isRTL ? 'right' : 'left']: `${sliderPos}%`,
-            transform: 'translateX(-50%)',
-            background: 'rgba(20,184,166,0.22)',
-          } as React.CSSProperties}
-        />
-        {/* crisp line */}
-        <div
-          className="absolute top-0 bottom-0 w-[2px]"
-          style={{
-            [isRTL ? 'right' : 'left']: `${sliderPos}%`,
-            transform: 'translateX(-50%)',
-            background:
-              'linear-gradient(to bottom, rgba(20,184,166,0.10), rgba(20,184,166,0.98), rgba(20,184,166,0.10))',
-            boxShadow: '0 0 18px rgba(20,184,166,0.55), 0 0 48px rgba(20,184,166,0.22)',
-          } as React.CSSProperties}
-        />
+      {/* 3. Slider Line (Sadece Işık) */}
+      <div 
+        className="absolute inset-0 z-20 pointer-events-none"
+        style={{ 
+          transform: `translate3d(${isRTL ? -sliderPos : sliderPos}%, 0, 0)`,
+          left: isRTL ? 'auto' : '0',
+          right: isRTL ? '0' : 'auto',
+          width: '100%'
+        }}
+      >
+        {/* HairVis Teal Renginde Işık Hüzmesi */}
+        <div className="absolute top-0 bottom-0 left-0 w-[2px] -ml-[1px]">
+          {/* Ana Çizgi */}
+          <div className="absolute inset-0 bg-teal-400/80" />
+          {/* Parlama Efekti (Glow) */}
+          <div className="absolute inset-0 bg-teal-400 blur-[8px] opacity-60 w-[4px] -ml-[1px]" />
+          {/* Uzun Parlama (Ambiyans) */}
+          <div className="absolute inset-0 bg-teal-300 blur-[20px] opacity-30 w-[20px] -ml-[9px]" />
+        </div>
       </div>
-
-      {/* ✅ Interaction blocker: kullanıcı dokunamaz */}
-      <div className="absolute inset-0 z-50 cursor-default" style={{ pointerEvents: 'all' }} />
+      
+      {/* Etkileşim katmanı tamamen kaldırıldı */}
     </div>
   );
 };
@@ -467,6 +415,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Supabase Storage public URLs
   const SLIDER_BUCKET = 'public-assets';
   const SLIDER_BEFORE_PATH = 'landing/slider/before.webp';
   const SLIDER_AFTER_PATH = 'landing/slider/after.webp';
@@ -544,13 +493,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
                 lang={lang}
                 beforeImage={sliderBeforeUrl}
                 afterImage={sliderAfterUrl}
-                auto={true}
-                autoPeriodMs={5200}
-                outerFade={true}
-                outerFadePx={130}
-                outerFadeStrength={0.9}
-                outerFadeTintRgb="247,248,250"
-                className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-4 border-white"
+                autoPeriodMs={4200}
+                className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-none bg-white/50"
               />
             </motion.div>
           </div>
