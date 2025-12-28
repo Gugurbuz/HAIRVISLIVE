@@ -107,8 +107,10 @@ const BeforeAfterSlider = ({
     : `linear-gradient(to right, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`;
 
   // 2. Maske (Vinyet/Çerçeve): Tüm konteyneri kenarlardan siler.
-  // Bu "Doğal Şeffaf Çerçeve" görünümünü sağlar.
-  const edgeFadeMask = `radial-gradient(98% 98% at 50% 50%, black 85%, transparent 100%)`;
+  // GÜNCELLENDİ: Daha geniş ve yumuşak bir eliptik geçiş ("Katmanlı Şeffaflık")
+  // black 60% -> görselin %60'ı net.
+  // transparent 100% -> kenarlara doğru tamamen kaybolur.
+  const edgeFadeMask = `radial-gradient(ellipse at center, black 60%, transparent 100%)`;
 
   return (
     <div
@@ -119,8 +121,8 @@ const BeforeAfterSlider = ({
         // Dış kenarları yumuşakça silen maske
         WebkitMaskImage: edgeFadeMask,
         maskImage: edgeFadeMask,
-        // Hafif bir iç gölge ile derinlik katıyoruz
-        boxShadow: 'inset 0 0 40px rgba(14, 26, 43, 0.05)'
+        // Hafif bir iç gölge ile derinlik katıyoruz (Değer artırıldı: 80px)
+        boxShadow: 'inset 0 0 80px rgba(14, 26, 43, 0.08)'
       }}
     >
       {/* 1. AFTER Image (Alt Katman - Base) */}
