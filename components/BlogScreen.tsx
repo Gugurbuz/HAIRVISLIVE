@@ -5,7 +5,7 @@ import {
   ArrowLeft, Clock, Calendar, ChevronRight, Share2, 
   Bookmark, User, Tag, Search, ArrowUpRight, ArrowRight
 } from 'lucide-react';
-import { BLOG_POSTS, BlogPost } from '../data/blogPosts';
+import { BLOG_POSTS, BlogPost } from '../data/BlogPosts';
 
 interface BlogScreenProps {
   onBack: () => void;
