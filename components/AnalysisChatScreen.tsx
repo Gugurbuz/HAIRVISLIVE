@@ -49,7 +49,7 @@ type ChatMessage = {
 
 type ContactMethod = "email" | "whatsapp";
 
-type AnalysisAnswers = {
+export type AnalysisAnswers = {
   ageRange: string;
   gender: "Male" | "Female";
   previousTransplant: "Yes" | "No";
@@ -72,7 +72,7 @@ type Option = {
 };
 
 type StepConfig = {
-  question?: string; // question shown in chat (AI)
+  question?: string; // Question shown once in chat
   key?: keyof AnalysisAnswers;
   options?: Option[];
   allowSkip?: boolean;
@@ -85,14 +85,17 @@ const isValidEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 const isValidPhoneLoose = (s: string) => s.trim().replace(/\s/g, "").length >= 7;
 
 const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) => {
+  // Messages
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [step, setStep] = useState<ChatStep>("INIT");
-
-  // “Soru soruluyor mu?” => options bu sırada görünmesin
-  const [isAsking, setIsAsking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
 
-  // seçim kilidi (double click / race)
+  // Steps
+  const [step, setStep] = useState<ChatStep>("INIT");
+
+  // "asking phase" hides options while AI message is being added
+  const [isAsking, setIsAsking] = useState(false);
+
+  // selection lock
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const lockedRef = useRef(false);
 
@@ -104,7 +107,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const msgIdRef = useRef(1);
-  const askedStepsRef = useRef<Set<ChatStep>>(new Set()); // StrictMode-safe guard
+  const askedStepsRef = useRef<Set<ChatStep>>(new Set()); // StrictMode-safe
   const hasStartedRef = useRef(false);
 
   const nextMsgId = () => msgIdRef.current++;
@@ -134,18 +137,21 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     answersRef.current = answers;
   }, [answers]);
 
+  // Step configs (AI-free product language)
   const steps: Record<ChatStep, StepConfig> = useMemo(
     () => ({
       INIT: {},
       PROCESSING: {},
       COMPLETE: {},
+
+      // Optional section intro (not "AI")
       LAYER_B_INTRO: {
-        // sadece bilgi mesajı; option yok
-        question: "Harika. Klinik eşleşmesi için 3 kısa soru daha soracağım (opsiyonel).",
+        question: "Harika. Klinik eşleşmesi için birkaç kısa soru daha soracağım (opsiyonel).",
         next: "Q_TIMELINE",
       },
+
       Q_AGE: {
-        question: "Doğru simülasyon için yaş aralığınızı seçer misiniz?",
+        question: "Daha doğru bir simülasyon için yaş aralığınız nedir?",
         key: "ageRange",
         options: [
           { label: "18-25", value: "18-25", centered: true },
@@ -155,6 +161,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_GENDER",
       },
+
       Q_GENDER: {
         question: "Biyolojik cinsiyet (saç dökülme paterni için önemli).",
         key: "gender",
@@ -164,6 +171,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_GOAL",
       },
+
       Q_GOAL: {
         question: "Birincil hedefiniz hangi bölge?",
         key: "goal",
@@ -174,6 +182,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_HISTORY",
       },
+
       Q_HISTORY: {
         question: "Daha önce saç ekimi yaptırdınız mı?",
         key: "previousTransplant",
@@ -183,6 +192,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_EXPECTATION",
       },
+
       Q_EXPECTATION: {
         question: "Önceliğiniz nedir?",
         key: "expectation",
@@ -193,6 +203,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "LAYER_B_INTRO",
       },
+
       Q_TIMELINE: {
         question: "Operasyonu ne zaman planlıyorsunuz? (Opsiyonel)",
         key: "timeline",
@@ -207,6 +218,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_BUDGET",
       },
+
       Q_BUDGET: {
         question: "Bütçe aralığınız var mı? (Opsiyonel)",
         key: "budget",
@@ -220,6 +232,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_LOCATION",
       },
+
       Q_LOCATION: {
         question: "Tercih ettiğiniz lokasyon var mı? (Opsiyonel)",
         key: "location",
@@ -233,6 +246,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_MEDS",
       },
+
       Q_MEDS: {
         question: "Şu an kullandığınız medikal ürün var mı? (Opsiyonel)",
         key: "meds",
@@ -246,8 +260,10 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         ],
         next: "Q_CONSENT",
       },
+
       Q_CONSENT: {
-        question: "İsterseniz raporu anonim olarak seçili kliniklerle eşleştirip teklif alabilirsiniz.",
+        question:
+          "İsterseniz raporu anonim olarak seçili kliniklerle eşleştirip teklif alabilirsiniz.",
       },
     }),
     []
@@ -313,26 +329,28 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     }
   };
 
+  // Header status: no AI language
   const headerStatus =
     step === "Q_CONSENT" || step === "PROCESSING" || step === "COMPLETE"
-      ? "Finalizing"
-      : "Calibrating";
+      ? "Son Adımlar"
+      : "Hazırlanıyor";
 
-  // ----------------------------
-  // STEP ENGINE (StrictMode safe)
-  // ----------------------------
+  // Step engine (asks question only once)
   const goToStep = async (next: ChatStep) => {
     lockedRef.current = false;
     setSelectedOption(null);
-    setContactMethod(null);
-    setContactValue("");
-    setConsentGiven(false);
 
-    // “ask phase” => options hide
+    // Don't reset consent inputs unless entering consent
+    if (next !== "Q_CONSENT") {
+      setContactMethod(null);
+      setContactValue("");
+      setConsentGiven(false);
+    }
+
     setIsAsking(true);
     setStep(next);
 
-    // already asked? never duplicate
+    // prevent duplicates (React StrictMode / re-renders)
     if (askedStepsRef.current.has(next)) {
       setIsAsking(false);
       return;
@@ -340,14 +358,14 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     askedStepsRef.current.add(next);
 
     const cfg = steps[next];
+
     if (cfg?.question) {
       await addAiMessage(cfg.question, 350);
     }
 
-    // If this step is a pure info step (LayerB intro), auto-advance
+    // Auto-advance for intro step
     if (next === "LAYER_B_INTRO") {
       const nxt = steps[next].next || "Q_TIMELINE";
-      // küçük bir nefes
       window.setTimeout(() => {
         void goToStep(nxt);
       }, 350);
@@ -357,16 +375,14 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     setIsAsking(false);
   };
 
-  // ----------------------------
-  // Start flow (only once)
-  // ----------------------------
+  // Start flow (generalized; no "age-only" opening)
   useEffect(() => {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
 
     (async () => {
-      await addAiMessage("Analiz motoru başlatılıyor…", 250);
-      await addAiMessage("Görüntü paternleri çıkarılıyor…", 650);
+      await addAiMessage("Analiz hazırlanıyor…", 250);
+      await addAiMessage("Daha doğru bir simülasyon ve rapor için size birkaç kısa soru soracağım.", 650);
       await goToStep("Q_AGE");
     })();
   }, []);
@@ -389,6 +405,11 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
       if (v === "1-3 Months") return "1-3 Ay içinde";
       if (v === "3-6 Months") return "3-6 Ay Sonra";
       if (v === "Researching") return "Henüz Araştırıyorum";
+    }
+    if (s === "Q_BUDGET") {
+      if (v === "Economy") return "Ekonomik";
+      if (v === "Standard") return "Standart";
+      if (v === "Premium") return "Premium";
     }
     if (s === "Q_LOCATION") {
       if (v === "Turkey") return "Türkiye";
@@ -415,10 +436,8 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     const cfg = steps[current];
 
     window.setTimeout(async () => {
-      // 1) user message in chat (NOT chips on the side)
       addUserMessage(prettyUserValue(current, value));
 
-      // 2) save answer
       if (cfg?.key) {
         const k = cfg.key;
         setAnswers((prev) => {
@@ -428,7 +447,6 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         });
       }
 
-      // 3) advance
       const next = cfg?.next || "Q_CONSENT";
       await goToStep(next);
 
@@ -437,7 +455,6 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     }, 200);
   };
 
-  // Consent
   const canSubmitConsent = () => {
     if (!contactMethod) return false;
     if (!consentGiven) return false;
@@ -519,7 +536,8 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
               <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white animate-pulse" />
             </div>
             <div>
-              <h3 className="text-slate-800 font-bold text-sm tracking-tight">HairVis AI</h3>
+              {/* Product name changed: no AI */}
+              <h3 className="text-slate-800 font-bold text-sm tracking-tight">AsistVis</h3>
               <div className="flex items-center gap-1.5">
                 <span className="w-1 h-1 bg-teal-500 rounded-full" />
                 <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">
@@ -529,6 +547,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
             </div>
           </div>
 
+          {/* Progress */}
           <div className="flex flex-col items-end w-16">
             <div className="text-[9px] font-black text-teal-600 mb-1">{getProgress()}%</div>
             <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -542,10 +561,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         </div>
 
         {/* Chat */}
-        <div
-          className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide"
-          style={{ paddingBottom: 220 }}
-        >
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide" style={{ paddingBottom: 220 }}>
           {messages.map((msg) => (
             <motion.div
               key={msg.id}
@@ -576,7 +592,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
             </div>
           )}
 
-          {/* Consent UI (only here; no duplicate question card elsewhere) */}
+          {/* Consent UI */}
           {step === "Q_CONSENT" && !isAsking && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -604,6 +620,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
                     <Mail size={18} className="text-slate-400" />
                     <span className="text-xs font-bold text-slate-700">E-posta</span>
                   </button>
+
                   <button
                     onClick={() => setContactMethod("whatsapp")}
                     className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl border border-slate-200 hover:border-teal-500 hover:bg-teal-50 transition-all bg-white"
@@ -631,9 +648,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
                   <label className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl cursor-pointer">
                     <div
                       className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                        consentGiven
-                          ? "bg-teal-500 border-teal-500"
-                          : "bg-white border-slate-300"
+                        consentGiven ? "bg-teal-500 border-teal-500" : "bg-white border-slate-300"
                       }`}
                     >
                       {consentGiven && <Check size={14} className="text-white" />}
@@ -684,7 +699,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Bottom options / processing */}
+        {/* Bottom area */}
         <div className="absolute left-0 right-0 bottom-0 p-4 border-t border-white/30 bg-white/40 backdrop-blur-md">
           <AnimatePresence mode="wait">
             {showOptions && currentCfg?.options && (
@@ -706,7 +721,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
                       disabled={selectedOption !== null || isTyping || isAsking}
                       className="text-[10px] text-slate-400 font-bold hover:text-teal-600 flex items-center gap-1 disabled:opacity-40"
                     >
-                      {currentCfg.skipLabel || "Atla"} <SkipForward size={10} />
+                      {currentCfg.skipLabel || "Şimdilik Atla"} <SkipForward size={10} />
                     </button>
                   )}
                 </div>
