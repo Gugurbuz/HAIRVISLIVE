@@ -30,6 +30,7 @@ type ChatStep =
   | "Q_GOAL"
   | "Q_HISTORY"
   | "Q_EXPECTATION"
+  | "LAYER_B_INTRO"
   | "Q_TIMELINE"
   | "Q_BUDGET"
   | "Q_LOCATION"
@@ -42,8 +43,8 @@ type Sender = "ai" | "user";
 
 type ChatMessage = {
   id: number;
-  text: string | React.ReactNode;
   sender: Sender;
+  text: string | React.ReactNode;
 };
 
 type ContactMethod = "email" | "whatsapp";
@@ -54,10 +55,10 @@ type AnalysisAnswers = {
   previousTransplant: "Yes" | "No";
   goal: "Frontal" | "Crown" | "Both";
   expectation: "Natural" | "Density" | "Recovery" | "";
-  timeline: string; // can be "Skipped"
-  budget: string; // can be "Skipped"
-  location: string; // can be "Skipped"
-  meds: string; // can be "Skipped"
+  timeline: string;
+  budget: string;
+  location: string;
+  meds: string;
   contact: string;
   consent: boolean;
   lang: LanguageCode;
@@ -71,41 +72,43 @@ type Option = {
 };
 
 type StepConfig = {
-  question: string;
-  key?: keyof AnalysisAnswers; // where to store answer
+  question?: string; // question shown in chat (AI)
+  key?: keyof AnalysisAnswers;
   options?: Option[];
   allowSkip?: boolean;
+  skipLabel?: string;
   skipValue?: string;
   next?: ChatStep;
-  // next can also be computed via function if needed
-  nextFn?: (value: string, current: AnalysisAnswers) => ChatStep;
 };
 
 const isValidEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
 const isValidPhoneLoose = (s: string) => s.trim().replace(/\s/g, "").length >= 7;
 
 const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) => {
-  // ---------- Messages ----------
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [step, setStep] = useState<ChatStep>("INIT");
+
+  // “Soru soruluyor mu?” => options bu sırada görünmesin
+  const [isAsking, setIsAsking] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
 
-  // ---------- Steps ----------
-  const [step, setStep] = useState<ChatStep>("INIT");
+  // seçim kilidi (double click / race)
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const lockedRef = useRef(false);
 
-  // ---------- Consent ----------
+  // Consent
   const [contactMethod, setContactMethod] = useState<ContactMethod | null>(null);
   const [contactValue, setContactValue] = useState("");
   const [consentGiven, setConsentGiven] = useState(false);
 
-  // ---------- Refs ----------
+  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const hasStartedRef = useRef(false);
   const msgIdRef = useRef(1);
+  const askedStepsRef = useRef<Set<ChatStep>>(new Set()); // StrictMode-safe guard
+  const hasStartedRef = useRef(false);
 
   const nextMsgId = () => msgIdRef.current++;
 
-  // ---------- Answers ----------
   const initialAnswers: AnalysisAnswers = useMemo(
     () => ({
       ageRange: "",
@@ -131,129 +134,150 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     answersRef.current = answers;
   }, [answers]);
 
-  // ---------- Step Config ----------
-  const steps: Record<Exclude<ChatStep, "INIT" | "PROCESSING" | "COMPLETE">, StepConfig> =
-    useMemo(
-      () => ({
-        Q_AGE: {
-          question: "Doğru simülasyon için yaş aralığınızı seçer misiniz?",
-          key: "ageRange",
-          options: [
-            { label: "18-25", value: "18-25", centered: true },
-            { label: "26-35", value: "26-35", centered: true },
-            { label: "36-45", value: "36-45", centered: true },
-            { label: "46+", value: "46+", centered: true },
-          ],
-          next: "Q_GENDER",
-        },
-        Q_GENDER: {
-          question: "Biyolojik cinsiyet (saç dökülme paterni için önemli).",
-          key: "gender",
-          options: [
-            { label: "Erkek", value: "Male", centered: true },
-            { label: "Kadın", value: "Female", centered: true },
-          ],
-          next: "Q_GOAL",
-        },
-        Q_GOAL: {
-          question: "Birincil hedefiniz hangi bölge?",
-          key: "goal",
-          options: [
-            {
-              label: "Ön Bölge / Saç Çizgisi",
-              value: "Frontal",
-              icon: <ChevronRight size={16} />,
-            },
-            {
-              label: "Tepe Bölgesi (Vertex)",
-              value: "Crown",
-              icon: <ChevronRight size={16} />,
-            },
-            {
-              label: "Genel / Her İkisi",
-              value: "Both",
-              icon: <ChevronRight size={16} />,
-            },
-          ],
-          next: "Q_HISTORY",
-        },
-        Q_HISTORY: {
-          question: "Daha önce saç ekimi yaptırdınız mı?",
-          key: "previousTransplant",
-          options: [
-            { label: "Hayır, ilk kez", value: "No", centered: true },
-            { label: "Evet", value: "Yes", centered: true },
-          ],
-          next: "Q_EXPECTATION",
-        },
-        Q_EXPECTATION: {
-          question: "Önceliğiniz nedir?",
-          key: "expectation",
-          options: [
-            { label: "Doğal görünüm", value: "Natural", icon: <Star size={14} /> },
-            { label: "Maksimum yoğunluk", value: "Density", icon: <Zap size={14} /> },
-            { label: "Minimal toparlanma", value: "Recovery", icon: <Activity size={14} /> },
-          ],
-          next: "Q_TIMELINE",
-        },
-        Q_TIMELINE: {
-          question: "Ne zaman başlamayı düşünüyorsunuz? (Opsiyonel)",
-          key: "timeline",
-          allowSkip: true,
-          skipValue: "Skipped",
-          options: [
-            { label: "Hemen", value: "ASAP", centered: true },
-            { label: "1-3 Ay", value: "1-3 Months", centered: true },
-            { label: "3-6 Ay", value: "3-6 Months", centered: true },
-            { label: "Sadece araştırıyorum", value: "Researching", centered: true },
-          ],
-          next: "Q_BUDGET",
-        },
-        Q_BUDGET: {
-          question: "Bütçe aralığı (Opsiyonel)",
-          key: "budget",
-          allowSkip: true,
-          skipValue: "Skipped",
-          options: [
-            { label: "Ekonomik (€1.5k - €2.5k)", value: "Economy" },
-            { label: "Standart (€2.5k - €4k)", value: "Standard" },
-            { label: "Premium (€4k+)", value: "Premium" },
-          ],
-          next: "Q_LOCATION",
-        },
-        Q_LOCATION: {
-          question: "Tercih ettiğiniz lokasyon (Opsiyonel)",
-          key: "location",
-          allowSkip: true,
-          skipValue: "Skipped",
-          options: [
-            { label: "Türkiye (Fiyat/Performans)", value: "Turkey", icon: <Globe size={14} /> },
-            { label: "Avrupa / UK", value: "Europe", icon: <MapPin size={14} /> },
-            { label: "Fark etmez", value: "Any", icon: <Check size={14} /> },
-          ],
-          next: "Q_MEDS",
-        },
-        Q_MEDS: {
-          question: "Şu an kullandığınız bir medikal ürün var mı? (Opsiyonel)",
-          key: "meds",
-          allowSkip: true,
-          skipValue: "Skipped",
-          options: [
-            { label: "Yok", value: "None" },
-            { label: "Minoxidil / Finasteride", value: "Meds", icon: <Pill size={14} /> },
-            { label: "Vitamin / Takviye", value: "Vitamins", icon: <Sparkles size={14} /> },
-          ],
-          next: "Q_CONSENT",
-        },
-        Q_CONSENT: {
-          question:
-            "İsterseniz raporu seçili klinik partnerlerle anonim olarak paylaşarak fiyat teklifi alabilirsiniz.",
-        },
-      }),
-      []
-    );
+  const steps: Record<ChatStep, StepConfig> = useMemo(
+    () => ({
+      INIT: {},
+      PROCESSING: {},
+      COMPLETE: {},
+      LAYER_B_INTRO: {
+        // sadece bilgi mesajı; option yok
+        question: "Harika. Klinik eşleşmesi için 3 kısa soru daha soracağım (opsiyonel).",
+        next: "Q_TIMELINE",
+      },
+      Q_AGE: {
+        question: "Doğru simülasyon için yaş aralığınızı seçer misiniz?",
+        key: "ageRange",
+        options: [
+          { label: "18-25", value: "18-25", centered: true },
+          { label: "26-35", value: "26-35", centered: true },
+          { label: "36-45", value: "36-45", centered: true },
+          { label: "46+", value: "46+", centered: true },
+        ],
+        next: "Q_GENDER",
+      },
+      Q_GENDER: {
+        question: "Biyolojik cinsiyet (saç dökülme paterni için önemli).",
+        key: "gender",
+        options: [
+          { label: "Erkek", value: "Male", centered: true },
+          { label: "Kadın", value: "Female", centered: true },
+        ],
+        next: "Q_GOAL",
+      },
+      Q_GOAL: {
+        question: "Birincil hedefiniz hangi bölge?",
+        key: "goal",
+        options: [
+          { label: "Ön Bölge / Saç Çizgisi", value: "Frontal", icon: <ChevronRight size={16} /> },
+          { label: "Tepe Bölgesi (Vertex)", value: "Crown", icon: <ChevronRight size={16} /> },
+          { label: "Genel / Her İkisi", value: "Both", icon: <ChevronRight size={16} /> },
+        ],
+        next: "Q_HISTORY",
+      },
+      Q_HISTORY: {
+        question: "Daha önce saç ekimi yaptırdınız mı?",
+        key: "previousTransplant",
+        options: [
+          { label: "Hayır, ilk kez", value: "No", centered: true },
+          { label: "Evet", value: "Yes", centered: true },
+        ],
+        next: "Q_EXPECTATION",
+      },
+      Q_EXPECTATION: {
+        question: "Önceliğiniz nedir?",
+        key: "expectation",
+        options: [
+          { label: "Doğal görünüm", value: "Natural", icon: <Star size={14} /> },
+          { label: "Maksimum yoğunluk", value: "Density", icon: <Zap size={14} /> },
+          { label: "Minimal toparlanma", value: "Recovery", icon: <Activity size={14} /> },
+        ],
+        next: "LAYER_B_INTRO",
+      },
+      Q_TIMELINE: {
+        question: "Operasyonu ne zaman planlıyorsunuz? (Opsiyonel)",
+        key: "timeline",
+        allowSkip: true,
+        skipLabel: "Şimdilik Atla",
+        skipValue: "Skipped",
+        options: [
+          { label: "Hemen (1 Ay)", value: "ASAP", centered: true },
+          { label: "1-3 Ay içinde", value: "1-3 Months", centered: true },
+          { label: "3-6 Ay Sonra", value: "3-6 Months", centered: true },
+          { label: "Henüz Araştırıyorum", value: "Researching", centered: true },
+        ],
+        next: "Q_BUDGET",
+      },
+      Q_BUDGET: {
+        question: "Bütçe aralığınız var mı? (Opsiyonel)",
+        key: "budget",
+        allowSkip: true,
+        skipLabel: "Şimdilik Atla",
+        skipValue: "Skipped",
+        options: [
+          { label: "Ekonomik (€1.5k - €2.5k)", value: "Economy" },
+          { label: "Standart (€2.5k - €4k)", value: "Standard" },
+          { label: "Premium (€4k+)", value: "Premium" },
+        ],
+        next: "Q_LOCATION",
+      },
+      Q_LOCATION: {
+        question: "Tercih ettiğiniz lokasyon var mı? (Opsiyonel)",
+        key: "location",
+        allowSkip: true,
+        skipLabel: "Şimdilik Atla",
+        skipValue: "Skipped",
+        options: [
+          { label: "Türkiye (Fiyat/Performans)", value: "Turkey", icon: <Globe size={14} /> },
+          { label: "Avrupa / UK", value: "Europe", icon: <MapPin size={14} /> },
+          { label: "Fark etmez", value: "Any", icon: <Check size={14} /> },
+        ],
+        next: "Q_MEDS",
+      },
+      Q_MEDS: {
+        question: "Şu an kullandığınız medikal ürün var mı? (Opsiyonel)",
+        key: "meds",
+        allowSkip: true,
+        skipLabel: "Şimdilik Atla",
+        skipValue: "Skipped",
+        options: [
+          { label: "Yok", value: "None" },
+          { label: "Minoxidil / Finasteride", value: "Meds", icon: <Pill size={14} /> },
+          { label: "Vitamin / Takviye", value: "Vitamins", icon: <Sparkles size={14} /> },
+        ],
+        next: "Q_CONSENT",
+      },
+      Q_CONSENT: {
+        question: "İsterseniz raporu anonim olarak seçili kliniklerle eşleştirip teklif alabilirsiniz.",
+      },
+    }),
+    []
+  );
 
-  // ---------- Progress ----------
+  const scrollToBottom = () => {
+    window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 60);
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isTyping, step, isAsking, contactMethod]);
+
+  const addAiMessage = (text: string | React.ReactNode, delay = 0) => {
+    setIsTyping(true);
+    return new Promise<void>((resolve) => {
+      window.setTimeout(() => {
+        setMessages((prev) => [...prev, { id: nextMsgId(), sender: "ai", text }]);
+        setIsTyping(false);
+        resolve();
+      }, Math.max(0, delay));
+    });
+  };
+
+  const addUserMessage = (text: string) => {
+    setMessages((prev) => [...prev, { id: nextMsgId(), sender: "user", text }]);
+  };
+
   const getProgress = () => {
     switch (step) {
       case "INIT":
@@ -268,16 +292,18 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         return 42;
       case "Q_EXPECTATION":
         return 52;
+      case "LAYER_B_INTRO":
+        return 58;
       case "Q_TIMELINE":
-        return 62;
+        return 66;
       case "Q_BUDGET":
-        return 70;
+        return 74;
       case "Q_LOCATION":
-        return 78;
+        return 82;
       case "Q_MEDS":
-        return 86;
+        return 88;
       case "Q_CONSENT":
-        return 92;
+        return 94;
       case "PROCESSING":
         return 98;
       case "COMPLETE":
@@ -287,113 +313,69 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     }
   };
 
-  const scrollToBottom = () => {
-    window.setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 60);
-  };
+  const headerStatus =
+    step === "Q_CONSENT" || step === "PROCESSING" || step === "COMPLETE"
+      ? "Finalizing"
+      : "Calibrating";
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, isTyping, step, contactMethod]);
-
-  // ---------- Message helpers ----------
-  const addAiMessage = (text: string | React.ReactNode, delay = 0, cb?: () => void) => {
-    setIsTyping(true);
-    window.setTimeout(() => {
-      setMessages((prev) => [...prev, { id: nextMsgId(), text, sender: "ai" }]);
-      setIsTyping(false);
-      cb?.();
-    }, Math.max(0, delay));
-  };
-
-  const addUserMessage = (text: string) => {
-    setMessages((prev) => [...prev, { id: nextMsgId(), text, sender: "user" }]);
-  };
-
-  // ---------- Deterministic step runner ----------
-  const runStep = (next: ChatStep) => {
-    // only one step visible at a time
+  // ----------------------------
+  // STEP ENGINE (StrictMode safe)
+  // ----------------------------
+  const goToStep = async (next: ChatStep) => {
+    lockedRef.current = false;
     setSelectedOption(null);
+    setContactMethod(null);
+    setContactValue("");
+    setConsentGiven(false);
 
-    if (next === "PROCESSING") {
-      setStep("PROCESSING");
+    // “ask phase” => options hide
+    setIsAsking(true);
+    setStep(next);
+
+    // already asked? never duplicate
+    if (askedStepsRef.current.has(next)) {
+      setIsAsking(false);
       return;
     }
-    if (next === "COMPLETE") {
-      setStep("COMPLETE");
+    askedStepsRef.current.add(next);
+
+    const cfg = steps[next];
+    if (cfg?.question) {
+      await addAiMessage(cfg.question, 350);
+    }
+
+    // If this step is a pure info step (LayerB intro), auto-advance
+    if (next === "LAYER_B_INTRO") {
+      const nxt = steps[next].next || "Q_TIMELINE";
+      // küçük bir nefes
+      window.setTimeout(() => {
+        void goToStep(nxt);
+      }, 350);
       return;
     }
 
-    // Ask question for that step first, then show options
-    const cfg = steps[next as Exclude<ChatStep, "INIT" | "PROCESSING" | "COMPLETE">];
-    if (!cfg) {
-      setStep(next);
-      return;
-    }
-
-    // show short processing flash for better rhythm
-    setStep("PROCESSING");
-    addAiMessage(cfg.question, 450, () => {
-      setStep(next);
-    });
+    setIsAsking(false);
   };
 
-  // ---------- Start flow ----------
+  // ----------------------------
+  // Start flow (only once)
+  // ----------------------------
   useEffect(() => {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
 
-    addAiMessage("Analiz motoru başlatılıyor…", 250);
-    addAiMessage("Görüntü paternleri çıkarılıyor…", 650, () => {
-      runStep("Q_AGE");
-    });
+    (async () => {
+      await addAiMessage("Analiz motoru başlatılıyor…", 250);
+      await addAiMessage("Görüntü paternleri çıkarılıyor…", 650);
+      await goToStep("Q_AGE");
+    })();
   }, []);
-
-  // ---------- Handle option selection ----------
-  const handleSelect = (value: string, isSkip = false) => {
-    const cfg = steps[step as Exclude<ChatStep, "INIT" | "PROCESSING" | "COMPLETE">];
-    if (!cfg) return;
-
-    // visual lock
-    if (!isSkip) setSelectedOption(value);
-    else setSelectedOption("SKIP_LOCK");
-
-    window.setTimeout(() => {
-      addUserMessage(isSkip ? "Atla" : prettyUserValue(step, value));
-
-      // persist answer if key exists
-      if (cfg.key) {
-        const key = cfg.key;
-
-        setAnswers((prev) => {
-          const updated = { ...prev, [key]: value } as AnalysisAnswers;
-          answersRef.current = updated;
-          return updated;
-        });
-      }
-
-      // Next step
-      if (step === "Q_MEDS") {
-        // go to consent
-        runStep("Q_CONSENT");
-        return;
-      }
-
-      const next =
-        cfg.nextFn?.(value, answersRef.current) ||
-        cfg.next ||
-        "Q_CONSENT";
-
-      runStep(next);
-    }, 220);
-  };
 
   const prettyUserValue = (s: ChatStep, v: string) => {
     if (s === "Q_GENDER") return v === "Male" ? "Erkek" : "Kadın";
     if (s === "Q_GOAL") {
       if (v === "Frontal") return "Ön Bölge / Saç Çizgisi";
-      if (v === "Crown") return "Tepe (Vertex)";
+      if (v === "Crown") return "Tepe Bölgesi (Vertex)";
       return "Genel / Her İkisi";
     }
     if (s === "Q_HISTORY") return v === "Yes" ? "Evet" : "Hayır";
@@ -402,25 +384,60 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
       if (v === "Density") return "Maksimum yoğunluk";
       return "Minimal toparlanma";
     }
-    if (s === "Q_BUDGET") {
-      if (v === "Economy") return "Ekonomik";
-      if (v === "Standard") return "Standart";
-      if (v === "Premium") return "Premium";
+    if (s === "Q_TIMELINE") {
+      if (v === "ASAP") return "Hemen (1 Ay)";
+      if (v === "1-3 Months") return "1-3 Ay içinde";
+      if (v === "3-6 Months") return "3-6 Ay Sonra";
+      if (v === "Researching") return "Henüz Araştırıyorum";
     }
     if (s === "Q_LOCATION") {
       if (v === "Turkey") return "Türkiye";
       if (v === "Europe") return "Avrupa / UK";
-      return "Fark etmez";
+      if (v === "Any") return "Fark etmez";
     }
     if (s === "Q_MEDS") {
       if (v === "None") return "Yok";
       if (v === "Meds") return "Minoxidil / Finasteride";
-      return "Vitamin / Takviye";
+      if (v === "Vitamins") return "Vitamin / Takviye";
     }
+    if (v === "Skipped") return "Şimdilik atladım";
     return v;
   };
 
-  // ---------- Consent ----------
+  const handleSelect = (value: string, isSkip = false) => {
+    if (lockedRef.current) return;
+    if (isAsking || isTyping) return;
+
+    lockedRef.current = true;
+    if (!isSkip) setSelectedOption(value);
+
+    const current = step;
+    const cfg = steps[current];
+
+    window.setTimeout(async () => {
+      // 1) user message in chat (NOT chips on the side)
+      addUserMessage(prettyUserValue(current, value));
+
+      // 2) save answer
+      if (cfg?.key) {
+        const k = cfg.key;
+        setAnswers((prev) => {
+          const updated = { ...prev, [k]: value } as AnalysisAnswers;
+          answersRef.current = updated;
+          return updated;
+        });
+      }
+
+      // 3) advance
+      const next = cfg?.next || "Q_CONSENT";
+      await goToStep(next);
+
+      lockedRef.current = false;
+      setSelectedOption(null);
+    }, 200);
+  };
+
+  // Consent
   const canSubmitConsent = () => {
     if (!contactMethod) return false;
     if (!consentGiven) return false;
@@ -429,12 +446,13 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     return isValidPhoneLoose(v);
   };
 
-  const finishFlow = (finalAnswers: AnalysisAnswers) => {
+  const finishFlow = async (finalAnswers: AnalysisAnswers) => {
     setStep("PROCESSING");
-    addAiMessage("Rapor hazırlanıyor…", 600, () => {
-      setStep("COMPLETE");
-      window.setTimeout(() => onComplete(finalAnswers), 650);
-    });
+    setIsAsking(true);
+    await addAiMessage("Rapor hazırlanıyor…", 450);
+    setIsAsking(false);
+    setStep("COMPLETE");
+    window.setTimeout(() => onComplete(finalAnswers), 650);
   };
 
   const handleConsentSubmit = () => {
@@ -453,7 +471,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     setAnswers(finalAnswers);
     answersRef.current = finalAnswers;
 
-    finishFlow(finalAnswers);
+    void finishFlow(finalAnswers);
   };
 
   const handleConsentSkip = () => {
@@ -468,24 +486,20 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
     setAnswers(finalAnswers);
     answersRef.current = finalAnswers;
 
-    finishFlow(finalAnswers);
+    void finishFlow(finalAnswers);
   };
 
-  // ---------- UI helpers ----------
-  const headerStatus =
-    step === "Q_CONSENT" || step === "PROCESSING" || step === "COMPLETE"
-      ? "Finalizing"
-      : "Calibrating";
-
   const currentCfg =
-    step !== "INIT" && step !== "PROCESSING" && step !== "COMPLETE"
-      ? steps[step as Exclude<ChatStep, "INIT" | "PROCESSING" | "COMPLETE">]
-      : null;
+    step !== "INIT" && step !== "PROCESSING" && step !== "COMPLETE" ? steps[step] : null;
 
   const showOptions =
-    step !== "INIT" && step !== "PROCESSING" && step !== "COMPLETE" && step !== "Q_CONSENT";
+    !!currentCfg?.options &&
+    step !== "Q_CONSENT" &&
+    step !== "LAYER_B_INTRO" &&
+    step !== "PROCESSING" &&
+    step !== "COMPLETE" &&
+    !isAsking;
 
-  // ---------- Render ----------
   return (
     <div className="w-full max-w-md relative flex flex-col h-[650px] font-sans mx-auto">
       {/* Background */}
@@ -515,7 +529,6 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
             </div>
           </div>
 
-          {/* Progress */}
           <div className="flex flex-col items-end w-16">
             <div className="text-[9px] font-black text-teal-600 mb-1">{getProgress()}%</div>
             <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
@@ -531,10 +544,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
         {/* Chat */}
         <div
           className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide"
-          style={{
-            // ✅ prevents bottom area overlap
-            paddingBottom: 220,
-          }}
+          style={{ paddingBottom: 220 }}
         >
           {messages.map((msg) => (
             <motion.div
@@ -566,8 +576,8 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
             </div>
           )}
 
-          {/* Consent block is in chat stream (clean UX) */}
-          {step === "Q_CONSENT" && (
+          {/* Consent UI (only here; no duplicate question card elsewhere) */}
+          {step === "Q_CONSENT" && !isAsking && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
@@ -647,36 +657,25 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
                     Teklif Al
                   </button>
 
-                  <p className="text-[10px] text-slate-400">
-                    {contactMethod === "email" && contactValue.trim() && !isValidEmail(contactValue)
-                      ? "Geçerli bir e-posta girin."
-                      : null}
-                    {contactMethod === "whatsapp" &&
-                    contactValue.trim() &&
-                    !isValidPhoneLoose(contactValue)
-                      ? "Geçerli bir telefon girin."
-                      : null}
-                  </p>
+                  <button
+                    onClick={() => {
+                      setContactMethod(null);
+                      setContactValue("");
+                      setConsentGiven(false);
+                    }}
+                    className="w-full text-center text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    Geri
+                  </button>
                 </div>
               )}
 
-              {!contactMethod ? (
+              {!contactMethod && (
                 <button
                   onClick={handleConsentSkip}
                   className="w-full text-center text-[10px] font-bold text-slate-400 hover:text-slate-600"
                 >
                   Hayır, sadece raporu göster
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setContactMethod(null);
-                    setContactValue("");
-                    setConsentGiven(false);
-                  }}
-                  className="w-full text-center text-[10px] font-bold text-slate-400 hover:text-slate-600"
-                >
-                  Geri
                 </button>
               )}
             </motion.div>
@@ -685,10 +684,9 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Bottom action area (only options/progress states) */}
+        {/* Bottom options / processing */}
         <div className="absolute left-0 right-0 bottom-0 p-4 border-t border-white/30 bg-white/40 backdrop-blur-md">
           <AnimatePresence mode="wait">
-            {/* OPTIONS */}
             {showOptions && currentCfg?.options && (
               <motion.div
                 key={`opts-${step}`}
@@ -705,15 +703,14 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
                   {currentCfg.allowSkip && (
                     <button
                       onClick={() => handleSelect(currentCfg.skipValue || "Skipped", true)}
-                      disabled={selectedOption !== null}
+                      disabled={selectedOption !== null || isTyping || isAsking}
                       className="text-[10px] text-slate-400 font-bold hover:text-teal-600 flex items-center gap-1 disabled:opacity-40"
                     >
-                      Atla <SkipForward size={10} />
+                      {currentCfg.skipLabel || "Atla"} <SkipForward size={10} />
                     </button>
                   )}
                 </div>
 
-                {/* grid only when centered options */}
                 {currentCfg.options.every((o) => o.centered) ? (
                   <div className="grid grid-cols-2 gap-2">
                     {currentCfg.options.map((opt) => (
@@ -721,10 +718,10 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
                         key={opt.value}
                         label={opt.label}
                         icon={opt.icon}
-                        onClick={() => handleSelect(opt.value)}
                         centered
                         selected={selectedOption === opt.value}
-                        disabled={selectedOption !== null}
+                        disabled={selectedOption !== null || isTyping || isAsking}
+                        onClick={() => handleSelect(opt.value, false)}
                       />
                     ))}
                   </div>
@@ -735,10 +732,10 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
                         key={opt.value}
                         label={opt.label}
                         icon={opt.icon}
-                        onClick={() => handleSelect(opt.value)}
                         centered={opt.centered}
                         selected={selectedOption === opt.value}
-                        disabled={selectedOption !== null}
+                        disabled={selectedOption !== null || isTyping || isAsking}
+                        onClick={() => handleSelect(opt.value, false)}
                       />
                     ))}
                   </div>
@@ -746,8 +743,7 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
               </motion.div>
             )}
 
-            {/* PROCESSING */}
-            {step === "PROCESSING" && !isTyping && (
+            {(step === "PROCESSING" || isAsking) && !isTyping && (
               <motion.div
                 key="processing"
                 initial={{ opacity: 0 }}
@@ -767,7 +763,6 @@ const AnalysisChatScreen: React.FC<AnalysisChatProps> = ({ onComplete, lang }) =
               </motion.div>
             )}
 
-            {/* COMPLETE */}
             {step === "COMPLETE" && (
               <motion.div
                 key="complete"
