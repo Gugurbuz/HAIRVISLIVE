@@ -68,7 +68,7 @@ const BeforeAfterSlider = ({
   className,
   beforeImage,
   afterImage,
-  autoPeriodMs = 4000,
+  autoPeriodMs = 4500, // Süreyi biraz artırdık ki yavaşlama daha net hissedilsin
 }: BeforeAfterSliderProps) => {
   const isRTL = lang === 'AR';
   const rafRef = useRef<number | null>(null);
@@ -83,13 +83,18 @@ const BeforeAfterSlider = ({
       }
 
       const t = ts / autoPeriodMs;
+      
+      // 1. Standart Sinüs Dalgası (-1 ile 1 arası)
       const s = Math.sin(t * Math.PI * 2); 
+
+      // 2. Hız Manipülasyonu (Easing)
+      // Sinüs değerinin kuvvetini (2.5) alarak 0'a yakın (orta) değerleri daha da küçültüyoruz.
+      // Bu işlem ortadaki değişimi yavaşlatır, kenarlara gidişi hızlandırır.
+      const eased = Math.sign(s) * Math.pow(Math.abs(s), 2.5);
+
+      // 3. Pozisyonlama (0 ile 100 arası)
+      const next = 50 + eased * 50; 
       
-      // GÜNCELLEME: * 50 yaparak tam 0 ve 100 aralığına gitmesini sağladık.
-      // (50 + (-1 * 50) = 0)  <-> (50 + (1 * 50) = 100)
-      const next = 50 + s * 50; 
-      
-      // Sınırları 0-100 arasında kesin tutalım
       setSliderPos(Math.max(0, Math.min(100, next)));
       
       rafRef.current = requestAnimationFrame(tick);
@@ -485,7 +490,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
                 lang={lang}
                 beforeImage={sliderBeforeUrl}
                 afterImage={sliderAfterUrl}
-                autoPeriodMs={4200}
+                autoPeriodMs={4500}
                 className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-none bg-white/50"
               />
             </motion.div>
