@@ -70,6 +70,11 @@ export const SAFE_VOCABULARY = {
       front: "Align face for frontal analysis",
       donor: "Capture donor area for density check"
     }
+  },
+  legal_disclaimers: {
+    processing: "I consent to the processing of my health-related images for visual analysis.",
+    not_medical: "I understand this is an informational visual simulation, NOT a medical diagnosis.",
+    privacy: "I agree to the Privacy Policy. (Data is encrypted and minimized)."
   }
 };
 
