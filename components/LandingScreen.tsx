@@ -19,8 +19,6 @@ import {
 import { translations, LanguageCode } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CLINICS_DATA, CATEGORIES, ClinicCategory } from '../data/clinics';
-
-// ✅ Supabase client import (path’i projene göre düzenle)
 import { supabase } from '../lib/supabase';
 
 interface LandingScreenProps {
@@ -32,10 +30,8 @@ interface LandingScreenProps {
 
 const LivingBackground = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden select-none z-0 bg-[#F7F8FA]">
-    {/* 1. Grid Pattern */}
     <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-    {/* 2. Living Teal Blob */}
     <motion.div
       animate={{
         scale: [1, 1.2, 1],
@@ -47,7 +43,6 @@ const LivingBackground = () => (
       className="absolute left-0 right-0 top-[-10%] m-auto h-[400px] w-[400px] rounded-full bg-teal-500 blur-[100px]"
     />
 
-    {/* 3. Living Indigo Blob */}
     <motion.div
       animate={{
         scale: [1, 1.3, 1],
@@ -65,8 +60,13 @@ type BeforeAfterSliderProps = {
   className?: string;
   beforeImage: string;
   afterImage: string;
-  auto?: boolean; // default true
-  autoPeriodMs?: number; // default 3800
+
+  auto?: boolean;          // default true
+  autoPeriodMs?: number;   // default 4200
+  pauseOnHover?: boolean;  // default true
+
+  featherEdge?: boolean;   // default true  (soft transition so it doesn't look like a frame)
+  featherPx?: number;      // default 22
 };
 
 const BeforeAfterSlider = ({
@@ -75,7 +75,10 @@ const BeforeAfterSlider = ({
   beforeImage,
   afterImage,
   auto = true,
-  autoPeriodMs = 3800,
+  autoPeriodMs = 4200,
+  pauseOnHover = true,
+  featherEdge = true,
+  featherPx = 22,
 }: BeforeAfterSliderProps) => {
   const isRTL = lang === 'AR';
 
@@ -99,7 +102,6 @@ const BeforeAfterSlider = ({
     setSliderPos(clamp(next, 0, 100));
   };
 
-  // --- Pointer drag (NO visible handle) ---
   const onPointerDown = (e: React.PointerEvent) => {
     draggingRef.current = true;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -115,23 +117,23 @@ const BeforeAfterSlider = ({
     draggingRef.current = false;
   };
 
-  // --- Auto “toggle wave” (smooth ping-pong) ---
+  // ✅ FULL RANGE AUTO: 0 ↔ 100 (true ping-pong)
   useEffect(() => {
     if (!auto) return;
 
-    const center = 50;
-    const amplitude = 22; // 50±22 => 28..72 (pleasant, avoids edges)
-    const minClamp = 12;
-    const maxClamp = 88;
-
     const tick = (ts: number) => {
-      // pause on hover or dragging
-      if (!hoverRef.current && !draggingRef.current && document.visibilityState === 'visible') {
+      const shouldPause =
+        document.visibilityState !== 'visible' ||
+        draggingRef.current ||
+        (pauseOnHover && hoverRef.current);
+
+      if (!shouldPause) {
         const t = ts / autoPeriodMs;
         const s = Math.sin(t * Math.PI * 2); // -1..1
-        const next = clamp(center + s * amplitude, minClamp, maxClamp);
-        setSliderPos(next);
+        const next = 50 + s * 50;            // 0..100
+        setSliderPos(clamp(next, 0, 100));
       }
+
       rafRef.current = requestAnimationFrame(tick);
     };
 
@@ -140,7 +142,10 @@ const BeforeAfterSlider = ({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-  }, [auto, autoPeriodMs]);
+  }, [auto, autoPeriodMs, pauseOnHover]);
+
+  // BEFORE clip
+  const clip = `inset(0 ${isRTL ? 0 : 100 - sliderPos}% 0 ${isRTL ? sliderPos : 0}%)`;
 
   return (
     <div
@@ -158,7 +163,7 @@ const BeforeAfterSlider = ({
       aria-label="Before and After comparison"
       role="application"
     >
-      {/* AFTER (base layer) — ✅ NO overlays, NO guides */}
+      {/* AFTER (base layer) — ✅ NO overlays */}
       <div className="absolute inset-0">
         <img
           src={afterImage}
@@ -170,12 +175,10 @@ const BeforeAfterSlider = ({
         />
       </div>
 
-      {/* BEFORE (clipped layer) — ✅ no border/frame overlays */}
+      {/* BEFORE (clipped layer) — ✅ NO bg-white frame */}
       <div
-        className="absolute inset-0 z-20 overflow-hidden pointer-events-none bg-white"
-        style={{
-          clipPath: `inset(0 ${isRTL ? 0 : 100 - sliderPos}% 0 ${isRTL ? sliderPos : 0}%)`,
-        }}
+        className="absolute inset-0 z-20 overflow-hidden pointer-events-none"
+        style={{ clipPath: clip }}
       >
         <img
           src={beforeImage}
@@ -185,9 +188,23 @@ const BeforeAfterSlider = ({
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
         />
+
+        {/* ✅ Soft feather at the cut edge so it doesn't look like a “frame” */}
+        {featherEdge && (
+          <div
+            className="absolute top-0 bottom-0 pointer-events-none"
+            style={{
+              width: `${featherPx}px`,
+              // Feather must sit on the moving edge:
+              ...(isRTL
+                ? { right: 0, background: 'linear-gradient(to left, rgba(14,26,43,0.00), rgba(14,26,43,0.08))' }
+                : { left: 'auto', right: 0, background: 'linear-gradient(to right, rgba(14,26,43,0.00), rgba(14,26,43,0.08))' }),
+            }}
+          />
+        )}
       </div>
 
-      {/* Divider line — ✅ HairVis teal + soft glow, ✅ NO knob/handle */}
+      {/* Divider line — ✅ teal glow, ✅ NO knob */}
       <div className="absolute inset-0 z-30 pointer-events-none">
         {/* outer glow */}
         <div
@@ -205,13 +222,13 @@ const BeforeAfterSlider = ({
             [isRTL ? 'right' : 'left']: `${sliderPos}%`,
             transform: 'translateX(-50%)',
             background:
-              'linear-gradient(to bottom, rgba(20,184,166,0.15), rgba(20,184,166,0.95), rgba(20,184,166,0.15))',
+              'linear-gradient(to bottom, rgba(20,184,166,0.10), rgba(20,184,166,0.98), rgba(20,184,166,0.10))',
             boxShadow: '0 0 18px rgba(20,184,166,0.55), 0 0 42px rgba(20,184,166,0.25)',
           } as React.CSSProperties}
         />
       </div>
 
-      {/* Invisible interactive layer (keeps cursor affordance) */}
+      {/* Invisible interactive layer */}
       <div className="absolute inset-0 z-40 cursor-ew-resize" />
     </div>
   );
@@ -457,13 +474,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // ============================================================
-  // ✅ SUPABASE STORAGE PUBLIC URLS
-  // Bucket: public-assets
-  // Paths:
-  //   landing/slider/before.webp
-  //   landing/slider/after.webp
-  // ============================================================
+  // Supabase Storage public URLs
   const SLIDER_BUCKET = 'public-assets';
   const SLIDER_BEFORE_PATH = 'landing/slider/before.webp';
   const SLIDER_AFTER_PATH = 'landing/slider/after.webp';
@@ -483,9 +494,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
       <LivingBackground />
 
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
-        {/* --- HERO SECTION (Split Layout) --- */}
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
-          {/* Left Column */}
           <div className="text-left space-y-8 order-2 lg:order-1">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
@@ -530,7 +539,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
             </motion.div>
           </div>
 
-          {/* Right Column: Visual Anchor */}
           <div className="order-1 lg:order-2 relative">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[80px] rounded-full pointer-events-none" />
 
@@ -540,20 +548,21 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
               transition={{ duration: 0.8 }}
               className="relative z-10"
             >
-              {/* ✅ AUTO TOGGLE WAVE + DRAG + NO HANDLE + TEAL GLOW LINE + NO AFTER OVERLAYS */}
               <BeforeAfterSlider
                 lang={lang}
                 beforeImage={sliderBeforeUrl}
                 afterImage={sliderAfterUrl}
                 auto={true}
-                autoPeriodMs={3800}
+                autoPeriodMs={4200}
+                pauseOnHover={true}
+                featherEdge={true}
+                featherPx={22}
                 className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-4 border-white"
               />
             </motion.div>
           </div>
         </div>
 
-        {/* Showcase */}
         <div ref={showcaseRef} className="max-w-7xl mx-auto grid md:grid-cols-3 gap-8 scroll-mt-32 mb-32">
           <ShowcaseCard
             step="01"
@@ -581,7 +590,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           />
         </div>
 
-        {/* REPORT PREVIEW SECTION */}
         <div className="max-w-7xl mx-auto mb-32">
           <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[120px] pointer-events-none" />
@@ -678,13 +686,11 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           </div>
         </div>
 
-        {/* Partner Clinics */}
         <div className="mb-32">
           <TopClinics onViewDetail={onVisitClinic} onBrowseDirectory={onBrowseDirectory} />
         </div>
       </div>
 
-      {/* Sticky Mobile CTA */}
       <AnimatePresence>
         {showStickyCTA && (
           <motion.div
