@@ -433,7 +433,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
-          <div className="text-left space-y-8 order-2 lg:order-1">
+          <div className="text-left space-y-8 order-1 lg:order-1">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -477,7 +477,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
             </motion.div>
           </div>
 
-          <div className="order-1 lg:order-2 relative">
+          <div className="order-2 lg:order-2 relative">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[80px] rounded-full pointer-events-none" />
 
             <motion.div
