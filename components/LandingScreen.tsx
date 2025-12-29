@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ChevronRight,
@@ -19,7 +20,6 @@ import {
 import { translations, LanguageCode } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CLINICS_DATA, CATEGORIES, ClinicCategory } from '../data/clinics';
-import { supabase } from '../lib/supabase';
 
 interface LandingScreenProps {
   onStart: () => void;
@@ -68,7 +68,7 @@ const BeforeAfterSlider = ({
   className,
   beforeImage,
   afterImage,
-  autoPeriodMs = 4500, // Süreyi biraz artırdık ki yavaşlama daha net hissedilsin
+  autoPeriodMs = 4500, 
 }: BeforeAfterSliderProps) => {
   const isRTL = lang === 'AR';
   const rafRef = useRef<number | null>(null);
@@ -88,8 +88,6 @@ const BeforeAfterSlider = ({
       const s = Math.sin(t * Math.PI * 2); 
 
       // 2. Hız Manipülasyonu (Easing)
-      // Sinüs değerinin kuvvetini (2.5) alarak 0'a yakın (orta) değerleri daha da küçültüyoruz.
-      // Bu işlem ortadaki değişimi yavaşlatır, kenarlara gidişi hızlandırır.
       const eased = Math.sign(s) * Math.pow(Math.abs(s), 2.5);
 
       // 3. Pozisyonlama (0 ile 100 arası)
@@ -412,88 +410,108 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Supabase Storage public URLs
-  const SLIDER_BUCKET = 'public-assets';
-  const SLIDER_BEFORE_PATH = 'landing/slider/before.webp';
-  const SLIDER_AFTER_PATH = 'landing/slider/after.webp';
-
-  const sliderBeforeUrl = useMemo(() => {
-    const { data } = supabase.storage.from(SLIDER_BUCKET).getPublicUrl(SLIDER_BEFORE_PATH);
-    return data.publicUrl;
-  }, []);
-
-  const sliderAfterUrl = useMemo(() => {
-    const { data } = supabase.storage.from(SLIDER_BUCKET).getPublicUrl(SLIDER_AFTER_PATH);
-    return data.publicUrl;
-  }, []);
+  const sliderBeforeUrl = "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&q=80&w=1000";
+  const sliderAfterUrl = "https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1000";
 
   return (
     <div className={`relative w-full min-h-screen ${isRTL ? 'text-right' : 'text-left'}`}>
       <LivingBackground />
 
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
-        <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
-          <div className="text-left space-y-8 order-2 lg:order-1">
-            <motion.h1
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="text-6xl md:text-8xl font-black text-[#0E1A2B] tracking-tighter leading-[0.9]"
+        <div className="max-w-7xl mx-auto relative z-10">
+          
+          {/* MOBILE HEADLINE - Visible only on mobile */}
+          <div className="lg:hidden text-left mb-8 space-y-4">
+             <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-5xl font-black text-[#0E1A2B] tracking-tighter leading-[0.95]"
             >
               {t.heroTitle1} <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-blue-600">
                 {t.heroTitle2}
               </span>
             </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="max-w-xl text-slate-500 text-lg md:text-xl font-light leading-relaxed"
-            >
-              {t.heroDesc}
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-col sm:flex-row items-start gap-4"
-            >
-              <button
-                onClick={onStart}
-                className="px-10 py-5 bg-[#0E1A2B] text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-teal-500 hover:text-white transition-all shadow-2xl shadow-slate-900/20 flex items-center gap-3 group"
-              >
-                {t.startBtn} <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-
-              <button
-                onClick={scrollToShowcase}
-                className="px-10 py-5 bg-white text-[#0E1A2B] border border-slate-200 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-slate-50 transition-all flex items-center gap-3"
-              >
-                <Microscope className="w-4 h-4" /> {t.methodBtn}
-              </button>
-            </motion.div>
           </div>
 
-          <div className="order-1 lg:order-2 relative">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[80px] rounded-full pointer-events-none" />
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32">
+            
+            {/* TEXT COLUMN - On mobile, this comes AFTER the slider (Order 2) */}
+            <div className="text-left space-y-8 order-2 lg:order-1">
+              {/* DESKTOP HEADLINE - Visible only on desktop */}
+              <motion.h1
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 }}
+                className="hidden lg:block text-6xl md:text-8xl font-black text-[#0E1A2B] tracking-tighter leading-[0.9]"
+              >
+                {t.heroTitle1} <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 to-blue-600">
+                  {t.heroTitle2}
+                </span>
+              </motion.h1>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.8 }}
-              className="relative z-10"
-            >
-              <BeforeAfterSlider
-                lang={lang}
-                beforeImage={sliderBeforeUrl}
-                afterImage={sliderAfterUrl}
-                autoPeriodMs={4500}
-                className="w-full h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-none bg-white/50"
-              />
-            </motion.div>
+              <motion.p
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="max-w-xl text-slate-500 text-lg md:text-xl font-light leading-relaxed"
+              >
+                {t.heroDesc}
+              </motion.p>
+
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+                className="flex flex-col items-start gap-6"
+              >
+                <div className="flex flex-col sm:flex-row items-start gap-4 w-full sm:w-auto">
+                  <button
+                    onClick={onStart}
+                    className="w-full sm:w-auto px-10 py-5 bg-[#0E1A2B] text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-teal-500 hover:text-white transition-all shadow-2xl shadow-slate-900/20 flex items-center justify-center sm:justify-start gap-3 group"
+                  >
+                    {t.startBtn} <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+
+                  <button
+                    onClick={scrollToShowcase}
+                    className="w-full sm:w-auto px-10 py-5 bg-white text-[#0E1A2B] border border-slate-200 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-slate-50 transition-all flex items-center justify-center sm:justify-start gap-3"
+                  >
+                    <Microscope className="w-4 h-4" /> {t.methodBtn}
+                  </button>
+                </div>
+                
+                {/* MICROCOPY */}
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5"><CheckCircle2 size={12} className="text-teal-500" /> No signup</div>
+                    <div className="hidden sm:block w-1 h-1 bg-slate-300 rounded-full" />
+                    <div className="flex items-center gap-1.5"><CheckCircle2 size={12} className="text-teal-500" /> One analysis</div>
+                    <div className="hidden sm:block w-1 h-1 bg-slate-300 rounded-full" />
+                    <div className="flex items-center gap-1.5"><CheckCircle2 size={12} className="text-teal-500" /> No repeated photo sharing</div>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* SLIDER COLUMN - On mobile, this comes BEFORE the text column (Order 1) */}
+            <div className="order-1 lg:order-2 relative">
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[80px] rounded-full pointer-events-none" />
+
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.8 }}
+                className="relative z-10"
+              >
+                <BeforeAfterSlider
+                  lang={lang}
+                  beforeImage={sliderBeforeUrl}
+                  afterImage={sliderAfterUrl}
+                  autoPeriodMs={4500}
+                  className="w-full h-[400px] sm:h-[520px] md:h-[640px] rounded-[2.5rem] md:rounded-[3.5rem] shadow-2xl border-none bg-white/50"
+                />
+              </motion.div>
+            </div>
           </div>
         </div>
 
