@@ -23,6 +23,7 @@ import { ScalpImages } from './geminiService';
 import { secureGeminiService } from './lib/geminiService';
 import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { AnimatePresence, motion } from 'framer-motion';
+import TypeSelectionScreen from './components/TypeSelectionScreen';
 
 type AppState =
   | 'LANDING'
