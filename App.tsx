@@ -71,7 +71,14 @@ const App: React.FC = () => {
         await (window as any).aistudio.openSelectKey();
       }
     }
-    setAppState('PRE_SCAN');
+    setAppState('SELECT_TYPE'); // Go to Type Selection instead of PreScan
+  };
+
+  const handleTypeSelection = (type: string) => {
+      // Currently only supporting 'hair' effectively
+      if (type === 'hair') {
+          setAppState('PRE_SCAN');
+      }
   };
 
   const handleScanComplete = (photos: any[], skip: boolean = false) => {
@@ -403,7 +410,14 @@ const App: React.FC = () => {
               onNavigate={(page: string) => setAppState(page as AppState)}
             />
           )}
-
+     {/* NEW TYPE SELECTION SCREEN */}
+        {appState === 'SELECT_TYPE' && (
+            <TypeSelectionScreen 
+                lang={lang}
+                onBack={() => setAppState('LANDING')}
+                onSelect={handleTypeSelection}
+            />
+        )}
           {appState === 'PATIENT_PORTAL' && <PatientPortalScreen lang={lang} onExit={() => setAppState('LANDING')} />}
 
           {appState === 'CLINIC_LANDING' && (
