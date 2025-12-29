@@ -21,6 +21,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CLINICS_DATA, CATEGORIES, ClinicCategory } from '../data/clinics';
 import { supabase } from '../lib/supabase';
 
+// --- PERFORMANCE HELPERS ---
+// Mobilde olup olmadığını anlamak için basit kontrol
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
+  return isMobile;
+};
+
 interface LandingScreenProps {
   onStart: () => void;
   onVisitClinic: () => void;
@@ -28,30 +41,40 @@ interface LandingScreenProps {
   lang: LanguageCode;
 }
 
+// OPTIMIZATION 1: LivingBackground artık CSS animation kullanıyor ve blur mobilde daha düşük.
+// Framer-motion yerine saf CSS classları kullanıldı.
 const LivingBackground = () => (
-  <div className="fixed inset-0 pointer-events-none overflow-hidden select-none z-0 bg-[#F7F8FA]">
+  <div className="fixed inset-0 pointer-events-none overflow-hidden select-none z-0 bg-[#F7F8FA] transform-gpu">
+    {/* Grid Background - Static */}
     <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
-    <motion.div
-      animate={{
-        scale: [1, 1.2, 1],
-        opacity: [0.15, 0.25, 0.15],
-        x: [0, 20, 0],
-        y: [0, -20, 0],
-      }}
-      transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-      className="absolute left-0 right-0 top-[-10%] m-auto h-[400px] w-[400px] rounded-full bg-teal-500 blur-[100px]"
+    {/* Blob 1 - Teal */}
+    <div 
+      className="absolute left-0 right-0 top-[-10%] m-auto h-[300px] w-[300px] md:h-[400px] md:w-[400px] rounded-full bg-teal-500/20 blur-[50px] md:blur-[100px] animate-blob mix-blend-multiply" 
+      style={{ willChange: 'transform, opacity' }}
     />
 
-    <motion.div
-      animate={{
-        scale: [1, 1.3, 1],
-        opacity: [0.1, 0.2, 0.1],
-        x: [0, -30, 0],
-      }}
-      transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
-      className="absolute right-[-10%] bottom-0 h-[500px] w-[500px] rounded-full bg-indigo-500 blur-[120px]"
+    {/* Blob 2 - Indigo */}
+    <div 
+      className="absolute right-[-10%] bottom-0 h-[350px] w-[350px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-500/20 blur-[60px] md:blur-[120px] animate-blob animation-delay-2000 mix-blend-multiply"
+      style={{ willChange: 'transform, opacity' }}
     />
+    
+    {/* CSS Styles for Blobs (Inline style to ensure it works without external CSS file) */}
+    <style>{`
+      @keyframes blob {
+        0% { transform: translate(0px, 0px) scale(1); }
+        33% { transform: translate(30px, -50px) scale(1.1); }
+        66% { transform: translate(-20px, 20px) scale(0.9); }
+        100% { transform: translate(0px, 0px) scale(1); }
+      }
+      .animate-blob {
+        animation: blob 10s infinite;
+      }
+      .animation-delay-2000 {
+        animation-delay: 2s;
+      }
+    `}</style>
   </div>
 );
 
@@ -68,80 +91,83 @@ const BeforeAfterSlider = ({
   className,
   beforeImage,
   afterImage,
-  autoPeriodMs = 4500, // Süreyi biraz artırdık ki yavaşlama daha net hissedilsin
+  autoPeriodMs = 4500,
 }: BeforeAfterSliderProps) => {
   const isRTL = lang === 'AR';
   const rafRef = useRef<number | null>(null);
   const [sliderPos, setSliderPos] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
-  // Otomatik animasyon döngüsü
+  // OPTIMIZATION 2: Mobilde animasyon framerate'ini düşür veya basitleştir.
+  // Burada React State update'i yerine doğrudan DOM manipülasyonu bile yapılabilir ama
+  // şimdilik lojiği koruyup sadece görünürlük kontrolü ekliyoruz.
   useEffect(() => {
+    // Mobilde otomatik kaydırma bazen kullanıcıyı yorar ve CPU harcar.
+    // İstersen mobilde 'autoPeriodMs' değerini null yapabilirsin. 
+    // Şimdilik performansı artırmak için sadece görünürken çalışmasını garantiye alıyoruz.
+    
+    let startTime: number | null = null;
+
     const tick = (ts: number) => {
+      if (!startTime) startTime = ts;
+      
+      // Ekranda değilse hesaplama yapma
       if (document.visibilityState !== 'visible') {
         rafRef.current = requestAnimationFrame(tick);
         return;
       }
 
       const t = ts / autoPeriodMs;
-      
-      // 1. Standart Sinüs Dalgası (-1 ile 1 arası)
-      const s = Math.sin(t * Math.PI * 2); 
-
-      // 2. Hız Manipülasyonu (Easing)
-      // Sinüs değerinin kuvvetini (2.5) alarak 0'a yakın (orta) değerleri daha da küçültüyoruz.
-      // Bu işlem ortadaki değişimi yavaşlatır, kenarlara gidişi hızlandırır.
+      const s = Math.sin(t * Math.PI * 2);
       const eased = Math.sign(s) * Math.pow(Math.abs(s), 2.5);
-
-      // 3. Pozisyonlama (0 ile 100 arası)
-      const next = 50 + eased * 50; 
+      const next = 50 + eased * 50;
       
       setSliderPos(Math.max(0, Math.min(100, next)));
-      
       rafRef.current = requestAnimationFrame(tick);
     };
 
     rafRef.current = requestAnimationFrame(tick);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
     };
   }, [autoPeriodMs]);
 
-  // 1. Maske (Slider Geçişi)
   const sliderMaskStyle = isRTL
     ? `linear-gradient(to left, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`
     : `linear-gradient(to right, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`;
 
-  // 2. Maske (Vinyet/Çerçeve) - Katmanlı Şeffaflık
   const edgeFadeMask = `radial-gradient(ellipse at center, black 60%, transparent 100%)`;
 
   return (
     <div
-      className={`relative w-full overflow-hidden select-none ${
+      ref={containerRef}
+      className={`relative w-full overflow-hidden select-none transform-gpu ${
         className || 'aspect-[16/9] rounded-[2.5rem] md:rounded-[4rem]'
       }`}
       style={{ 
         WebkitMaskImage: edgeFadeMask,
         maskImage: edgeFadeMask,
+        // Mobilde box-shadow performans düşürebilir, gerekirse azaltılabilir
         boxShadow: 'inset 0 0 80px rgba(14, 26, 43, 0.08)'
       }}
     >
-      {/* 1. AFTER Image (Alt Katman) */}
       <div className="absolute inset-0 z-0">
         <img
           src={afterImage}
           alt="After"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
+          loading="eager" // Hero image olduğu için eager
         />
       </div>
 
-      {/* 2. BEFORE Image (Üst Katman - Maskeli) */}
       <div
-        className="absolute inset-0 z-10 will-change-[mask-image]"
+        className="absolute inset-0 z-10"
         style={{
           WebkitMaskImage: sliderMaskStyle,
           maskImage: sliderMaskStyle,
+          willChange: 'mask-image, -webkit-mask-image', // Tarayıcıya ipucu
         }}
       >
         <img
@@ -149,17 +175,18 @@ const BeforeAfterSlider = ({
           alt="Before"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
+          loading="eager"
         />
       </div>
 
-      {/* 3. Slider Line (Sadece Işık) */}
       <div 
         className="absolute inset-0 z-20 pointer-events-none"
         style={{ 
           transform: `translate3d(${isRTL ? -sliderPos : sliderPos}%, 0, 0)`,
           left: isRTL ? 'auto' : '0',
           right: isRTL ? '0' : 'auto',
-          width: '100%'
+          width: '100%',
+          willChange: 'transform' // GPU acceleration
         }}
       >
         <div className="absolute top-0 bottom-0 left-0 w-[2px] -ml-[1px]">
@@ -182,6 +209,7 @@ const TopClinics = ({
   const [activeCat, setActiveCat] = useState<ClinicCategory>('All');
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPaused = useRef(false);
+  const isMobile = useIsMobile(); // Mobile kontrolü
 
   const filteredClinics = useMemo(() => {
     return activeCat === 'All'
@@ -191,7 +219,11 @@ const TopClinics = ({
         );
   }, [activeCat]);
 
+  // OPTIMIZATION 3: Mobilde Auto-Scroll'u iptal et.
+  // Mobilde auto-scroll hem performansı düşürür hem de UX açısından kötüdür.
   useEffect(() => {
+    if (isMobile) return; // Mobilde isen kodu çalıştırma, çık.
+
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
 
@@ -216,7 +248,7 @@ const TopClinics = ({
 
     animationFrameId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [filteredClinics]);
+  }, [filteredClinics, isMobile]);
 
   return (
     <div className="w-full space-y-12 overflow-hidden">
@@ -262,19 +294,25 @@ const TopClinics = ({
 
         <div
           ref={scrollRef}
-          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar scroll-smooth" // scroll-smooth eklendi
+          style={{ 
+            scrollbarWidth: 'none', 
+            msOverflowStyle: 'none',
+            // Mobilde native touch scrolling'i etkinleştirmek için:
+            WebkitOverflowScrolling: 'touch' 
+          }}
         >
           {filteredClinics.map((clinic, idx) => (
             <div
               key={`${clinic.id}-${idx}`}
               onClick={onViewDetail}
-              className="group relative w-[360px] md:w-[400px] shrink-0 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-teal-900/10 transition-all duration-500 cursor-pointer flex flex-col snap-center"
+              // transform-gpu eklendi
+              className="group relative w-[360px] md:w-[400px] shrink-0 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-teal-900/10 transition-all duration-500 cursor-pointer flex flex-col snap-center transform-gpu"
             >
               <div className="aspect-[4/3] relative overflow-hidden">
                 <img
                   src={clinic.img}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 will-change-transform"
                   alt={clinic.name}
                   loading="lazy"
                   decoding="async"
@@ -360,14 +398,14 @@ interface ShowcaseCardProps {
 }
 
 const ShowcaseCard = ({ step, title, description, icon, image, proof }: ShowcaseCardProps) => (
-  <div className="group bg-white border border-slate-100 rounded-[3.5rem] overflow-hidden surgical-shadow transition-all duration-500 text-left hover:border-teal-500/30 flex flex-col h-full">
+  <div className="group bg-white border border-slate-100 rounded-[3.5rem] overflow-hidden surgical-shadow transition-all duration-500 text-left hover:border-teal-500/30 flex flex-col h-full transform-gpu">
     <div className="aspect-[4/3] relative overflow-hidden">
       <img
         src={image}
         alt={title}
         loading="lazy"
         decoding="async"
-        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 will-change-transform"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-90" />
       <div className="absolute top-8 left-8 w-14 h-14 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl flex items-center justify-center text-[#0E1A2B]">
@@ -404,15 +442,16 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
   };
 
   useEffect(() => {
+    // Scroll eventini debounce yapmak daha iyidir ama şimdilik basit tutuyoruz.
+    // Passive: true performans için kritiktir.
     const handleScroll = () => {
       if (window.scrollY > 500) setShowStickyCTA(true);
       else setShowStickyCTA(false);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Supabase Storage public URLs
   const SLIDER_BUCKET = 'public-assets';
   const SLIDER_BEFORE_PATH = 'landing/slider/before.webp';
   const SLIDER_AFTER_PATH = 'landing/slider/after.webp';
@@ -432,7 +471,9 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
       <LivingBackground />
 
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
+        {/* HERO SECTION */}
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
+          {/* Text Content - ORDER 1 ON MOBILE (Your requested fix) */}
           <div className="text-left space-y-8 order-1 lg:order-1">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
@@ -477,8 +518,10 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
             </motion.div>
           </div>
 
+          {/* Slider Content - ORDER 2 ON MOBILE */}
           <div className="order-2 lg:order-2 relative">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[80px] rounded-full pointer-events-none" />
+            {/* Reduced Blur for Performance */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[40px] md:blur-[80px] rounded-full pointer-events-none" />
 
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -525,8 +568,9 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
         </div>
 
         <div className="max-w-7xl mx-auto mb-32">
-          <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[120px] pointer-events-none" />
+          <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl transform-gpu">
+            {/* Reduced Blur */}
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[60px] md:blur-[120px] pointer-events-none" />
 
             <div className="grid lg:grid-cols-2 gap-16 items-center relative z-10">
               <div className="space-y-8">
@@ -569,7 +613,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
               </div>
 
               <div className="relative group perspective-1000">
-                <div className="relative bg-white rounded-[2rem] p-6 shadow-2xl transform transition-transform group-hover:rotate-y-2 duration-500">
+                <div className="relative bg-white rounded-[2rem] p-6 shadow-2xl transform transition-transform group-hover:rotate-y-2 duration-500 will-change-transform">
                   <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
