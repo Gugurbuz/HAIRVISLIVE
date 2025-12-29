@@ -40,6 +40,14 @@ export interface Language {
     view: string;
     loading: string;
   };
+  typeSelection: {
+    title: string;
+    subtitle: string;
+    hair: string;
+    beard: string;
+    eyebrow: string;
+    comingSoon: string;
+  };
   blog: {
     title: string;
     latest: string;
@@ -202,6 +210,14 @@ export const translations: Record<LanguageCode, Language> = {
       view: "View",
       loading: "Loading..."
     },
+    typeSelection: {
+      title: "Choose Analysis Type",
+      subtitle: "Select the area you would like to visualize and estimate.",
+      hair: "Hair Transplant",
+      beard: "Beard Transplant",
+      eyebrow: "Eyebrow Transplant",
+      comingSoon: "Coming Soon"
+    },
     blog: {
       title: "Knowledge Hub",
       latest: "Latest Articles",
@@ -361,6 +377,14 @@ export const translations: Record<LanguageCode, Language> = {
       clear: "Temizle",
       view: "Görüntüle",
       loading: "Yükleniyor..."
+    },
+    typeSelection: {
+      title: "Analiz Türünü Seçin",
+      subtitle: "Görselleştirmek ve analiz etmek istediğiniz alanı seçin.",
+      hair: "Saç Ekimi",
+      beard: "Sakal Ekimi",
+      eyebrow: "Kaş Ekimi",
+      comingSoon: "Yakında"
     },
     blog: {
       title: "Bilgi Merkezi",
@@ -522,6 +546,14 @@ export const translations: Record<LanguageCode, Language> = {
       view: "Ansehen",
       loading: "Laden..."
     },
+    typeSelection: {
+      title: "Analysetyp wählen",
+      subtitle: "Wählen Sie den Bereich, den Sie visualisieren möchten.",
+      hair: "Haartransplantation",
+      beard: "Barttransplantation",
+      eyebrow: "Augenbrauentransplantation",
+      comingSoon: "Demnächst"
+    },
     blog: {
       title: "Wissensdatenbank",
       latest: "Neueste Artikel",
@@ -681,6 +713,14 @@ export const translations: Record<LanguageCode, Language> = {
       clear: "Effacer",
       view: "Voir",
       loading: "Chargement..."
+    },
+    typeSelection: {
+      title: "Choisissez le type d'analyse",
+      subtitle: "Sélectionnez la zone que vous souhaitez visualiser.",
+      hair: "Greffe de cheveux",
+      beard: "Greffe de barbe",
+      eyebrow: "Greffe de sourcils",
+      comingSoon: "Bientôt disponible"
     },
     blog: {
       title: "Centre de Connaissances",
@@ -842,6 +882,14 @@ export const translations: Record<LanguageCode, Language> = {
       view: "Widok",
       loading: "Ładowanie..."
     },
+    typeSelection: {
+      title: "Wybierz typ analizy",
+      subtitle: "Wybierz obszar, który chcesz zwizualizować.",
+      hair: "Przeszczep włosów",
+      beard: "Przeszczep brody",
+      eyebrow: "Przeszczep brwi",
+      comingSoon: "Wkrótce"
+    },
     blog: {
       title: "Centrum Wiedzy",
       latest: "Najnowsze Artykuły",
@@ -1001,6 +1049,14 @@ export const translations: Record<LanguageCode, Language> = {
       clear: "مسح",
       view: "عرض",
       loading: "جار التحميل..."
+    },
+    typeSelection: {
+      title: "اختر نوع التحليل",
+      subtitle: "اختر المنطقة التي ترغب في معاينتها وتقديرها.",
+      hair: "زراعة الشعر",
+      beard: "زراعة اللحية",
+      eyebrow: "زراعة الحواجب",
+      comingSoon: "قريباً"
     },
     blog: {
       title: "مركز المعرفة",
