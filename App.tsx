@@ -27,6 +27,7 @@ import TypeSelectionScreen from './components/TypeSelectionScreen';
 
 type AppState =
   | 'LANDING'
+  | 'SELECT_TYPE' // New State
   | 'PRE_SCAN'
   | 'SCAN'
   | 'ANALYZE'
