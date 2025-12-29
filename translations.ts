@@ -6,6 +6,7 @@ export interface Language {
   heroTitle1: string;
   heroTitle2: string;
   heroDesc: string;
+  heroMicro: string;
   heroDisclaimer: string;
   startBtn: string;
   methodBtn: string;
@@ -79,7 +80,19 @@ export interface Language {
   };
   dashboard: {
     reportId: string;
-    privateReport: string;
+    statusTitle: string;
+    statusSubtitle: string;
+    statusIndicator: string;
+    statusDesc: string;
+    donorWarning: string;
+    suitabilityTitle: string;
+    nextStepsTitle: string;
+    nextStepsDesc: string;
+    nextStepsMicro: string;
+    transparencyNote: string;
+    inboxStatus: string;
+    responseStatus: string;
+    responseDesc: string;
     visualEstimate: string;
     notMedical: string;
     norwood: string;
@@ -87,11 +100,11 @@ export interface Language {
     grafts: string;
     visualProjection: string;
     download: string;
-    clinicConnect: string;
-    clinicConnectDesc: string;
-    unlockSharing: string;
     securityBadge: string;
     dataRetention: string;
+    compareTitle: string;
+    compareSubtitle: string;
+    goldenSentence: string;
   };
   footer: {
     patients: string;
@@ -152,11 +165,12 @@ export interface Language {
 export const translations: Record<LanguageCode, Language> = {
   EN: {
     heroTag: 'AI-Powered Visual Assessment',
-    heroTitle1: 'Visualize possibilities.',
-    heroTitle2: 'Explore the future.',
-    heroDesc: 'Explore potential outcomes with our AI. Our system analyzes the visual patterns in your photos to suggest a preliminary, indicative hair restoration design.',
+    heroTitle1: 'Understand your hair loss',
+    heroTitle2: 'before choosing a clinic.',
+    heroDesc: 'One structured analysis. Clear responses from clinics experienced with cases like yours.',
+    heroMicro: 'No signup • One analysis • No repeated photo sharing',
     heroDisclaimer: 'Visual, non-medical preview. Not medical advice.',
-    startBtn: 'Get Your Free Analysis',
+    startBtn: 'Start my hair analysis',
     methodBtn: 'How it Works',
     navCapture: 'UPLOAD',
     navAnalysis: 'PROCESSING',
@@ -228,7 +242,19 @@ export const translations: Record<LanguageCode, Language> = {
     },
     dashboard: {
       reportId: "Report ID",
-      privateReport: "Private Report",
+      statusTitle: "Analysis Status",
+      statusSubtitle: "Analysis completed",
+      statusIndicator: "Your analysis is complete.",
+      statusDesc: "Clinics experienced with similar cases are reviewing it.",
+      donorWarning: "Donor hair is a limited resource.",
+      suitabilityTitle: "Treatment Suitability",
+      nextStepsTitle: "What happens next?",
+      nextStepsDesc: "Your analysis is being reviewed by clinics experienced with cases like yours. They may contact you with treatment opinions or proposals.",
+      nextStepsMicro: "This replaces sending photos one by one across different channels.",
+      transparencyNote: "This analysis does not promote surgery. It promotes informed decisions.",
+      inboxStatus: "Clinics reviewing your case",
+      responseStatus: "A clinic has responded.",
+      responseDesc: "You can now compare approaches side by side.",
       visualEstimate: "Visual Estimate",
       notMedical: "Not Medical Advice",
       norwood: "Norwood Scale",
@@ -236,11 +262,11 @@ export const translations: Record<LanguageCode, Language> = {
       grafts: "Est. Grafts",
       visualProjection: "Visual Projection",
       download: "Download PDF",
-      clinicConnect: "Get Quotes from Top Surgeons",
-      clinicConnectDesc: "Share your anonymized visual report with our verified network to get precise price quotes.",
-      unlockSharing: "Unlock Sharing",
       securityBadge: "HIPAA Aligned Security",
-      dataRetention: "Data stored temporarily for analysis."
+      dataRetention: "Data stored temporarily for analysis.",
+      compareTitle: "Compare Proposals",
+      compareSubtitle: "Compare how clinics approach your case — not just prices.",
+      goldenSentence: "Recommendations are earned through clarity and fit — not bought."
     },
     footer: {
       patients: "Patients",
@@ -299,11 +325,12 @@ export const translations: Record<LanguageCode, Language> = {
   },
   TR: {
     heroTag: 'Yapay Zeka Destekli Görsel Analiz',
-    heroTitle1: 'Olasılıkları görün.',
-    heroTitle2: 'Geleceği keşfedin.',
-    heroDesc: 'Yapay zeka ile potansiyel sonuçları keşfedin. Sistemimiz, fotoğraflarınızdaki görsel desenleri analiz ederek ön bilgi amaçlı bir saç tasarımı önerir.',
+    heroTitle1: 'Klinik seçmeden önce',
+    heroTitle2: 'saç kaybınızı anlayın.',
+    heroDesc: 'Tek bir yapılandırılmış analiz. Durumunuzla ilgili deneyimli kliniklerden net yanıtlar.',
+    heroMicro: 'Üyelik yok • Tek analiz • Tekrar tekrar fotoğraf paylaşmak yok',
     heroDisclaimer: 'Görsel, tıbbi olmayan ön izleme. Tıbbi tavsiye değildir.',
-    startBtn: 'Ücretsiz Analizini Al',
+    startBtn: 'Saç analizimi başlat',
     methodBtn: 'Nasıl Çalışır?',
     navCapture: 'YÜKLEME',
     navAnalysis: 'İŞLENİYOR',
@@ -375,7 +402,19 @@ export const translations: Record<LanguageCode, Language> = {
     },
     dashboard: {
       reportId: "Rapor ID",
-      privateReport: "Özel Rapor",
+      statusTitle: "Analiz Durumu",
+      statusSubtitle: "Analiz tamamlandı",
+      statusIndicator: "Analiziniz tamamlandı.",
+      statusDesc: "Benzer vakalarda deneyimli klinikler inceleme yapıyor.",
+      donorWarning: "Donör saç sınırlı bir kaynaktır.",
+      suitabilityTitle: "Tedavi Uygunluğu",
+      nextStepsTitle: "Sırada ne var?",
+      nextStepsDesc: "Analiziniz, vakanıza uygun uzman klinikler tarafından inceleniyor. Tedavi görüşleri veya teklifleri ile sizinle iletişime geçebilirler.",
+      nextStepsMicro: "Bu, fotoğrafları tek tek göndermenin yerini alır.",
+      transparencyNote: "Bu analiz ameliyatı teşvik etmez. Bilgilendirilmiş kararları destekler.",
+      inboxStatus: "İnceleyen klinikler",
+      responseStatus: "Bir klinik yanıt verdi.",
+      responseDesc: "Yaklaşımları yan yana karşılaştırabilirsiniz.",
       visualEstimate: "Görsel Tahmin",
       notMedical: "Tıbbi Tavsiye Değildir",
       norwood: "Norwood Ölçeği",
@@ -383,11 +422,11 @@ export const translations: Record<LanguageCode, Language> = {
       grafts: "Tahmini Greft",
       visualProjection: "Görsel Projeksiyon",
       download: "PDF İndir",
-      clinicConnect: "En İyi Cerrahlardan Teklif Alın",
-      clinicConnectDesc: "Anonim görsel raporunuzu onaylı ağımızla paylaşarak kesin fiyat teklifleri alın.",
-      unlockSharing: "Paylaşımı Aç",
       securityBadge: "KVKK Uyumlu Güvenlik",
-      dataRetention: "Veriler analiz için geçici saklanır."
+      dataRetention: "Veriler analiz için geçici saklanır.",
+      compareTitle: "Teklifleri Karşılaştır",
+      compareSubtitle: "Sadece fiyatları değil, kliniklerin vakanıza yaklaşımını karşılaştırın.",
+      goldenSentence: "Öneriler ödeme ile değil, netlik ve uyum ile kazanılır."
     },
     footer: {
       patients: "Hastalar",
@@ -449,6 +488,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle1: 'Möglichkeiten sehen.',
     heroTitle2: 'Zukunft erkunden.',
     heroDesc: 'Erkunden Sie potenzielle Ergebnisse mit KI. Unser System analysiert die visuellen Muster in Ihren Fotos, um ein unverbindliches Design vorzuschlagen.',
+    heroMicro: 'Keine Anmeldung • Eine Analyse • Keine doppelten Fotos',
     heroDisclaimer: 'Visuelle, nicht-medizinische Vorschau. Kein medizinischer Rat.',
     startBtn: 'Kostenlose Analyse erhalten',
     methodBtn: 'Wie es funktioniert',
@@ -522,7 +562,19 @@ export const translations: Record<LanguageCode, Language> = {
     },
     dashboard: {
       reportId: "Berichts-ID",
-      privateReport: "Privater Bericht",
+      statusTitle: "Analyse-Status",
+      statusSubtitle: "Analyse abgeschlossen",
+      statusIndicator: "Ihre Analyse ist abgeschlossen.",
+      statusDesc: "Erfahrene Kliniken prüfen Ihren Fall.",
+      donorWarning: "Spenderhaar ist eine begrenzte Ressource.",
+      suitabilityTitle: "Behandlungseignung",
+      nextStepsTitle: "Was passiert als Nächstes?",
+      nextStepsDesc: "Ihre Analyse wird von erfahrenen Kliniken geprüft. Sie werden Sie möglicherweise mit Behandlungsvorschlägen kontaktieren.",
+      nextStepsMicro: "Dies ersetzt das individuelle Versenden von Fotos.",
+      transparencyNote: "Diese Analyse fördert keine Operation. Sie fördert informierte Entscheidungen.",
+      inboxStatus: "Prüfende Kliniken",
+      responseStatus: "Eine Klinik hat geantwortet.",
+      responseDesc: "Sie können Ansätze jetzt vergleichen.",
       visualEstimate: "Visuelle Schätzung",
       notMedical: "Kein medizinischer Rat",
       norwood: "Norwood-Skala",
@@ -530,11 +582,11 @@ export const translations: Record<LanguageCode, Language> = {
       grafts: "Geschätzte Grafts",
       visualProjection: "Visuelle Projektion",
       download: "PDF Herunterladen",
-      clinicConnect: "Angebote von Top-Chirurgen",
-      clinicConnectDesc: "Teilen Sie Ihren anonymisierten Bericht mit unserem verifizierten Netzwerk für genaue Angebote.",
-      unlockSharing: "Teilen freischalten",
       securityBadge: "DSGVO-konforme Sicherheit",
-      dataRetention: "Daten temporär gespeichert."
+      dataRetention: "Daten temporär gespeichert.",
+      compareTitle: "Angebote vergleichen",
+      compareSubtitle: "Vergleichen Sie Ansätze, nicht nur Preise.",
+      goldenSentence: "Empfehlungen werden durch Klarheit verdient – nicht gekauft."
     },
     footer: {
       patients: "Patienten",
@@ -596,6 +648,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle1: 'Visualisez les possibles.',
     heroTitle2: 'Explorez l\'avenir.',
     heroDesc: 'Explorez les résultats potentiels avec notre IA. Notre système analyse les motifs visuels de vos photos pour suggérer un design indicatif.',
+    heroMicro: 'Aucune inscription • Une analyse • Pas de photos répétées',
     heroDisclaimer: 'Aperçu visuel non médical. Pas un avis médical.',
     startBtn: 'Obtenez votre analyse gratuite',
     methodBtn: 'Comment ça marche',
@@ -669,7 +722,19 @@ export const translations: Record<LanguageCode, Language> = {
     },
     dashboard: {
       reportId: "ID Rapport",
-      privateReport: "Rapport Privé",
+      statusTitle: "Statut de l'analyse",
+      statusSubtitle: "Analyse terminée",
+      statusIndicator: "Votre analyse est terminée.",
+      statusDesc: "Des cliniques expérimentées examinent votre cas.",
+      donorWarning: "Les cheveux donneurs sont une ressource limitée.",
+      suitabilityTitle: "Pertinence du Traitement",
+      nextStepsTitle: "Et ensuite ?",
+      nextStepsDesc: "Votre analyse est examinée par des cliniques. Elles peuvent vous contacter avec des avis ou des propositions.",
+      nextStepsMicro: "Cela remplace l'envoi individuel de photos.",
+      transparencyNote: "Cette analyse ne promeut pas la chirurgie. Elle favorise des décisions éclairées.",
+      inboxStatus: "Cliniques en revue",
+      responseStatus: "Une clinique a répondu.",
+      responseDesc: "Vous pouvez maintenant comparer les approches.",
       visualEstimate: "Estimation Visuelle",
       notMedical: "Pas un avis médical",
       norwood: "Échelle Norwood",
@@ -677,11 +742,11 @@ export const translations: Record<LanguageCode, Language> = {
       grafts: "Greffons Est.",
       visualProjection: "Projection Visuelle",
       download: "Télécharger PDF",
-      clinicConnect: "Devis des Meilleurs Chirurgiens",
-      clinicConnectDesc: "Partagez votre rapport anonymisé avec notre réseau pour des devis précis.",
-      unlockSharing: "Débloquer le partage",
       securityBadge: "Sécurité RGPD",
-      dataRetention: "Données stockées temporairement."
+      dataRetention: "Données stockées temporairement.",
+      compareTitle: "Comparer les offres",
+      compareSubtitle: "Comparez les approches, pas seulement les prix.",
+      goldenSentence: "Les recommandations se méritent par la clarté, pas par l'argent."
     },
     footer: {
       patients: "Patients",
@@ -743,6 +808,7 @@ export const translations: Record<LanguageCode, Language> = {
     heroTitle1: 'Zobacz możliwości.',
     heroTitle2: 'Odkryj przyszłość.',
     heroDesc: 'Odkryj potencjalne rezultaty dzięki AI. Nasz system analizuje wzorce wizualne na zdjęciach, aby zasugerować wstępny projekt.',
+    heroMicro: 'Bez rejestracji • Jedna analiza • Bez powtarzania zdjęć',
     heroDisclaimer: 'Wizualny podgląd, nie medyczny. Nie stanowi porady medycznej.',
     startBtn: 'Uzyskaj darmową analizę',
     methodBtn: 'Jak to działa',
@@ -816,7 +882,19 @@ export const translations: Record<LanguageCode, Language> = {
     },
     dashboard: {
       reportId: "ID Raportu",
-      privateReport: "Prywatny Raport",
+      statusTitle: "Status analizy",
+      statusSubtitle: "Analiza zakończona",
+      statusIndicator: "Twoja analiza jest gotowa.",
+      statusDesc: "Kliniki doświadczone w podobnych przypadkach ją przeglądają.",
+      donorWarning: "Włosy dawcze są zasobem ograniczonym.",
+      suitabilityTitle: "Przydatność do Zabiegu",
+      nextStepsTitle: "Co dalej?",
+      nextStepsDesc: "Twoja analiza jest przeglądana przez doświadczone kliniki. Mogą skontaktować się z Tobą z opiniami lub propozycjami.",
+      nextStepsMicro: "Zastępuje to indywidualne wysyłanie zdjęć.",
+      transparencyNote: "Ta analiza nie promuje operacji. Promuje świadome decyzje.",
+      inboxStatus: "Przeglądające kliniki",
+      responseStatus: "Klinika odpowiedziała.",
+      responseDesc: "Możesz porównać podejścia.",
       visualEstimate: "Szacunek Wizualny",
       notMedical: "To nie porada medyczna",
       norwood: "Skala Norwooda",
@@ -824,11 +902,11 @@ export const translations: Record<LanguageCode, Language> = {
       grafts: "Szac. Grafty",
       visualProjection: "Projekcja Wizualna",
       download: "Pobierz PDF",
-      clinicConnect: "Oferty od Najlepszych Chirurgów",
-      clinicConnectDesc: "Udostępnij zanonimizowany raport, aby otrzymać dokładne wyceny.",
-      unlockSharing: "Odblokuj Udostępnianie",
       securityBadge: "Zgodność z RODO",
-      dataRetention: "Dane przechowywane tymczasowo."
+      dataRetention: "Dane przechowywane tymczasowo.",
+      compareTitle: "Porównaj Oferty",
+      compareSubtitle: "Porównaj podejścia, nie tylko ceny.",
+      goldenSentence: "Rekomendacje zdobywa się jasnością, a nie kupuje."
     },
     footer: {
       patients: "Pacjenci",
@@ -887,11 +965,12 @@ export const translations: Record<LanguageCode, Language> = {
   },
   AR: {
     heroTag: 'تقييم بصري بالذكاء الاصطناعي',
-    heroTitle1: 'تخيل الاحتمالات.',
-    heroTitle2: 'استكشف المستقبل.',
-    heroDesc: 'استكشف النتائج المحتملة باستخدام الذكاء الاصطناعي. يقوم نظامنا بتحليل الأنماط المرئية في صورك لاقتراح تصميم أولي.',
+    heroTitle1: 'افهم حالة شعرك',
+    heroTitle2: 'قبل اختيار العيادة.',
+    heroDesc: 'تحليل هيكلي واحد. ردود واضحة من عيادات خبيرة بحالات مماثلة.',
+    heroMicro: 'بلا تسجيل • تحليل واحد • بلا تكرار للصور',
     heroDisclaimer: 'معاينة بصرية غير طبية. ليست نصيحة طبية.',
-    startBtn: 'احصل على تحليلك المجاني',
+    startBtn: 'ابدأ تحليل شعري',
     methodBtn: 'كيف يعمل',
     navCapture: 'رفع',
     navAnalysis: 'معالجة',
@@ -963,7 +1042,19 @@ export const translations: Record<LanguageCode, Language> = {
     },
     dashboard: {
       reportId: "رقم التقرير",
-      privateReport: "تقرير خاص",
+      statusTitle: "حالة التحليل",
+      statusSubtitle: "اكتمل التحليل",
+      statusIndicator: "تحليلك مكتمل.",
+      statusDesc: "عيادات خبيرة بحالات مماثلة تراجعه الآن.",
+      donorWarning: "الشعر المانح مورد محدود.",
+      suitabilityTitle: "ملاءمة العلاج",
+      nextStepsTitle: "ماذا بعد؟",
+      nextStepsDesc: "تتم مراجعة تحليلك من قبل عيادات خبيرة. قد يتواصلون معك بآراء أو عروض علاجية.",
+      nextStepsMicro: "هذا يحل محل إرسال الصور بشكل فردي.",
+      transparencyNote: "هذا التحليل لا يروج للجراحة. إنه يعزز القرارات المستنيرة.",
+      inboxStatus: "عيادات تراجع",
+      responseStatus: "ردت عيادة.",
+      responseDesc: "يمكنك الآن مقارنة المقترحات.",
       visualEstimate: "تقدير بصري",
       notMedical: "ليست نصيحة طبية",
       norwood: "مقياس نوروود",
@@ -971,11 +1062,11 @@ export const translations: Record<LanguageCode, Language> = {
       grafts: "عدد البصيلات",
       visualProjection: "إسقاط بصري",
       download: "تحميل PDF",
-      clinicConnect: "عروض من أفضل الجراحين",
-      clinicConnectDesc: "شارك تقريرك المجهول مع شبكتنا المعتمدة للحصول على عروض دقيقة.",
-      unlockSharing: "فتح المشاركة",
       securityBadge: "أمن متوافق مع HIPAA",
-      dataRetention: "يتم تخزين البيانات مؤقتًا."
+      dataRetention: "يتم تخزين البيانات مؤقتًا.",
+      compareTitle: "مقارنة العروض",
+      compareSubtitle: "قارن النهج، ليس فقط السعر.",
+      goldenSentence: "التوصيات تُكسب بالوضوح، لا تُشترى."
     },
     footer: {
       patients: "المرضى",
