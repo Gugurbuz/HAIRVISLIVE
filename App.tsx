@@ -47,6 +47,7 @@ const App: React.FC = () => {
   const [capturedPhotos, setCapturedPhotos] = useState<any[]>([]);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
 
+   const [planningImage, setPlanningImage] = useState<string | null>(null); 
   const [intakeData, setIntakeData] = useState<IntakeData | null>(null);
 
   const [afterImage, setAfterImage] = useState<string | null>(null);
