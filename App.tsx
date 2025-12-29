@@ -27,7 +27,7 @@ import TypeSelectionScreen from './components/TypeSelectionScreen';
 
 type AppState =
   | 'LANDING'
-  | 'SELECT_TYPE' // New State
+  | 'SELECT_TYPE'
   | 'PRE_SCAN'
   | 'SCAN'
   | 'ANALYZE'
@@ -47,16 +47,15 @@ const App: React.FC = () => {
   const [capturedPhotos, setCapturedPhotos] = useState<any[]>([]);
   const [analysisResult, setAnalysisResult] = useState<any>(null);
 
-   const [planningImage, setPlanningImage] = useState<string | null>(null); 
-  const [intakeData, setIntakeData] = useState<IntakeData | null>(null);
-
-  const [afterImage, setAfterImage] = useState<string | null>(null);
   const [planningImage, setPlanningImage] = useState<string | null>(null);
+  const [afterImage, setAfterImage] = useState<string | null>(null);
+
+  const [intakeData, setIntakeData] = useState<IntakeData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const { addLead } = useLeads();
+  const { addLead, leads } = useLeads();
   const t = translations[lang];
 
   useEffect(() => {
@@ -71,14 +70,13 @@ const App: React.FC = () => {
         await (window as any).aistudio.openSelectKey();
       }
     }
-    setAppState('SELECT_TYPE'); // Go to Type Selection instead of PreScan
+    setAppState('SELECT_TYPE');
   };
 
   const handleTypeSelection = (type: string) => {
-      // Currently only supporting 'hair' effectively
-      if (type === 'hair') {
-          setAppState('PRE_SCAN');
-      }
+    if (type === 'hair') {
+      setAppState('PRE_SCAN');
+    }
   };
 
   const handleScanComplete = (photos: any[], skip: boolean = false) => {
@@ -93,7 +91,9 @@ const App: React.FC = () => {
   };
 
   const handleGateComplete = (gateData: any) => {
-    finalizeLeadCreation(analysisResult, afterImage, { ...intakeData, ...gateData });
+    // intakeData null olabilir -> güvenli merge
+    const merged = { ...(intakeData ?? {}), ...(gateData ?? {}) };
+    finalizeLeadCreation(analysisResult, afterImage, merged);
   };
 
   const runBackgroundAnalysis = async (photos: any[], skip: boolean) => {
@@ -206,10 +206,9 @@ const App: React.FC = () => {
 
   const isDarkHeader = ['PARTNER_PORTAL', 'CLINIC_DETAILS'].includes(appState);
 
-  // BlogScreen has its own fixed navbar overlay, so hide main header there to avoid double headers.
   const hideMainHeader = ['CLINIC_LANDING', 'PARTNER_JOIN', 'SCAN', 'BLOG'].includes(appState);
 
-  const transparentHeaderPages = ['PARTNER_PORTAL', 'CLINIC_DETAILS'];
+  const transparentHeaderPages: AppState[] = ['PARTNER_PORTAL', 'CLINIC_DETAILS'];
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] overflow-x-hidden flex flex-col" dir={lang === 'AR' ? 'rtl' : 'ltr'}>
@@ -410,14 +409,15 @@ const App: React.FC = () => {
               onNavigate={(page: string) => setAppState(page as AppState)}
             />
           )}
-     {/* NEW TYPE SELECTION SCREEN */}
-        {appState === 'SELECT_TYPE' && (
-            <TypeSelectionScreen 
-                lang={lang}
-                onBack={() => setAppState('LANDING')}
-                onSelect={handleTypeSelection}
+
+          {appState === 'SELECT_TYPE' && (
+            <TypeSelectionScreen
+              lang={lang}
+              onBack={() => setAppState('LANDING')}
+              onSelect={handleTypeSelection}
             />
-        )}
+          )}
+
           {appState === 'PATIENT_PORTAL' && <PatientPortalScreen lang={lang} onExit={() => setAppState('LANDING')} />}
 
           {appState === 'CLINIC_LANDING' && (
@@ -465,7 +465,7 @@ const App: React.FC = () => {
                 planningImage={planningImage || ''}
                 afterImage={afterImage || ''}
                 error={error}
-                leadData={useLeads().leads[0]}
+                leadData={leads?.[0]}
               />
             </div>
           )}
