@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3';
 import { getPrompt } from '../_shared/prompts.ts';
 import { validateScalpAnalysis, formatValidationErrors } from '../_shared/validation.ts';
 import { logPromptUsage, logValidationError, createInputHash, measureOutputSize } from '../_shared/logger.ts';
+import { getFeatureFlags, isFeatureEnabled, getFeatureConfig } from '../_shared/feature-flags.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -35,6 +36,40 @@ Deno.serve(async (req: Request) => {
   let usageLogId: string | null = null;
 
   try {
+    const featureFlags = await getFeatureFlags();
+    const mockModeEnabled = await isFeatureEnabled('mock_mode');
+    const mockConfig = await getFeatureConfig('mock_mode');
+
+    if (mockModeEnabled) {
+      const mockDelay = mockConfig.mock_delay_ms || 1000;
+      await new Promise(resolve => setTimeout(resolve, mockDelay));
+
+      const mockResponse = {
+        norwoodScale: 'NW3',
+        hairLossPattern: 'Receding hairline with frontal thinning',
+        severity: 'Moderate',
+        affectedAreas: ['Frontal', 'Temporal'],
+        estimatedGrafts: 2750,
+        graftsRange: { min: 2500, max: 3000 },
+        confidence: 85,
+        recommendations: {
+          primary: 'Sapphire FUE Hair Transplant',
+          supporting: ['PRP Therapy', 'Finasteride']
+        },
+        analysis: {
+          summary: 'Mock analysis response for testing'
+        }
+      };
+
+      return new Response(JSON.stringify(mockResponse), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+          'X-Mock-Mode': 'true',
+        },
+      });
+    }
+
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }

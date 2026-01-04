@@ -2,6 +2,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3';
 import { getPrompt } from '../_shared/prompts.ts';
 import { logPromptUsage, createInputHash } from '../_shared/logger.ts';
+import { getFeatureFlags, isFeatureEnabled } from '../_shared/feature-flags.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,6 +46,24 @@ Deno.serve(async (req: Request) => {
   const startTime = Date.now();
 
   try {
+    const featureFlags = await getFeatureFlags();
+    const simulationEnabled = await isFeatureEnabled('enable_simulation');
+
+    if (!simulationEnabled) {
+      return new Response(
+        JSON.stringify({
+          error: 'Simulation feature is currently disabled',
+        }),
+        {
+          status: 503,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not configured');
     }

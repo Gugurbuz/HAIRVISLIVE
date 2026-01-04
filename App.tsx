@@ -13,12 +13,14 @@ import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
 import PreReportIntakeScreen from './components/PreReportIntakeScreen';
 import BlogScreen from './components/BlogScreen';
 import MonitoringDashboard from './components/MonitoringDashboard';
+import AdminDebugScreen from './components/AdminDebugScreen';
 import Footer from './components/Footer';
 import TypeSelectionScreen from './components/TypeSelectionScreen';
 import { Header } from './components/Header';
 import { translations, LanguageCode } from './translations';
 import { geminiService, ScalpImages } from './geminiService';
 import { useLeads, LeadData, IntakeData } from './context/LeadContext';
+import { useSession } from './context/SessionContext';
 import { AppState } from './types';
 
 const App: React.FC = () => {
@@ -39,6 +41,7 @@ const App: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
   const { addLead } = useLeads();
+  const { logAnalysis, updateActivity } = useSession();
   const t = translations[lang];
 
   useEffect(() => {
@@ -150,7 +153,10 @@ const App: React.FC = () => {
     setError(null);
     setIsAnalyzing(true);
 
-    // (1) Skip/mock SADECE DEV’de ve forceReal değilse
+    const analysisStartTime = Date.now();
+    await updateActivity();
+
+    // (1) Skip/mock SADECE DEV'de ve forceReal değilse
     const canUseMock = isDev && skip && !forceReal;
 
     if (canUseMock) {
@@ -226,6 +232,14 @@ const App: React.FC = () => {
 
       if (!result) throw new Error('Analysis failed');
 
+      await logAnalysis({
+        operationType: 'scalp_analysis',
+        inputData: { viewTypes: Object.keys(viewImages) },
+        outputData: result,
+        imageUrls: capturedPhotos.map(p => p.id),
+        durationMs: Date.now() - analysisStartTime,
+      });
+
       // STEP 2: Surgical Plan Generation (Doctor Drawing)
       // (geminiService içinde şimdilik stub var; akış bozulmasın)
       const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, result);
@@ -240,6 +254,14 @@ const App: React.FC = () => {
 
       (result as any).simulation_image = simImage || undefined;
 
+      await logAnalysis({
+        operationType: 'simulation_generation',
+        inputData: { planImageAvailable: !!planImage },
+        outputData: { simulationGenerated: !!simImage },
+        imageUrls: simImage ? [simImage] : [],
+        durationMs: Date.now() - analysisStartTime,
+      });
+
       setIsAnalyzing(false);
     } catch (err: any) {
       console.error('Workflow Error:', err);
@@ -248,7 +270,14 @@ const App: React.FC = () => {
       const userMsg = classifyUserError(err);
       setError(userMsg);
 
-      // Fallback - ama lead yaratma guard’ları bunu engelleyecek
+      await logAnalysis({
+        operationType: 'scalp_analysis',
+        inputData: { viewTypes: Object.keys(viewImages || {}) },
+        error: err.message || String(err),
+        durationMs: Date.now() - analysisStartTime,
+      });
+
+      // Fallback - ama lead yaratma guard'ları bunu engelleyecek
       setAnalysisResult({
         diagnosis: {
           norwood_scale: 'NW?',
@@ -398,6 +427,8 @@ const App: React.FC = () => {
         {appState === 'BLOG' && <BlogScreen onBack={() => setAppState('LANDING')} onNavigate={(p) => setAppState(p as any)} />}
 
         {appState === 'MONITORING' && <MonitoringDashboard />}
+
+        {appState === 'ADMIN_DEBUG' && <AdminDebugScreen />}
 
         {appState === 'PRE_SCAN' && (
           <PreScanScreen

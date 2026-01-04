@@ -3,6 +3,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { LeadProvider } from './context/LeadContext';
+import { FeatureFlagProvider } from './context/FeatureFlagContext';
+import { SessionProvider } from './context/SessionContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import './src/index.css';
 
@@ -15,9 +17,13 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <LeadProvider>
-        <App />
-      </LeadProvider>
+      <FeatureFlagProvider>
+        <SessionProvider>
+          <LeadProvider>
+            <App />
+          </LeadProvider>
+        </SessionProvider>
+      </FeatureFlagProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

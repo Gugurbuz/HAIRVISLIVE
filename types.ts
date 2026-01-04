@@ -13,4 +13,5 @@ export type AppState =
   | 'DIRECTORY'
   | 'CLINIC_DETAILS'
   | 'BLOG'
-  | 'MONITORING';
+  | 'MONITORING'
+  | 'ADMIN_DEBUG';
