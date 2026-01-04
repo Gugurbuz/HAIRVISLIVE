@@ -12,6 +12,7 @@ import ClinicScreen from './components/ClinicScreen';
 import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
 import PreReportIntakeScreen from './components/PreReportIntakeScreen';
 import BlogScreen from './components/BlogScreen';
+import MonitoringDashboard from './components/MonitoringDashboard';
 import Footer from './components/Footer';
 import TypeSelectionScreen from './components/TypeSelectionScreen';
 import { Header } from './components/Header';
@@ -395,6 +396,8 @@ const App: React.FC = () => {
         {appState === 'PARTNER_PORTAL' && <PartnerPortalScreen lang={lang} onBack={() => setAppState('LANDING')} />}
 
         {appState === 'BLOG' && <BlogScreen onBack={() => setAppState('LANDING')} onNavigate={(p) => setAppState(p as any)} />}
+
+        {appState === 'MONITORING' && <MonitoringDashboard />}
 
         {appState === 'PRE_SCAN' && (
           <PreScanScreen

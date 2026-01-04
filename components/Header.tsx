@@ -145,11 +145,18 @@ export const Header: React.FC<HeaderProps> = ({ appState, setAppState, lang, set
                       />
                     </button>
                     <button onClick={() => setAppState('DIRECTORY')}>
-                      <NavItem 
-                        active={appState === 'DIRECTORY'} 
-                        label="Centers of Excellence" 
+                      <NavItem
+                        active={appState === 'DIRECTORY'}
+                        label="Centers of Excellence"
                         subLabel="Find Clinics Now"
-                        isDark={isDarkHeader} 
+                        isDark={isDarkHeader}
+                      />
+                    </button>
+                    <button onClick={() => setAppState('MONITORING')}>
+                      <NavItem
+                        active={appState === 'MONITORING'}
+                        label="AI Monitoring"
+                        isDark={isDarkHeader}
                       />
                     </button>
                 </>

@@ -1,0 +1,16 @@
+export type AppState =
+  | 'LANDING'
+  | 'SELECT_TYPE'
+  | 'PRE_SCAN'
+  | 'SCAN'
+  | 'ANALYZE'
+  | 'AUTH_GATE'
+  | 'RESULT'
+  | 'PATIENT_PORTAL'
+  | 'CLINIC_LANDING'
+  | 'PARTNER_JOIN'
+  | 'PARTNER_PORTAL'
+  | 'DIRECTORY'
+  | 'CLINIC_DETAILS'
+  | 'BLOG'
+  | 'MONITORING';
