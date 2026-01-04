@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Activity, TrendingUp, AlertCircle, CheckCircle, Clock, Database } from 'lucide-react';
+import { Activity, TrendingUp, AlertCircle, CheckCircle, Clock, Database as DatabaseIcon } from 'lucide-react';
 import { monitoringService, type DashboardStats, type PromptMetrics } from '../lib/monitoring';
 import type { Database } from '../lib/database.types';
 
@@ -171,7 +171,7 @@ export default function MonitoringDashboard() {
             <div className="bg-white rounded-xl shadow-sm p-6 border border-slate-200">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-slate-600 font-medium">Active Prompts</h3>
-                <Database className="text-slate-600" size={24} />
+                <DatabaseIcon className="text-slate-600" size={24} />
               </div>
               <p className="text-3xl font-bold text-slate-900">{metrics.length}</p>
               <p className="text-sm text-slate-500 mt-2">
