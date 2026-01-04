@@ -1,0 +1,117 @@
+import { z } from 'zod';
+
+export const GraftsRangeSchema = z.object({
+  min: z.number().int().min(0).max(10000),
+  max: z.number().int().min(0).max(10000),
+}).refine((data) => data.min <= data.max, {
+  message: 'Minimum grafts must be less than or equal to maximum grafts',
+});
+
+export const RecommendationsSchema = z.object({
+  primary: z.string().min(1).max(200),
+  alternative: z.array(z.string().max(200)).default([]),
+  medicalTreatment: z.array(z.string().max(200)).default([]),
+  lifestyle: z.array(z.string().max(300)).default([]),
+});
+
+export const AnalysisDetailsSchema = z.object({
+  hairDensity: z.enum(['Very Low', 'Low', 'Medium', 'High', 'Very High']),
+  scalpHealth: z.enum(['Excellent', 'Good', 'Fair', 'Poor']),
+  donorAreaQuality: z.enum(['Excellent', 'Good', 'Fair', 'Poor', 'Limited']),
+  candidacy: z.enum(['Excellent', 'Good', 'Fair', 'Poor']),
+  notes: z.string().max(2000),
+});
+
+export const ScalpAnalysisSchema = z.object({
+  norwoodScale: z.string().min(1).max(100),
+  hairLossPattern: z.string().min(1).max(200),
+  severity: z.enum(['Minimal', 'Mild', 'Moderate', 'Severe', 'Advanced']),
+  affectedAreas: z.array(z.string().max(100)).min(1),
+  estimatedGrafts: z.number().int().min(0).max(10000),
+  graftsRange: GraftsRangeSchema,
+  confidence: z.number().min(0).max(100),
+  recommendations: RecommendationsSchema,
+  analysis: AnalysisDetailsSchema,
+});
+
+export const SimulationResultSchema = z.object({
+  imageUrl: z.string().url(),
+  processingTime: z.number().optional(),
+  model: z.string().optional(),
+});
+
+export const ValidationErrorSchema = z.object({
+  field: z.string(),
+  message: z.string(),
+  received: z.unknown(),
+  expected: z.string().optional(),
+});
+
+export type ScalpAnalysisResult = z.infer<typeof ScalpAnalysisSchema>;
+export type SimulationResult = z.infer<typeof SimulationResultSchema>;
+export type ValidationError = z.infer<typeof ValidationErrorSchema>;
+export type GraftsRange = z.infer<typeof GraftsRangeSchema>;
+export type Recommendations = z.infer<typeof RecommendationsSchema>;
+export type AnalysisDetails = z.infer<typeof AnalysisDetailsSchema>;
+
+export function validateScalpAnalysis(data: unknown): {
+  success: boolean;
+  data?: ScalpAnalysisResult;
+  errors?: ValidationError[];
+} {
+  try {
+    const result = ScalpAnalysisSchema.parse(data);
+    return { success: true, data: result };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors: ValidationError[] = error.errors.map((err) => ({
+        field: err.path.join('.'),
+        message: err.message,
+        received: err.code === 'invalid_type' ? (err as any).received : undefined,
+        expected: err.code === 'invalid_type' ? (err as any).expected : undefined,
+      }));
+      return { success: false, errors };
+    }
+    return {
+      success: false,
+      errors: [{ field: 'unknown', message: 'Validation failed', received: data }],
+    };
+  }
+}
+
+export function validateSimulationResult(data: unknown): {
+  success: boolean;
+  data?: SimulationResult;
+  errors?: ValidationError[];
+} {
+  try {
+    const result = SimulationResultSchema.parse(data);
+    return { success: true, data: result };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const errors: ValidationError[] = error.errors.map((err) => ({
+        field: err.path.join('.'),
+        message: err.message,
+        received: err.code === 'invalid_type' ? (err as any).received : undefined,
+        expected: err.code === 'invalid_type' ? (err as any).expected : undefined,
+      }));
+      return { success: false, errors };
+    }
+    return {
+      success: false,
+      errors: [{ field: 'unknown', message: 'Validation failed', received: data }],
+    };
+  }
+}
+
+export function formatValidationErrors(errors: ValidationError[]): string {
+  return errors
+    .map((err) => {
+      let msg = `${err.field}: ${err.message}`;
+      if (err.expected && err.received) {
+        msg += ` (expected ${err.expected}, received ${err.received})`;
+      }
+      return msg;
+    })
+    .join('; ');
+}

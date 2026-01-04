@@ -179,6 +179,132 @@ export interface Database {
           status?: 'COMPLETED' | 'PENDING'
         }
       }
+      prompts: {
+        Row: {
+          id: string
+          name: string
+          version: string
+          prompt_text: string
+          description: string
+          is_active: boolean
+          created_at: string
+          created_by: string
+          metadata: Json
+        }
+        Insert: {
+          id?: string
+          name: string
+          version: string
+          prompt_text: string
+          description?: string
+          is_active?: boolean
+          created_at?: string
+          created_by?: string
+          metadata?: Json
+        }
+        Update: {
+          id?: string
+          name?: string
+          version?: string
+          prompt_text?: string
+          description?: string
+          is_active?: boolean
+          created_at?: string
+          created_by?: string
+          metadata?: Json
+        }
+      }
+      prompt_usage_logs: {
+        Row: {
+          id: string
+          prompt_id: string | null
+          prompt_name: string
+          prompt_version: string
+          execution_time_ms: number
+          token_count: number
+          model: string
+          success: boolean
+          error_message: string | null
+          input_hash: string | null
+          output_size_bytes: number
+          created_at: string
+          user_id: string | null
+          session_id: string | null
+        }
+        Insert: {
+          id?: string
+          prompt_id?: string | null
+          prompt_name: string
+          prompt_version: string
+          execution_time_ms?: number
+          token_count?: number
+          model?: string
+          success?: boolean
+          error_message?: string | null
+          input_hash?: string | null
+          output_size_bytes?: number
+          created_at?: string
+          user_id?: string | null
+          session_id?: string | null
+        }
+        Update: {
+          id?: string
+          prompt_id?: string | null
+          prompt_name?: string
+          prompt_version?: string
+          execution_time_ms?: number
+          token_count?: number
+          model?: string
+          success?: boolean
+          error_message?: string | null
+          input_hash?: string | null
+          output_size_bytes?: number
+          created_at?: string
+          user_id?: string | null
+          session_id?: string | null
+        }
+      }
+      ai_validation_errors: {
+        Row: {
+          id: string
+          usage_log_id: string | null
+          prompt_name: string
+          prompt_version: string
+          validation_schema: string
+          errors: Json
+          raw_response: string
+          expected_format: string
+          created_at: string
+          resolved: boolean
+          resolution_notes: string | null
+        }
+        Insert: {
+          id?: string
+          usage_log_id?: string | null
+          prompt_name: string
+          prompt_version: string
+          validation_schema: string
+          errors?: Json
+          raw_response: string
+          expected_format?: string
+          created_at?: string
+          resolved?: boolean
+          resolution_notes?: string | null
+        }
+        Update: {
+          id?: string
+          usage_log_id?: string | null
+          prompt_name?: string
+          prompt_version?: string
+          validation_schema?: string
+          errors?: Json
+          raw_response?: string
+          expected_format?: string
+          created_at?: string
+          resolved?: boolean
+          resolution_notes?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never
