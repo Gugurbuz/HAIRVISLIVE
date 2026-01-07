@@ -152,13 +152,6 @@ export const Header: React.FC<HeaderProps> = ({ appState, setAppState, lang, set
                         isDark={isDarkHeader}
                       />
                     </button>
-                    <button onClick={() => setAppState('MONITORING')}>
-                      <NavItem
-                        active={appState === 'MONITORING'}
-                        label="AI Monitoring"
-                        isDark={isDarkHeader}
-                      />
-                    </button>
                 </>
             ) : (
                 <>
