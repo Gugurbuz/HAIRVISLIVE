@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -42,6 +41,16 @@ const loadScript = (src: string) => {
     script.onerror = (err) => reject(err);
     document.body.appendChild(script);
   });
+};
+
+// Singleton AudioContext
+let sharedAudioCtx: AudioContext | null = null;
+const getAudioContext = () => {
+    if (!sharedAudioCtx) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) sharedAudioCtx = new AudioContextClass();
+    }
+    return sharedAudioCtx;
 };
 
 const getLanguageTag = (lang: LanguageCode): string => {
@@ -94,7 +103,7 @@ const getBestVoice = (langTag: string) => {
 
 
 const speak = (text: string, enabled: boolean, lang: LanguageCode) => {
-  if (lang === 'TR') return; 
+  // CRITICAL FIX: Removed the TR check blocker.
   if (!enabled || !window.speechSynthesis) return;
   
   window.speechSynthesis.cancel();
@@ -121,6 +130,8 @@ const speak = (text: string, enabled: boolean, lang: LanguageCode) => {
   if (window.speechSynthesis.getVoices().length === 0) {
       window.speechSynthesis.onvoiceschanged = () => {
           setVoiceAndSpeak();
+          // Avoid clearing onvoiceschanged globally as it might affect other parts, 
+          // but for this component scope it's okay-ish. Ideally use addEventListener.
           window.speechSynthesis.onvoiceschanged = null;
       };
   } else {
@@ -144,10 +155,13 @@ const analyzeImageContent = (ctx: CanvasRenderingContext2D, width: number, heigh
             startY = (height - sampleH) / 2;
         }
         
-        if (startX < 0) startX = 0;
-        if (startY < 0) startY = 0;
-        if (startX + sampleW > width) sampleW = width - startX;
-        if (startY + sampleH > height) sampleH = height - startY;
+        // Clamp values to ensure we don't read outside canvas
+        startX = Math.max(0, Math.floor(startX));
+        startY = Math.max(0, Math.floor(startY));
+        sampleW = Math.min(width - startX, Math.floor(sampleW));
+        sampleH = Math.min(height - startY, Math.floor(sampleH));
+
+        if (sampleW <= 0 || sampleH <= 0) return { brightness: 0, sharpness: 0 };
 
         const imageData = ctx.getImageData(startX, startY, sampleW, sampleH);
         const data = imageData.data;
@@ -182,8 +196,8 @@ const analyzeImageContent = (ctx: CanvasRenderingContext2D, width: number, heigh
             pixelCount++;
         }
 
-        const avgBrightness = sumLuma / pixelCount;
-        const sharpnessScore = Math.min(100, (sumSharpness / pixelCount) * 5); 
+        const avgBrightness = pixelCount > 0 ? sumLuma / pixelCount : 0;
+        const sharpnessScore = pixelCount > 0 ? Math.min(100, (sumSharpness / pixelCount) * 5) : 0; 
 
         return {
             brightness: avgBrightness, 
@@ -196,10 +210,11 @@ const analyzeImageContent = (ctx: CanvasRenderingContext2D, width: number, heigh
 
 const playSound = (type: 'beep' | 'success' | 'error' | 'focus' | 'lock') => {
   try {
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContext) return;
+    const ctx = getAudioContext();
+    if (!ctx) return;
     
-    const ctx = new AudioContext();
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
     const now = ctx.currentTime;
 
     if (type === 'beep') {
@@ -317,6 +332,16 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   const holdStartTimeRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const macroIntervalRef = useRef<any>(null);
+  
+  // FIX: Countdown Interval Leak prevention
+  const countdownIntervalRef = useRef<any>(null);
+  
+  // FIX: Race condition prevention
+  const captureLockRef = useRef(false);
+
+  // Refs for optimization
+  const isModelLoadedRef = useRef(false);
+  const lastGuidanceTextRef = useRef('');
 
   // State
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -364,7 +389,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
             id: 'left', 
             label: t.leftLabel, 
             instruction: t.leftInstruction, 
-            target: { yaw: -65, pitch: 0, roll: 0, yawTolerance: 30, pitchTolerance: 20 }, 
+            target: { yaw: -55, pitch: 0, roll: 0, yawTolerance: 30, pitchTolerance: 20 }, 
             guideType: 'left',
             speakText: t.leftSpeak,
             useAI: true,
@@ -374,7 +399,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
             id: 'right', 
             label: t.rightLabel, 
             instruction: t.rightInstruction, 
-            target: { yaw: 65, pitch: 0, roll: 0, yawTolerance: 30, pitchTolerance: 20 }, 
+            target: { yaw: 55, pitch: 0, roll: 0, yawTolerance: 30, pitchTolerance: 20 }, 
             guideType: 'right',
             speakText: t.rightSpeak,
             useAI: true,
@@ -426,6 +451,14 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     setHoldProgress(0);
     setStatus('searching');
     statusRef.current = 'searching';
+    captureLockRef.current = false; // Release lock on step change
+    
+    // Clear any existing countdown
+    if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
     
     const step = SCAN_STEPS[currentStepIndex];
     if (step.forceCamera && step.forceCamera !== facingMode) {
@@ -498,6 +531,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   };
 
   const handleTestSkip = () => {
+      // FIX: DEV mode guard
+      if (!import.meta.env.DEV) return;
+
       const mockPhotoData = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
       const mockPhotos = SCAN_STEPS.map(step => ({
           id: step.id,
@@ -527,39 +563,47 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         return;
     }
 
+    const t = translations[lang].scannerSteps.guidance;
     const video = videoRef.current;
     if (!video) return;
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    // Use a smaller canvas for analysis to improve performance on low-end devices
+    const analysisCanvas = document.createElement('canvas');
+    const ctx = analysisCanvas.getContext('2d', { willReadFrequently: true });
 
     let focusLockTime = 0;
     let isCountingDown = false;
 
+    // FIX: Increased interval from 150ms to 500ms to reduce CPU load
     macroIntervalRef.current = setInterval(() => {
-        if (!isMountedRef.current || statusRef.current === 'capturing' || statusRef.current === 'review') return;
+        if (!isMountedRef.current || statusRef.current === 'capturing' || statusRef.current === 'review' || captureLockRef.current) return;
         if (video.readyState < 2) return;
 
-        if (canvas.width !== video.videoWidth) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+        // Downsample for analysis
+        const analyzeWidth = 240; 
+        const aspectRatio = video.videoWidth / video.videoHeight;
+        const analyzeHeight = analyzeWidth / aspectRatio;
+
+        if (analysisCanvas.width !== analyzeWidth) {
+            analysisCanvas.width = analyzeWidth;
+            analysisCanvas.height = analyzeHeight;
         }
         if (!ctx) return;
 
-        ctx.drawImage(video, 0, 0);
+        ctx.drawImage(video, 0, 0, analyzeWidth, analyzeHeight);
 
         let region = undefined;
         if (step.id === 'hairline_macro') {
-            const size = Math.min(canvas.width, canvas.height) * 0.4; 
+            const size = Math.min(analyzeWidth, analyzeHeight) * 0.4; 
             region = {
-                x: (canvas.width - size) / 2,
-                y: (canvas.height - size) / 2,
+                x: (analyzeWidth - size) / 2,
+                y: (analyzeHeight - size) / 2,
                 w: size,
                 h: size
             };
         }
 
-        const stats = analyzeImageContent(ctx, canvas.width, canvas.height, region);
+        const stats = analyzeImageContent(ctx, analyzeWidth, analyzeHeight, region);
 
         if (step.id === 'donor') {
             const minSharpness = 25; 
@@ -572,7 +616,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                     playSound('focus'); 
                 }
                 
-                focusLockTime += 150; 
+                focusLockTime += 500; // Adjusted for new interval
 
                 if (focusLockTime > 1000) {
                     isCountingDown = true;
@@ -592,30 +636,33 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
             const minSharpness = 22;
             const goodSharpness = 45;
 
+            // Throttle guidance updates here too
+            let newGuidanceText = '';
+            
             if (stats.sharpness < minSharpness) {
                 if (statusRef.current !== 'searching') {
                     setStatus('searching');
-                    setGuidance({ text: 'Move Back Slightly', type: 'down' });
                     setHoldProgress(0);
                 }
+                newGuidanceText = t.moveBack;
             } else if (stats.sharpness >= minSharpness && stats.sharpness < goodSharpness) {
                 if (statusRef.current !== 'aligning') {
                     setStatus('aligning');
                     playSound('focus');
-                    setGuidance({ text: 'Hold Steady...', type: null });
                 }
-                
-                setHoldProgress(prev => Math.min(prev + 2, 30)); 
+                newGuidanceText = t.hold;
+                // Faster progress since interval is slower
+                setHoldProgress(prev => Math.min(prev + 10, 30)); 
 
             } else {
                 if (statusRef.current !== 'holding') {
                     setStatus('holding');
-                    setGuidance({ text: 'Perfect', type: null });
                     playSound('lock');
                 }
+                newGuidanceText = t.perfect;
                 
                 setHoldProgress(prev => {
-                    const next = Math.max(30, prev + 15); 
+                    const next = Math.max(30, prev + 25); // Faster progress
                     if (next >= 100) {
                         handleCapture();
                         return 100;
@@ -623,9 +670,14 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                     return next;
                 });
             }
+
+            if (newGuidanceText && newGuidanceText !== lastGuidanceTextRef.current) {
+                setGuidance({ text: newGuidanceText, type: newGuidanceText === t.moveBack ? 'down' : null });
+                lastGuidanceTextRef.current = newGuidanceText;
+            }
         }
 
-    }, 150); 
+    }, 500); 
 
     return () => {
         if (macroIntervalRef.current) clearInterval(macroIntervalRef.current);
@@ -634,23 +686,30 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
 
   const startCountdownCapture = () => {
-    if (status === 'capturing' || countdown !== null) return;
+    // FIX: Clear existing interval if any
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    
+    if (status === 'capturing' || countdown !== null || captureLockRef.current) return;
     setValidationError(null);
     
     let count = 3;
     setCountdown(count);
     
-    speak("Three", audioEnabled, lang); 
+    speak(translations[lang].scannerSteps.count3, audioEnabled, lang); 
     
-    const interval = setInterval(() => {
+    countdownIntervalRef.current = setInterval(() => {
         count--;
         if (count > 0) {
             setCountdown(count);
-            const words = ["", "One", "Two"];
-            speak(words[count], audioEnabled, lang);
+            const countWords = [translations[lang].scannerSteps.count1, translations[lang].scannerSteps.count2];
+            speak(countWords[count-1] || String(count), audioEnabled, lang);
             if(audioEnabled) playSound('beep');
         } else {
-            clearInterval(interval);
+            // FIX: Clear interval properly
+            if (countdownIntervalRef.current) {
+                clearInterval(countdownIntervalRef.current);
+                countdownIntervalRef.current = null;
+            }
             setCountdown(null);
             handleCapture();
         }
@@ -658,9 +717,12 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   };
 
   const handleCapture = useCallback(() => {
+    if (captureLockRef.current) return; // Prevent double capture
     if (!videoRef.current || !overlayRef.current) return;
     if (statusRef.current === 'capturing' || statusRef.current === 'review') return;
     
+    captureLockRef.current = true; // LOCK
+
     const video = videoRef.current;
     const overlay = overlayRef.current;
     const currentIndex = currentStepIndexRef.current;
@@ -698,25 +760,29 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     const cropW = overlayRect.width * scale;
     const cropH = overlayRect.height * scale;
 
+    // FIX: Int coordinates for Canvas to prevent float issues
     const canvas = document.createElement('canvas');
-    canvas.width = cropW;
-    canvas.height = cropH;
+    canvas.width = Math.round(cropW);
+    canvas.height = Math.round(cropH);
     const ctx = canvas.getContext('2d');
     
-    if (!ctx) return;
+    if (!ctx) {
+        captureLockRef.current = false;
+        return;
+    }
 
     ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
     ctx.save();
     
     if (facingMode === 'user' && currentStep.id !== 'donor' && currentStep.id !== 'hairline_macro') {
-        ctx.translate(cropW, 0);
+        ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
     }
     
-    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+    ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    const stats = analyzeImageContent(ctx, cropW, cropH);
+    const stats = analyzeImageContent(ctx, canvas.width, canvas.height);
     
     let score = Math.round(stats.sharpness * 1.5); 
     if (stats.brightness < 40 || stats.brightness > 220) score -= 20;
@@ -727,37 +793,44 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     vibrate([50, 100, 50]); 
     speak(translations[lang].scannerSteps.captured, audioEnabled, lang);
 
+    // AI Blur bar logic...
     if (lastLandmarksRef.current && currentStep.useAI && facingMode === 'user') {
-       const landmarks = lastLandmarksRef.current;
-       const mapX = (val: number) => {
-           const pixelX = val * sourceW;
-           const relX = pixelX - cropX;
-           return facingMode === 'user' ? cropW - relX : relX;
-       };
-       const mapY = (val: number) => (val * sourceH) - cropY;
-       
-       const eyeY = mapY((landmarks[33].y + landmarks[263].y) / 2);
-       const faceHeight = Math.abs(mapY(landmarks[152].y) - mapY(landmarks[10].y));
-       const blurHeight = faceHeight * 0.28;
-       const rawMinX = landmarks[234].x;
-       const rawMaxX = landmarks[454].x;
-       const x1 = mapX(rawMinX);
-       const x2 = mapX(rawMaxX);
-       
-       const barStartX = Math.min(x1, x2);
-       const barWidth = Math.abs(x1 - x2);
-       const padding = barWidth * 0.15;
-       const blurRadius = Math.max(40, cropW * 0.05);
+       // ... existing AI blur logic ...
+       // Keeping concise for readability, logic remains same
+       try {
+           const landmarks = lastLandmarksRef.current;
+           const mapX = (val: number) => {
+               const pixelX = val * sourceW;
+               const relX = pixelX - cropX;
+               return facingMode === 'user' ? cropW - relX : relX;
+           };
+           const mapY = (val: number) => (val * sourceH) - cropY;
+           
+           const eyeY = mapY((landmarks[33].y + landmarks[263].y) / 2);
+           const faceHeight = Math.abs(mapY(landmarks[152].y) - mapY(landmarks[10].y));
+           const blurHeight = faceHeight * 0.28;
+           const rawMinX = landmarks[234].x;
+           const rawMaxX = landmarks[454].x;
+           const x1 = mapX(rawMinX);
+           const x2 = mapX(rawMaxX);
+           
+           const barStartX = Math.min(x1, x2);
+           const barWidth = Math.abs(x1 - x2);
+           const padding = barWidth * 0.15;
+           const blurRadius = Math.max(40, cropW * 0.05);
 
-       ctx.save();
-       ctx.filter = `blur(${blurRadius}px)`;
-       ctx.beginPath();
-       ctx.rect(barStartX - padding, eyeY - (blurHeight * 0.6), barWidth + (padding*2), blurHeight);
-       ctx.clip();
-       ctx.drawImage(canvas, 0, 0);
-       ctx.fillStyle = 'rgba(0,0,0,0.2)';
-       ctx.fill();
-       ctx.restore();
+           ctx.save();
+           ctx.filter = `blur(${blurRadius}px)`;
+           ctx.beginPath();
+           ctx.rect(barStartX - padding, eyeY - (blurHeight * 0.6), barWidth + (padding*2), blurHeight);
+           ctx.clip();
+           ctx.drawImage(canvas, 0, 0);
+           ctx.fillStyle = 'rgba(0,0,0,0.2)';
+           ctx.fill();
+           ctx.restore();
+       } catch (e) {
+           console.warn("Blur effect failed", e);
+       }
     }
     
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
@@ -772,6 +845,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       setTempPhoto(dataUrl);
       setStatus('review');
       statusRef.current = 'review';
+      captureLockRef.current = false; // Release lock in review
     }, 400);
 
   }, [brightness, contrast, audioEnabled, lang, SCAN_STEPS, facingMode]);
@@ -780,6 +854,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     if (!tempPhoto) return;
     if (audioEnabled) playSound('success');
     
+    // Clear countdown if any (safety)
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+
     const currentStep = SCAN_STEPS[currentStepIndex];
     const newPhoto = {
         id: currentStep.id,
@@ -793,6 +870,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     }
     setTempPhoto(null);
     setValidationError(null);
+    captureLockRef.current = false; // Ensure unlocked
     
     if (currentStepIndex >= SCAN_STEPS.length - 1) {
         window.speechSynthesis.cancel();
@@ -814,12 +892,19 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     setHoldProgress(0);
     holdStartTimeRef.current = null;
     setValidationError(null);
+    captureLockRef.current = false; // Release lock
   };
 
   const onResults = useCallback((results: any) => {
     if (!isMountedRef.current) return;
-    if (statusRef.current === 'capturing' || statusRef.current === 'review') return;
+    if (statusRef.current === 'capturing' || statusRef.current === 'review' || captureLockRef.current) return;
     
+    if (!isModelLoadedRef.current) {
+        isModelLoadedRef.current = true;
+        setIsModelLoaded(true);
+    }
+
+    const t = translations[lang].scannerSteps.guidance;
     const step = SCAN_STEPS[currentStepIndexRef.current];
     if (!step.useAI) return; 
 
@@ -861,15 +946,19 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
     if (!isYawGood) {
         if (diffYaw > 0) {
-            newGuidance = { text: 'Turn Left', type: isMirrored ? 'left' : 'right' }; 
+            newGuidance = { text: t.turnLeft, type: isMirrored ? 'left' : 'right' }; 
         } else {
-            newGuidance = { text: 'Turn Right', type: isMirrored ? 'right' : 'left' };
+            newGuidance = { text: t.turnRight, type: isMirrored ? 'right' : 'left' };
         }
     } else if (!isPitchGood) {
-        if (diffPitch > 0) newGuidance = { text: 'Chin Up', type: 'up' }; 
-        else newGuidance = { text: 'Chin Down', type: 'down' }; 
+        if (diffPitch > 0) newGuidance = { text: t.chinUp, type: 'up' }; 
+        else newGuidance = { text: t.chinDown, type: 'down' }; 
     }
-    setGuidance(newGuidance);
+    
+    if (newGuidance.text !== lastGuidanceTextRef.current) {
+        setGuidance(newGuidance);
+        lastGuidanceTextRef.current = newGuidance.text;
+    }
 
     if (isYawGood && isPitchGood) {
       if (statusRef.current !== 'holding') setStatus('holding');
@@ -884,7 +973,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       setHoldProgress(0);
       holdStartTimeRef.current = null;
     }
-  }, [handleCapture, SCAN_STEPS, facingMode]);
+  }, [handleCapture, SCAN_STEPS, facingMode, lang]);
 
   const onResultsRef = useRef(onResults);
   useEffect(() => { onResultsRef.current = onResults; }, [onResults]);
@@ -893,7 +982,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     isMountedRef.current = true;
     if (window.speechSynthesis) window.speechSynthesis.getVoices();
 
-    loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js').then(() => {
+    // FIX: Catch error on loadScript
+    loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js')
+      .then(() => {
         if (!isMountedRef.current) return;
         const faceMesh = new (window as any).FaceMesh({
           locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`
@@ -902,12 +993,15 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
         faceMesh.onResults((results: any) => {
           if (isMountedRef.current && onResultsRef.current) {
-            setIsModelLoaded(true);
             onResultsRef.current(results);
           }
         });
         faceMeshRef.current = faceMesh;
-    });
+      })
+      .catch((err) => {
+          console.error("Failed to load FaceMesh", err);
+          setCameraError("AI Model Load Failed. Please refresh.");
+      });
 
     return () => {
       isMountedRef.current = false;
@@ -916,6 +1010,8 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       const fm = faceMeshRef.current;
       if (fm) try { fm.close(); } catch (e) {}
       window.speechSynthesis.cancel();
+      // FIX: Clean up countdown interval if unmounting mid-count
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, []);
 
@@ -942,9 +1038,12 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
               videoRef.current?.play();
               
               const track = stream.getVideoTracks()[0];
-              const caps = track.getCapabilities() as any; 
-              setHasTorch(!!caps.torch);
-              if (!caps.torch) setFlashEnabled(false);
+              // FIX: Basic error handling for capabilities
+              try {
+                  const caps = track.getCapabilities() as any; 
+                  setHasTorch(!!caps.torch);
+                  if (!caps.torch) setFlashEnabled(false);
+              } catch(e) {}
 
               const step = SCAN_STEPS[currentStepIndex];
               if (step.zoom) {
@@ -962,10 +1061,13 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                 if (videoRef.current && videoRef.current.readyState >= 2) {
                     processingRef.current = true;
                     try {
-                    if (faceMeshRef.current && isMountedRef.current) await faceMeshRef.current.send({ image: videoRef.current });
+                        // FIX: Add capture lock check here too to save resources
+                        if (!captureLockRef.current && faceMeshRef.current && isMountedRef.current) {
+                            await faceMeshRef.current.send({ image: videoRef.current });
+                        }
                     } catch (e) {
                     } finally {
-                    processingRef.current = false;
+                        processingRef.current = false;
                     }
                 }
                 if (isMountedRef.current) rafIdRef.current = requestAnimationFrame(process);
@@ -999,12 +1101,13 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           muted 
           style={{ filter: `brightness(${brightness}%) contrast(${contrast}%)` }} 
         />
-        {/* Dark Blurred Vignette Overlay */}
+        {/* Dark Vignette Overlay */}
         <div 
-            className="absolute inset-0 z-10 bg-black/40 backdrop-blur-md"
+            className="absolute inset-0 z-10 bg-black"
             style={{ 
-                maskImage: 'radial-gradient(circle at center, transparent 36%, black 60%)', 
-                WebkitMaskImage: 'radial-gradient(circle at center, transparent 36%, black 60%)' 
+                maskImage: 'radial-gradient(circle at center, transparent 45%, black 100%)', 
+                WebkitMaskImage: 'radial-gradient(circle at center, transparent 45%, black 100%)',
+                opacity: 0.5
             }}
         />
       </div>
@@ -1012,9 +1115,11 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       <AnimatePresence>
         {status === 'review' && tempPhoto && (
             <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
+                {...{
+                    initial: { opacity: 0, scale: 0.95 },
+                    animate: { opacity: 1, scale: 1 },
+                    exit: { opacity: 0, scale: 0.95 }
+                } as any}
                 className="absolute inset-0 z-[100] bg-[#F7F8FA]/95 flex flex-col items-center justify-center p-6"
             >
                 <div className="w-full max-w-sm space-y-6">
@@ -1028,7 +1133,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
                     <div className="flex flex-col gap-3 w-full">
                         <div className="flex gap-4">
-                            <button onClick={retakePhoto} className="flex-1 py-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-[#0E1A2B] font-black uppercase text-xs tracking-widest transition-all">
+                            <button onClick={retakePhoto} className="flex-1 py-4 rounded-2xl bg-white hover:bg-slate-5 border border-slate-200 text-[#0E1A2B] font-black uppercase text-xs tracking-widest transition-all">
                                 Improve
                             </button>
                             <button onClick={confirmPhoto} className="flex-1 py-4 rounded-2xl bg-[#0E1A2B] text-white hover:bg-teal-600 font-black uppercase text-xs tracking-widest transition-all shadow-xl">
@@ -1044,13 +1149,15 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
         <motion.div
           ref={overlayRef}
-          animate={{
-            borderColor: validationError ? '#ef4444' : status === 'holding' ? '#14B8A6' : status === 'out-of-bounds' ? '#ef4444' : status === 'aligning' ? '#fbbf24' : 'rgba(255,255,255,0.4)',
-            scale: status === 'holding' ? 1.02 : 1,
-            borderWidth: status === 'holding' ? 4 : status === 'out-of-bounds' || validationError ? 4 : status === 'aligning' ? 3 : 2,
-            boxShadow: validationError ? '0 0 30px rgba(239,68,68,0.5)' : status === 'holding' ? '0 0 60px rgba(20,184,166,0.3)' : status === 'aligning' ? '0 0 40px rgba(251,191,36,0.3)' : 'none',
-            borderRadius: currentStep.guideType === 'circle' ? '50%' : '3.5rem'
-          }}
+          {...{
+            animate: {
+                borderColor: validationError ? '#ef4444' : status === 'holding' ? '#14B8A6' : status === 'out-of-bounds' ? '#ef4444' : status === 'aligning' ? '#fbbf24' : 'rgba(255,255,255,0.8)',
+                scale: status === 'holding' ? 1.02 : 1,
+                borderWidth: status === 'holding' ? 4 : status === 'out-of-bounds' || validationError ? 4 : status === 'aligning' ? 3 : 2,
+                boxShadow: validationError ? '0 0 30px rgba(239,68,68,0.5)' : status === 'holding' ? '0 0 60px rgba(20,184,166,0.3)' : status === 'aligning' ? '0 0 40px rgba(251,191,36,0.3)' : 'none',
+                borderRadius: currentStep.guideType === 'circle' ? '50%' : '3.5rem'
+            }
+          } as any}
           className={`w-[90vmin] max-w-[650px] aspect-square relative z-20 ${currentStep.guideType === 'circle' ? 'rounded-full' : 'rounded-[3.5rem]'}`}
         >
           {currentStep.guideType === 'circle' && (
@@ -1059,7 +1166,14 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
           <AnimatePresence>
             {validationError && (
-                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute -top-16 left-0 right-0 flex justify-center">
+                 <motion.div 
+                    {...{
+                        initial: { opacity: 0, y: 10 },
+                        animate: { opacity: 1, y: 0 },
+                        exit: { opacity: 0 }
+                    } as any}
+                    className="absolute -top-16 left-0 right-0 flex justify-center"
+                 >
                     <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center gap-2 shadow-xl border border-red-100">
                         <AlertTriangle size={16} /> {validationError}
                     </div>
@@ -1069,8 +1183,14 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
           {status === 'out-of-bounds' && (
              <div className="absolute -top-12 left-0 right-0 flex justify-center">
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-500 text-white px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg">
-                   <Maximize size={14} /> Move Back / Center Face
+                <motion.div 
+                    {...{
+                        initial: { opacity: 0, y: 10 },
+                        animate: { opacity: 1, y: 0 }
+                    } as any}
+                    className="bg-red-500 text-white px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg"
+                >
+                   <Maximize size={14} /> {translations[lang].scannerSteps.guidance.moveBack} / Center Face
                 </motion.div>
              </div>
           )}
@@ -1078,21 +1198,31 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           {(status === 'aligning' || status === 'searching') && guidance.type && (
              <motion.div 
                key={guidance.type}
-               initial={{ opacity: 0 }} 
-               animate={{ opacity: 1 }} 
-               exit={{ opacity: 0 }}
+               {...{
+                   initial: { opacity: 0 },
+                   animate: { opacity: 1 },
+                   exit: { opacity: 0 }
+               } as any}
                className="absolute inset-0 flex items-center justify-center pointer-events-none"
              >
-                {guidance.type === 'left' && <motion.div animate={{ x: [-15, 0, -15], opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }} className="absolute left-4"><ArrowLeft className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
-                {guidance.type === 'right' && <motion.div animate={{ x: [15, 0, 15], opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }} className="absolute right-4"><ArrowRight className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
-                {guidance.type === 'up' && <motion.div animate={{ y: [-15, 0, -15], opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }} className="absolute top-4"><ArrowUp className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
-                {guidance.type === 'down' && <motion.div animate={{ y: [15, 0, 15], opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }} className="absolute bottom-4"><ArrowDown className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
+                {guidance.type === 'left' && <motion.div {...{animate: { x: [-15, 0, -15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute left-4"><ArrowLeft className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
+                {guidance.type === 'right' && <motion.div {...{animate: { x: [15, 0, 15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute right-4"><ArrowRight className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
+                {guidance.type === 'up' && <motion.div {...{animate: { y: [-15, 0, -15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute top-4"><ArrowUp className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
+                {guidance.type === 'down' && <motion.div {...{animate: { y: [15, 0, 15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute bottom-4"><ArrowDown className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
              </motion.div>
           )}
 
           {countdown !== null && (
               <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div key={countdown} initial={{ scale: 2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0, opacity: 0 }} className="text-9xl font-black text-white drop-shadow-2xl">
+                  <motion.div 
+                    key={countdown} 
+                    {...{
+                        initial: { scale: 2, opacity: 0 },
+                        animate: { scale: 1, opacity: 1 },
+                        exit: { scale: 0, opacity: 0 }
+                    } as any}
+                    className="text-9xl font-black text-white drop-shadow-2xl"
+                  >
                       {countdown}
                   </motion.div>
               </div>
@@ -1104,7 +1234,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center space-y-4 bg-transparent pointer-events-none">
            <div className="p-4 bg-white/90 rounded-full backdrop-blur-xl border border-slate-200 shadow-2xl flex items-center gap-3">
                <RefreshCw className="w-5 h-5 animate-spin text-teal-600" />
-               <p className="text-[10px] font-black tracking-widest uppercase text-[#0E1A2B]">Loading Vision Model...</p>
+               <p className="text-[10px] font-black tracking-widest uppercase text-[#0E1A2B]">{translations[lang].scannerSteps.guidance.loading}</p>
            </div>
         </div>
       )}
@@ -1127,9 +1257,12 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           </div>
           
           <div className="flex items-center gap-2">
-             <button onClick={handleTestSkip} className="p-3 bg-white/80 hover:bg-teal-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">
-                <FastForward className="w-5 h-5" />
-             </button>
+             {/* FIX: DEV Mode only */}
+             {import.meta.env.DEV && (
+                 <button onClick={handleTestSkip} className="p-3 bg-white/80 hover:bg-teal-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">
+                    <FastForward className="w-5 h-5" />
+                 </button>
+             )}
              <button onClick={() => setAudioEnabled(!audioEnabled)} className="p-3 bg-white/80 hover:bg-slate-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 shadow-sm">
                 {audioEnabled ? <Volume2 className="w-5 h-5 text-[#0E1A2B]" /> : <VolumeX className="w-5 h-5 text-slate-400" />}
             </button>
@@ -1153,10 +1286,20 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         <div className="p-8 pb-12 bg-gradient-to-t from-white/95 via-white/50 to-transparent flex flex-col items-center pointer-events-auto">
           <div className="mb-10 text-center bg-white/80 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-slate-200 shadow-2xl max-w-sm w-full transition-all duration-300">
             <h3 className="text-base font-bold leading-tight uppercase tracking-tight text-[#0E1A2B]">
-                {status === 'holding' ? 'Perfect, Hold Still...' : status === 'out-of-bounds' ? 'Move Back / Center Face' : status === 'aligning' && guidance.text ? guidance.text : currentStep.instruction}
+                {status === 'holding' ? translations[lang].scannerSteps.guidance.perfect : status === 'out-of-bounds' ? translations[lang].scannerSteps.guidance.moveBack : status === 'aligning' && guidance.text ? guidance.text : currentStep.instruction}
             </h3>
             {currentStep.subInstruction && <p className="text-slate-500 text-xs font-medium mt-1">{currentStep.subInstruction}</p>}
-            {status === 'aligning' && currentStep.useAI && !guidance.text && <motion.p initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="text-amber-500 text-[10px] font-black uppercase tracking-widest mt-2">Adjust Angle</motion.p>}
+            {status === 'aligning' && currentStep.useAI && !guidance.text && (
+                <motion.p 
+                    {...{
+                        initial: { opacity: 0, y: 5 },
+                        animate: { opacity: 1, y: 0 }
+                    } as any}
+                    className="text-amber-500 text-[10px] font-black uppercase tracking-widest mt-2"
+                >
+                    {translations[lang].scannerSteps.guidance.adjustAngle}
+                </motion.p>
+            )}
           </div>
 
           <div className="relative w-28 h-28 flex items-center justify-center">
@@ -1164,7 +1307,20 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                 <>
                     <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="6" />
-                    <motion.circle cx="50" cy="50" r={radius} fill="none" stroke={status === 'holding' ? '#14B8A6' : status === 'aligning' ? '#fbbf24' : 'rgba(0,0,0,0.1)'} strokeWidth="6" strokeDasharray={circumference} animate={{ strokeDashoffset: dashOffset }} transition={{ type: 'tween', ease: 'linear', duration: 0.1 }} strokeLinecap="round" />
+                    <motion.circle 
+                        cx="50" 
+                        cy="50" 
+                        r={radius} 
+                        fill="none" 
+                        stroke={status === 'holding' ? '#14B8A6' : status === 'aligning' ? '#fbbf24' : 'rgba(0,0,0,0.1)'} 
+                        strokeWidth="6" 
+                        strokeDasharray={circumference} 
+                        {...{
+                            animate: { strokeDashoffset: dashOffset },
+                            transition: { type: 'tween', ease: 'linear', duration: 0.1 }
+                        } as any}
+                        strokeLinecap="round" 
+                    />
                     </svg>
                     <div className={`relative z-10 w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${status === 'holding' ? 'bg-white shadow-[0_0_30px_rgba(20,184,166,0.3)] scale-110 border border-teal-100' : status === 'out-of-bounds' ? 'bg-red-50 border border-red-100' : 'bg-white border border-slate-100'}`}>
                     {status === 'capturing' ? <RefreshCw className="w-6 h-6 animate-spin text-[#0E1A2B]" /> : status === 'holding' ? <Timer className="w-6 h-6 text-teal-600 animate-pulse" /> : <CameraIcon className={`w-6 h-6 ${status === 'out-of-bounds' ? 'text-red-500' : 'text-slate-400'}`} />}
@@ -1198,7 +1354,14 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
           <AnimatePresence>
             {showSettings && (
-              <motion.div initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 20, scale: 0.95 }} className="absolute bottom-32 left-6 right-6 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-[2.5rem] p-8 shadow-2xl">
+              <motion.div 
+                {...{
+                    initial: { opacity: 0, y: 20, scale: 0.95 },
+                    animate: { opacity: 1, y: 0, scale: 1 },
+                    exit: { opacity: 0, y: 20, scale: 0.95 }
+                } as any}
+                className="absolute bottom-32 left-6 right-6 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-[2.5rem] p-8 shadow-2xl"
+              >
                 <div className="space-y-6">
                   <RangeControl icon={Sun} label="Exposure" value={brightness} onChange={setBrightness} />
                   <RangeControl icon={Sparkles} label="Contrast" value={contrast} onChange={setContrast} />
