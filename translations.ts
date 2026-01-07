@@ -114,6 +114,21 @@ export interface Language {
     compareSubtitle: string;
     goldenSentence: string;
   };
+  story: {
+    slide1_title: string;
+    slide1_subtitle: string;
+    slide2_title: string;
+    slide2_subtitle: string;
+    slide2_metric: string;
+    slide3_title: string;
+    slide3_subtitle: string;
+    slide4_title: string;
+    slide4_grafts: string;
+    slide4_donor: string;
+    slide4_btn: string;
+    slide4_share: string;
+    slide4_share_toast: string;
+  };
   footer: {
     patients: string;
     partners: string;
@@ -167,6 +182,17 @@ export interface Language {
     count2: string;
     count1: string;
     captured: string;
+    guidance: {
+        turnLeft: string;
+        turnRight: string;
+        chinUp: string;
+        chinDown: string;
+        perfect: string;
+        hold: string;
+        moveBack: string;
+        adjustAngle: string;
+        loading: string;
+    };
   };
 }
 
@@ -284,6 +310,21 @@ export const translations: Record<LanguageCode, Language> = {
       compareSubtitle: "Compare how clinics approach your case — not just prices.",
       goldenSentence: "Recommendations are earned through clarity and fit — not bought."
     },
+    story: {
+        slide1_title: "Analysis Complete",
+        slide1_subtitle: "Your personal report is ready.",
+        slide2_title: "Observed Pattern",
+        slide2_subtitle: "Based on scalp geometry",
+        slide2_metric: "Norwood Scale",
+        slide3_title: "Visual Projection",
+        slide3_subtitle: "AI-Generated Simulation",
+        slide4_title: "Your Potential",
+        slide4_grafts: "Est. Grafts",
+        slide4_donor: "Donor Density",
+        slide4_btn: "See Detailed Plan",
+        slide4_share: "Share Report",
+        slide4_share_toast: "Link copied to clipboard!"
+    },
     footer: {
       patients: "Patients",
       partners: "Partners",
@@ -336,7 +377,18 @@ export const translations: Record<LanguageCode, Language> = {
         count3: 'Three',
         count2: 'Two',
         count1: 'One',
-        captured: 'Captured'
+        captured: 'Captured',
+        guidance: {
+            turnLeft: "Turn Left",
+            turnRight: "Turn Right",
+            chinUp: "Chin Up",
+            chinDown: "Chin Down",
+            perfect: "Perfect",
+            hold: "Hold Steady...",
+            moveBack: "Move Back",
+            adjustAngle: "Adjust Angle",
+            loading: "Loading Vision Model..."
+        }
     }
   },
   TR: {
@@ -452,6 +504,21 @@ export const translations: Record<LanguageCode, Language> = {
       compareSubtitle: "Sadece fiyatları değil, kliniklerin vakanıza yaklaşımını karşılaştırın.",
       goldenSentence: "Öneriler ödeme ile değil, netlik ve uyum ile kazanılır."
     },
+    story: {
+        slide1_title: "Analiz Tamamlandı",
+        slide1_subtitle: "Kişisel raporunuz hazır.",
+        slide2_title: "Gözlemlenen Model",
+        slide2_subtitle: "Kafa derisi geometrisine göre",
+        slide2_metric: "Norwood Tipi",
+        slide3_title: "Görsel Projeksiyon",
+        slide3_subtitle: "Yapay Zeka Destekli Simülasyon",
+        slide4_title: "Potansiyeliniz",
+        slide4_grafts: "Tahmini Greft",
+        slide4_donor: "Donör Yoğunluğu",
+        slide4_btn: "Detaylı Planı Gör",
+        slide4_share: "Raporu Paylaş",
+        slide4_share_toast: "Bağlantı kopyalandı!"
+    },
     footer: {
       patients: "Hastalar",
       partners: "Partnerler",
@@ -504,7 +571,18 @@ export const translations: Record<LanguageCode, Language> = {
         count3: 'Üç',
         count2: 'İki',
         count1: 'Bir',
-        captured: 'Çekildi'
+        captured: 'Çekildi',
+        guidance: {
+            turnLeft: "Sola Dön",
+            turnRight: "Sağa Dön",
+            chinUp: "Çeneni Kaldır",
+            chinDown: "Çeneni İndir",
+            perfect: "Mükemmel",
+            hold: "Sabit Dur...",
+            moveBack: "Geri Çekil",
+            adjustAngle: "Açıyı Düzelt",
+            loading: "Görsel Model Yükleniyor..."
+        }
     }
   },
   DE: {
@@ -620,6 +698,21 @@ export const translations: Record<LanguageCode, Language> = {
       compareSubtitle: "Vergleichen Sie Ansätze, nicht nur Preise.",
       goldenSentence: "Empfehlungen werden durch Klarheit verdient – nicht gekauft."
     },
+    story: {
+        slide1_title: "Analyse abgeschlossen",
+        slide1_subtitle: "Ihr persönlicher Bericht ist fertig.",
+        slide2_title: "Beobachtetes Muster",
+        slide2_subtitle: "Basierend auf der Kopfhautgeometrie",
+        slide2_metric: "Norwood-Skala",
+        slide3_title: "Visuelle Projektion",
+        slide3_subtitle: "KI-generierte Simulation",
+        slide4_title: "Ihr Potenzial",
+        slide4_grafts: "Geschätzte Grafts",
+        slide4_donor: "Spenderdichte",
+        slide4_btn: "Detaillierten Plan ansehen",
+        slide4_share: "Bericht teilen",
+        slide4_share_toast: "Link kopiert!"
+    },
     footer: {
       patients: "Patienten",
       partners: "Partner",
@@ -672,7 +765,18 @@ export const translations: Record<LanguageCode, Language> = {
         count3: 'Drei',
         count2: 'Zwei',
         count1: 'Eins',
-        captured: 'Erfasst'
+        captured: 'Erfasst',
+        guidance: {
+            turnLeft: "Links drehen",
+            turnRight: "Rechts drehen",
+            chinUp: "Kinn hoch",
+            chinDown: "Kinn runter",
+            perfect: "Perfekt",
+            hold: "Stillhalten...",
+            moveBack: "Zurücktreten",
+            adjustAngle: "Winkel anpassen",
+            loading: "Visuelles Modell laden..."
+        }
     }
   },
   FR: {
@@ -788,6 +892,21 @@ export const translations: Record<LanguageCode, Language> = {
       compareSubtitle: "Comparez les approches, pas seulement les prix.",
       goldenSentence: "Les recommandations se méritent par la clarté, pas par l'argent."
     },
+    story: {
+        slide1_title: "Analyse Terminée",
+        slide1_subtitle: "Votre rapport personnel est prêt.",
+        slide2_title: "Modèle Observé",
+        slide2_subtitle: "Basé sur la géométrie du cuir chevelu",
+        slide2_metric: "Échelle Norwood",
+        slide3_title: "Projection Visuelle",
+        slide3_subtitle: "Simulation générée par IA",
+        slide4_title: "Votre Potentiel",
+        slide4_grafts: "Greffons Est.",
+        slide4_donor: "Densité Donneur",
+        slide4_btn: "Voir le Plan Détaillé",
+        slide4_share: "Partager",
+        slide4_share_toast: "Lien copié !"
+    },
     footer: {
       patients: "Patients",
       partners: "Partenaires",
@@ -840,7 +959,18 @@ export const translations: Record<LanguageCode, Language> = {
         count3: 'Trois',
         count2: 'Deux',
         count1: 'Un',
-        captured: 'Capturé'
+        captured: 'Capturé',
+        guidance: {
+            turnLeft: "Tournez à gauche",
+            turnRight: "Tournez à droite",
+            chinUp: "Menton haut",
+            chinDown: "Menton bas",
+            perfect: "Parfait",
+            hold: "Ne bougez plus...",
+            moveBack: "Reculez",
+            adjustAngle: "Ajustez l'angle",
+            loading: "Chargement du modèle visuel..."
+        }
     }
   },
   PL: {
@@ -956,6 +1086,21 @@ export const translations: Record<LanguageCode, Language> = {
       compareSubtitle: "Porównaj podejścia, nie tylko ceny.",
       goldenSentence: "Rekomendacje zdobywa się jasnością, a nie kupuje."
     },
+    story: {
+        slide1_title: "Analiz Tamamlandı",
+        slide1_subtitle: "Kişisel raporunuz hazır.",
+        slide2_title: "Gözlemlenen Model",
+        slide2_subtitle: "Kafa derisi geometrisine göre",
+        slide2_metric: "Norwood Tipi",
+        slide3_title: "Görsel Projeksiyon",
+        slide3_subtitle: "Yapay Zeka Destekli Simülasyon",
+        slide4_title: "Potansiyeliniz",
+        slide4_grafts: "Tahmini Greft",
+        slide4_donor: "Donör Yoğunluğu",
+        slide4_btn: "Detaylı Planı Gör",
+        slide4_share: "Raporu Paylaş",
+        slide4_share_toast: "Bağlantı kopyalandı!"
+    },
     footer: {
       patients: "Pacjenci",
       partners: "Partnerzy",
@@ -1008,7 +1153,18 @@ export const translations: Record<LanguageCode, Language> = {
         count3: 'Trzy',
         count2: 'Dwa',
         count1: 'Jeden',
-        captured: 'Zrobione'
+        captured: 'Zrobione',
+        guidance: {
+            turnLeft: "Obróć w lewo",
+            turnRight: "Obróć w prawo",
+            chinUp: "Broda w górę",
+            chinDown: "Broda w dół",
+            perfect: "Idealnie",
+            hold: "Trzymaj...",
+            moveBack: "Cofnij się",
+            adjustAngle: "Popraw kąt",
+            loading: "Ładowanie modelu wizualnego..."
+        }
     }
   },
   AR: {
@@ -1124,6 +1280,21 @@ export const translations: Record<LanguageCode, Language> = {
       compareSubtitle: "قارن النهج، ليس فقط السعر.",
       goldenSentence: "التوصيات تُكسب بالوضوح، لا تُشترى."
     },
+    story: {
+        slide1_title: "اكتمل التحليل",
+        slide1_subtitle: "تقريرك الشخصي جاهز.",
+        slide2_title: "النمط المرصود",
+        slide2_subtitle: "بناءً على هندسة فروة الرأس",
+        slide2_metric: "مقياس نوروود",
+        slide3_title: "الإسقاط البصري",
+        slide3_subtitle: "محاكاة بالذكاء الاصطناعي",
+        slide4_title: "إمكانياتك",
+        slide4_grafts: "تقدير البصيلات",
+        slide4_donor: "كثافة المنطقة المانحة",
+        slide4_btn: "عرض الخطة التفصيلية",
+        slide4_share: "مشاركة التقرير",
+        slide4_share_toast: "تم نسخ الرابط!"
+    },
     footer: {
       patients: "المرضى",
       partners: "الشركاء",
@@ -1176,7 +1347,18 @@ export const translations: Record<LanguageCode, Language> = {
         count3: 'ثلاثة',
         count2: 'اثنان',
         count1: 'واحد',
-        captured: 'تم الالتقاط'
+        captured: 'تم الالتقاط',
+        guidance: {
+            turnLeft: "استدر لليسار",
+            turnRight: "استدر لليمين",
+            chinUp: "ارفع ذقنك",
+            chinDown: "اخفض ذقنك",
+            perfect: "ممتاز",
+            hold: "اثبت...",
+            moveBack: "تراجع للخلف",
+            adjustAngle: "اضبط الزاوية",
+            loading: "تحميل النموذج..."
+        }
     }
   }
 };
