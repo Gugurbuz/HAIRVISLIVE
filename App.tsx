@@ -339,10 +339,9 @@ const App: React.FC = () => {
       thumbnailUrl: simImg || capturedPhotos[0]?.preview,
       status: 'AVAILABLE' as const,
       price: 65,
+      proposalPrice: 12,
       isUnlocked: false,
-      suitability: calculatedSuitability,
-      donorBand: donorRating,
-      responses: [],
+      isNegotiable: true,
       patientDetails: {
         fullName: 'Verified Patient',
         phone: mergedData.contactMethod === 'phone' ? mergedData.contactValue : '',
@@ -357,6 +356,22 @@ const App: React.FC = () => {
         ...result,
         surgical_plan_image: planImg,
         simulation_image: simImg,
+      },
+      name: 'Verified Patient',
+      email: mergedData.contactMethod === 'email' ? mergedData.contactValue : '',
+      phone: mergedData.contactMethod === 'phone' ? mergedData.contactValue : '',
+      concerns: mergedData.goal ? [mergedData.goal] : [],
+      source: 'scanner',
+      scanData: {
+        photos: capturedPhotos.map((p: any) => ({ label: p.label, preview: p.preview })),
+        analysisImages: {
+          simulation: simImg,
+          planning: planImg,
+        },
+      },
+      metadata: {
+        lang,
+        intake: mergedData,
       },
     };
 

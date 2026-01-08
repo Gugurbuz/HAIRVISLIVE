@@ -68,7 +68,15 @@ export interface LeadData {
   };
   isNegotiable: boolean;
   analysisData?: ScalpAnalysisResult;
-  intake?: IntakeData; // Structured progressive profiling data
+  intake?: IntakeData;
+  name?: string;
+  email?: string;
+  phone?: string;
+  concerns?: string[];
+  source?: string;
+  clinicId?: string;
+  scanData?: Record<string, any>;
+  metadata?: Record<string, any>;
 }
 
 interface LeadContextType {
@@ -99,22 +107,30 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return {
       id: dbLead.id,
-      countryCode: dbLead.country_code,
+      countryCode: dbLead.country_code || '',
       age: dbLead.age,
       gender: dbLead.gender,
-      norwoodScale: dbLead.norwood_scale,
-      estimatedGrafts: dbLead.estimated_grafts,
+      norwoodScale: dbLead.norwood_scale || '',
+      estimatedGrafts: dbLead.estimated_grafts || '',
       registrationDate: timeString,
       timestamp: new Date(dbLead.created_at).getTime(),
       thumbnailUrl: dbLead.thumbnail_url || '',
       status: dbLead.status,
-      price: dbLead.price,
-      proposalPrice: dbLead.proposal_price,
-      isUnlocked: dbLead.is_unlocked,
-      isNegotiable: dbLead.is_negotiable,
+      price: dbLead.price || 0,
+      proposalPrice: dbLead.proposal_price || 0,
+      isUnlocked: dbLead.is_unlocked || false,
+      isNegotiable: dbLead.is_negotiable || false,
       patientDetails: dbLead.patient_details,
       analysisData: dbLead.analysis_data,
       intake: dbLead.intake_data,
+      name: dbLead.name,
+      email: dbLead.email,
+      phone: dbLead.phone,
+      concerns: dbLead.concerns || [],
+      source: dbLead.source,
+      clinicId: dbLead.clinic_id,
+      scanData: dbLead.scan_data,
+      metadata: dbLead.metadata,
     };
   };
 
@@ -185,6 +201,14 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           patient_details: lead.patientDetails,
           analysis_data: lead.analysisData,
           intake_data: lead.intake,
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          concerns: lead.concerns,
+          source: lead.source,
+          clinic_id: lead.clinicId,
+          scan_data: lead.scanData,
+          metadata: lead.metadata,
         });
 
       if (insertError) throw insertError;
