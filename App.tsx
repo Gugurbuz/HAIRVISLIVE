@@ -49,6 +49,16 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   }, [appState]);
 
+  useEffect(() => {
+    const handleOAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      if (hashParams.has('access_token')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+    handleOAuthCallback();
+  }, []);
+
   const isDev = import.meta.env.DEV;
 
   const classifyUserError = (err: any) => {
