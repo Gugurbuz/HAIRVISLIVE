@@ -254,9 +254,10 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  // Error States (No fallback state anymore)
+  // Error States
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [modelError, setModelError] = useState<string | null>(null);
   
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -873,7 +874,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       faceMeshRef.current = faceMesh;
     } catch (err) {
       console.error("Failed to load FaceMesh", err);
-      setCameraError("Yapay Zeka Modeli Yüklenemedi. Lütfen sayfayı yenileyin.");
+      setModelError("AI Model failed to initialize. Please refresh the page.");
     }
 
     return () => {
@@ -897,7 +898,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: facingMode }
         });
         streamRef.current = stream;
-        
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
@@ -905,17 +906,17 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
               videoRef.current?.play();
               const track = stream.getVideoTracks()[0];
               try {
-                  const caps = track.getCapabilities() as any; 
+                  const caps = track.getCapabilities() as any;
                   setHasTorch(!!caps.torch);
                   if (!caps.torch) setFlashEnabled(false);
               } catch(e) {}
 
               const step = SCAN_STEPS[currentStepIndex];
-              if (step.zoom) applyZoom(step.zoom); else applyZoom(1.0); 
+              if (step.zoom) applyZoom(step.zoom); else applyZoom(1.0);
 
               const process = async () => {
                 if (!isMountedRef.current) return;
-                
+
                 if (!faceMeshRef.current) {
                     rafIdRef.current = requestAnimationFrame(process);
                     return;
@@ -946,7 +947,18 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       }
     };
     if (isMountedRef.current) startCamera();
-  }, [facingMode, currentStepIndex]); 
+  }, [facingMode]);
+
+  useEffect(() => {
+    const step = SCAN_STEPS[currentStepIndex];
+    if (videoRef.current?.srcObject) {
+      if (step.zoom) {
+        applyZoom(step.zoom);
+      } else {
+        applyZoom(1.0);
+      }
+    }
+  }, [currentStepIndex, SCAN_STEPS]); 
 
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
@@ -1075,13 +1087,27 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           </div>
         </div>
 
+        {modelError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-[#F7F8FA]/95 z-50 p-10 pointer-events-auto text-center">
+              <div className="space-y-6">
+                 <AlertCircle className="w-16 h-16 text-red-500 mx-auto" />
+                 <h3 className="text-2xl font-black uppercase tracking-tight text-[#0E1A2B]">AI Model Error</h3>
+                 <p className="text-slate-500 font-medium">{modelError}</p>
+                 <div className="flex gap-3 justify-center">
+                   <button onClick={() => window.location.reload()} className="bg-teal-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-teal-700 transition-colors">Retry</button>
+                   <button onClick={onExit} className="bg-[#0E1A2B] text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-colors">Exit</button>
+                 </div>
+              </div>
+          </div>
+        )}
+
         {cameraError && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#F7F8FA]/95 z-50 p-10 pointer-events-auto text-center">
               <div className="space-y-6">
                  <AlertCircle className="w-16 h-16 text-red-500 mx-auto" />
                  <h3 className="text-2xl font-black uppercase tracking-tight text-[#0E1A2B]">Camera Error</h3>
                  <p className="text-slate-500 font-medium">{cameraError}</p>
-                 <button onClick={onExit} className="bg-[#0E1A2B] text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl">Exit</button>
+                 <button onClick={onExit} className="bg-[#0E1A2B] text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-colors">Exit</button>
               </div>
           </div>
         )}
