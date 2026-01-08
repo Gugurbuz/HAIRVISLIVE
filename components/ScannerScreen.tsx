@@ -22,7 +22,8 @@ import {
   ZoomIn,
   FastForward,
   Zap,
-  ZapOff
+  ZapOff,
+  WifiOff // Model yüklenemezse göstermek için ikon
 } from 'lucide-react';
 import { translations, LanguageCode } from '../translations';
 
@@ -53,6 +54,11 @@ const getAudioContext = () => {
     return sharedAudioCtx;
 };
 
+// ... (getLanguageTag, getBestVoice, speak, analyzeImageContent, playSound, vibrate, RangeControl fonksiyonları aynen kalacak) ...
+// (Buraya yukarıdaki helper fonksiyonları eklediğini varsayıyorum, yer kaplamaması için tekrar kopyalamadım)
+// KODUN Geri kalanı için gerekli importlar ve helperlar yukarıdaki gibidir.
+
+// Helper fonksiyonları tekrar ekliyorum ki eksiksiz olsun:
 const getLanguageTag = (lang: LanguageCode): string => {
     switch (lang) {
         case 'TR': return 'tr-TR';
@@ -66,17 +72,13 @@ const getLanguageTag = (lang: LanguageCode): string => {
 
 const getBestVoice = (langTag: string) => {
     if (!window.speechSynthesis) return null;
-    
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
-
     const targetBase = langTag.split('-')[0].toLowerCase(); 
-
     let candidates = voices.filter(v => {
         const voiceLang = v.lang.toLowerCase().replace('_', '-');
         return voiceLang === langTag.toLowerCase() || voiceLang.startsWith(targetBase + '-');
     });
-
     if (candidates.length === 0) {
         candidates = voices.filter(v => {
             const voiceLang = v.lang.toLowerCase().replace('_', '-');
@@ -84,9 +86,7 @@ const getBestVoice = (langTag: string) => {
             return voiceLang.startsWith(targetBase) || name.includes('turkish') || name.includes('türkçe');
         });
     }
-
     if (candidates.length === 0) return null;
-
     const scoredCandidates = candidates.map(v => {
         let score = 0;
         const name = v.name.toLowerCase();
@@ -96,26 +96,19 @@ const getBestVoice = (langTag: string) => {
         if (v.default) score -= 1;
         return { voice: v, score };
     });
-
     scoredCandidates.sort((a, b) => b.score - a.score);
     return scoredCandidates[0].voice;
 };
 
-
 const speak = (text: string, enabled: boolean, lang: LanguageCode) => {
-  // CRITICAL FIX: Removed the TR check blocker.
   if (!enabled || !window.speechSynthesis) return;
-  
   window.speechSynthesis.cancel();
-
   const utterance = new SpeechSynthesisUtterance(text);
   const langTag = getLanguageTag(lang);
-  
   utterance.lang = langTag;
   utterance.rate = 0.9;
   utterance.pitch = 1.0;
   utterance.volume = 1.0;
-
   const setVoiceAndSpeak = () => {
       const bestVoice = getBestVoice(langTag);
       if (bestVoice) {
@@ -126,12 +119,9 @@ const speak = (text: string, enabled: boolean, lang: LanguageCode) => {
       }
       window.speechSynthesis.speak(utterance);
   };
-
   if (window.speechSynthesis.getVoices().length === 0) {
       window.speechSynthesis.onvoiceschanged = () => {
           setVoiceAndSpeak();
-          // Avoid clearing onvoiceschanged globally as it might affect other parts, 
-          // but for this component scope it's okay-ish. Ideally use addEventListener.
           window.speechSynthesis.onvoiceschanged = null;
       };
   } else {
@@ -142,154 +132,89 @@ const speak = (text: string, enabled: boolean, lang: LanguageCode) => {
 const analyzeImageContent = (ctx: CanvasRenderingContext2D, width: number, height: number, region?: {x: number, y: number, w: number, h: number}) => {
     try {
         let startX, startY, sampleW, sampleH;
-
         if (region) {
-            startX = region.x;
-            startY = region.y;
-            sampleW = region.w;
-            sampleH = region.h;
+            startX = region.x; startY = region.y; sampleW = region.w; sampleH = region.h;
         } else {
-            sampleW = Math.min(width, height) * 0.5;
-            sampleH = sampleW;
-            startX = (width - sampleW) / 2;
-            startY = (height - sampleH) / 2;
+            sampleW = Math.min(width, height) * 0.5; sampleH = sampleW;
+            startX = (width - sampleW) / 2; startY = (height - sampleH) / 2;
         }
-        
-        // Clamp values to ensure we don't read outside canvas
         startX = Math.max(0, Math.floor(startX));
         startY = Math.max(0, Math.floor(startY));
         sampleW = Math.min(width - startX, Math.floor(sampleW));
         sampleH = Math.min(height - startY, Math.floor(sampleH));
-
         if (sampleW <= 0 || sampleH <= 0) return { brightness: 0, sharpness: 0 };
-
         const imageData = ctx.getImageData(startX, startY, sampleW, sampleH);
         const data = imageData.data;
         const widthSamples = imageData.width;
-        
-        let sumLuma = 0;
-        let sumSharpness = 0;
-        let pixelCount = 0;
-
-        const step = 4; 
-
+        let sumLuma = 0; let sumSharpness = 0; let pixelCount = 0; const step = 4; 
         for (let i = 0; i < data.length; i += step * 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
+            const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
             const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-            
             sumLuma += luma;
-
             if (i + (step * 4) < data.length && i + (widthSamples * 4 * step) < data.length) {
-                const rightIdx = i + (step * 4);
-                const downIdx = i + (widthSamples * 4 * step);
-
+                const rightIdx = i + (step * 4); const downIdx = i + (widthSamples * 4 * step);
                 const rightLuma = 0.299 * data[rightIdx] + 0.587 * data[rightIdx+1] + 0.114 * data[rightIdx+2];
                 const downLuma = 0.299 * data[downIdx] + 0.587 * data[downIdx+1] + 0.114 * data[downIdx+2];
-
-                const diffH = Math.abs(luma - rightLuma);
-                const diffV = Math.abs(luma - downLuma);
-                
+                const diffH = Math.abs(luma - rightLuma); const diffV = Math.abs(luma - downLuma);
                 sumSharpness += (diffH + diffV);
             }
             pixelCount++;
         }
-
         const avgBrightness = pixelCount > 0 ? sumLuma / pixelCount : 0;
         const sharpnessScore = pixelCount > 0 ? Math.min(100, (sumSharpness / pixelCount) * 5) : 0; 
-
-        return {
-            brightness: avgBrightness, 
-            sharpness: sharpnessScore
-        };
-    } catch (e) {
-        return { brightness: 0, sharpness: 0 };
-    }
+        return { brightness: avgBrightness, sharpness: sharpnessScore };
+    } catch (e) { return { brightness: 0, sharpness: 0 }; }
 };
 
 const playSound = (type: 'beep' | 'success' | 'error' | 'focus' | 'lock') => {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
-    
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
-
     const now = ctx.currentTime;
-
     if (type === 'beep') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, now);
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(800, now);
         osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        osc.start(now);
-        osc.stop(now + 0.1);
+        gain.gain.setValueAtTime(0.1, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        osc.start(now); osc.stop(now + 0.1);
     } else if (type === 'success') {
         [523.25, 659.25, 783.99].forEach((freq, i) => { 
-            const o = ctx.createOscillator();
-            const g = ctx.createGain();
-            o.type = 'sine';
-            o.frequency.value = freq;
-            o.connect(g);
-            g.connect(ctx.destination);
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.type = 'sine'; o.frequency.value = freq;
+            o.connect(g); g.connect(ctx.destination);
             const startTime = now + (i * 0.08);
-            g.gain.setValueAtTime(0, startTime);
-            g.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
+            g.gain.setValueAtTime(0, startTime); g.gain.linearRampToValueAtTime(0.1, startTime + 0.05);
             g.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
-            o.start(startTime);
-            o.stop(startTime + 0.5);
+            o.start(startTime); o.stop(startTime + 0.5);
         });
     } else if (type === 'error') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, now);
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, now);
         osc.frequency.linearRampToValueAtTime(100, now + 0.3);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.linearRampToValueAtTime(0.001, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
+        gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0.001, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
     } else if (type === 'focus') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(1200, now); 
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(1200, now); 
         osc.frequency.linearRampToValueAtTime(1200, now + 0.05);
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.linearRampToValueAtTime(0, now + 0.05);
-        osc.start(now);
-        osc.stop(now + 0.05);
+        gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now + 0.05);
+        osc.start(now); osc.stop(now + 0.05);
     } else if (type === 'lock') {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(440, now);
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'square'; osc.frequency.setValueAtTime(440, now);
         osc.frequency.setValueAtTime(880, now + 0.1);
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.linearRampToValueAtTime(0, now + 0.2);
-        osc.start(now);
-        osc.stop(now + 0.2);
+        gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now + 0.2);
+        osc.start(now); osc.stop(now + 0.2);
     }
-
-  } catch (e) {
-    console.warn("Audio playback failed", e);
-  }
+  } catch (e) { console.warn("Audio playback failed", e); }
 };
 
-const vibrate = (pattern: number | number[]) => {
-  if (navigator.vibrate) navigator.vibrate(pattern);
-};
+const vibrate = (pattern: number | number[]) => { if (navigator.vibrate) navigator.vibrate(pattern); };
 
 const RangeControl = ({ icon: Icon, label, value, onChange, min = 0, max = 200 }: any) => (
   <div className="flex items-center gap-3 w-full bg-white/10 p-2 rounded-lg backdrop-blur-sm border border-white/20">
@@ -299,14 +224,7 @@ const RangeControl = ({ icon: Icon, label, value, onChange, min = 0, max = 200 }
         <span>{label}</span>
         <span>{value}%</span>
       </div>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-500"
-      />
+      <input type="range" min={min} max={max} value={value} onChange={(e) => onChange(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-500" />
     </div>
   </div>
 );
@@ -333,13 +251,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   const streamRef = useRef<MediaStream | null>(null);
   const macroIntervalRef = useRef<any>(null);
   
-  // FIX: Countdown Interval Leak prevention
   const countdownIntervalRef = useRef<any>(null);
-  
-  // FIX: Race condition prevention
   const captureLockRef = useRef(false);
 
-  // Refs for optimization
   const isModelLoadedRef = useRef(false);
   const lastGuidanceTextRef = useRef('');
 
@@ -360,16 +274,19 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
 
+  // Error & Fallback States
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [modelLoadError, setModelLoadError] = useState(false); // New: Handle script fail
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  
+  const [brightness, setBrightness] = useState(100);
+  const [contrast, setContrast] = useState(100);
+  const [showSettings, setShowSettings] = useState(false);
+
   // Refs for state
   const currentStepIndexRef = useRef(0);
   const statusRef = useRef<'searching' | 'out-of-bounds' | 'aligning' | 'holding' | 'capturing' | 'review'>('searching');
   const onCompleteRef = useRef(onComplete);
-
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [brightness, setBrightness] = useState(100);
-  const [contrast, setContrast] = useState(100);
-  const [showSettings, setShowSettings] = useState(false);
 
   // Define Steps
   const SCAN_STEPS = useMemo(() => {
@@ -445,26 +362,30 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       ];
   }, [lang]);
 
+  // FIX: Standardized countdown cleanup helper
+  const stopCountdown = useCallback(() => {
+    if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+    }
+    setCountdown(null);
+  }, []);
+
   useEffect(() => {
     currentStepIndexRef.current = currentStepIndex;
     setValidationError(null);
     setHoldProgress(0);
     setStatus('searching');
     statusRef.current = 'searching';
-    captureLockRef.current = false; // Release lock on step change
+    captureLockRef.current = false; 
     
-    // Clear any existing countdown
-    if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-    }
-    setCountdown(null);
+    stopCountdown();
     
     const step = SCAN_STEPS[currentStepIndex];
     if (step.forceCamera && step.forceCamera !== facingMode) {
         setFacingMode(step.forceCamera as any);
     }
-  }, [currentStepIndex, SCAN_STEPS]);
+  }, [currentStepIndex, SCAN_STEPS, stopCountdown]);
 
   useEffect(() => {
     statusRef.current = status;
@@ -521,9 +442,12 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       }
   };
 
-  const toggleCamera = () => {
+  const toggleCamera = async () => {
+      // FIX: Ensure torch is off before switching
+      if (flashEnabled) {
+          await applyTorch(false);
+      }
       setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-      setFlashEnabled(false); 
   };
 
   const toggleManualFlash = () => {
@@ -531,7 +455,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   };
 
   const handleTestSkip = () => {
-      // FIX: DEV mode guard
       if (!import.meta.env.DEV) return;
 
       const mockPhotoData = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -567,22 +490,20 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     const video = videoRef.current;
     if (!video) return;
 
-    // Use a smaller canvas for analysis to improve performance on low-end devices
     const analysisCanvas = document.createElement('canvas');
     const ctx = analysisCanvas.getContext('2d', { willReadFrequently: true });
 
     let focusLockTime = 0;
     let isCountingDown = false;
 
-    // FIX: Increased interval from 150ms to 500ms to reduce CPU load
     macroIntervalRef.current = setInterval(() => {
         if (!isMountedRef.current || statusRef.current === 'capturing' || statusRef.current === 'review' || captureLockRef.current) return;
         if (video.readyState < 2) return;
 
-        // Downsample for analysis
         const analyzeWidth = 240; 
         const aspectRatio = video.videoWidth / video.videoHeight;
-        const analyzeHeight = analyzeWidth / aspectRatio;
+        // FIX: Round dimensions to integer
+        const analyzeHeight = Math.max(1, Math.round(analyzeWidth / aspectRatio));
 
         if (analysisCanvas.width !== analyzeWidth) {
             analysisCanvas.width = analyzeWidth;
@@ -607,7 +528,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
         if (step.id === 'donor') {
             const minSharpness = 25; 
-            
             if (isCountingDown) return; 
 
             if (stats.sharpness > minSharpness && stats.brightness > 40) {
@@ -616,7 +536,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                     playSound('focus'); 
                 }
                 
-                focusLockTime += 500; // Adjusted for new interval
+                focusLockTime += 500; 
 
                 if (focusLockTime > 1000) {
                     isCountingDown = true;
@@ -635,8 +555,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         if (step.id === 'hairline_macro') {
             const minSharpness = 22;
             const goodSharpness = 45;
-
-            // Throttle guidance updates here too
             let newGuidanceText = '';
             
             if (stats.sharpness < minSharpness) {
@@ -651,7 +569,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                     playSound('focus');
                 }
                 newGuidanceText = t.hold;
-                // Faster progress since interval is slower
                 setHoldProgress(prev => Math.min(prev + 10, 30)); 
 
             } else {
@@ -662,7 +579,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                 newGuidanceText = t.perfect;
                 
                 setHoldProgress(prev => {
-                    const next = Math.max(30, prev + 25); // Faster progress
+                    const next = Math.max(30, prev + 25); 
                     if (next >= 100) {
                         handleCapture();
                         return 100;
@@ -686,10 +603,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
 
   const startCountdownCapture = () => {
-    // FIX: Clear existing interval if any
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    stopCountdown(); // Clean previous first
     
-    if (status === 'capturing' || countdown !== null || captureLockRef.current) return;
+    if (status === 'capturing' || captureLockRef.current) return;
     setValidationError(null);
     
     let count = 3;
@@ -705,19 +621,14 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
             speak(countWords[count-1] || String(count), audioEnabled, lang);
             if(audioEnabled) playSound('beep');
         } else {
-            // FIX: Clear interval properly
-            if (countdownIntervalRef.current) {
-                clearInterval(countdownIntervalRef.current);
-                countdownIntervalRef.current = null;
-            }
-            setCountdown(null);
+            stopCountdown();
             handleCapture();
         }
     }, 1000);
   };
 
   const handleCapture = useCallback(() => {
-    if (captureLockRef.current) return; // Prevent double capture
+    if (captureLockRef.current) return; 
     if (!videoRef.current || !overlayRef.current) return;
     if (statusRef.current === 'capturing' || statusRef.current === 'review') return;
     
@@ -732,6 +643,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     const overlayRect = overlay.getBoundingClientRect();
     const sourceW = video.videoWidth;
     const sourceH = video.videoHeight;
+    // ... Aspect ratio logic same as before ...
     const elW = videoRect.width;
     const elH = videoRect.height;
     const sourceRatio = sourceW / sourceH;
@@ -739,15 +651,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
     let renderW, renderH, offsetX, offsetY;
     if (sourceRatio > elementRatio) {
-        renderH = elH;
-        renderW = elH * sourceRatio;
-        offsetX = (renderW - elW) / 2;
-        offsetY = 0;
+        renderH = elH; renderW = elH * sourceRatio; offsetX = (renderW - elW) / 2; offsetY = 0;
     } else {
-        renderW = elW;
-        renderH = elW / sourceRatio;
-        offsetX = 0;
-        offsetY = (renderH - elH) / 2;
+        renderW = elW; renderH = elW / sourceRatio; offsetX = 0; offsetY = (renderH - elH) / 2;
     }
 
     const overlayRelX = overlayRect.left - videoRect.left;
@@ -760,7 +666,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     const cropW = overlayRect.width * scale;
     const cropH = overlayRect.height * scale;
 
-    // FIX: Int coordinates for Canvas to prevent float issues
+    // FIX: Int coordinates
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(cropW);
     canvas.height = Math.round(cropH);
@@ -793,10 +699,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     vibrate([50, 100, 50]); 
     speak(translations[lang].scannerSteps.captured, audioEnabled, lang);
 
-    // AI Blur bar logic...
     if (lastLandmarksRef.current && currentStep.useAI && facingMode === 'user') {
-       // ... existing AI blur logic ...
-       // Keeping concise for readability, logic remains same
        try {
            const landmarks = lastLandmarksRef.current;
            const mapX = (val: number) => {
@@ -845,7 +748,8 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       setTempPhoto(dataUrl);
       setStatus('review');
       statusRef.current = 'review';
-      captureLockRef.current = false; // Release lock in review
+      // FIX: Lock is NOT released here intentionally.
+      // It will be released in retake or confirm.
     }, 400);
 
   }, [brightness, contrast, audioEnabled, lang, SCAN_STEPS, facingMode]);
@@ -854,8 +758,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     if (!tempPhoto) return;
     if (audioEnabled) playSound('success');
     
-    // Clear countdown if any (safety)
-    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    stopCountdown(); // Safety cleanup
 
     const currentStep = SCAN_STEPS[currentStepIndex];
     const newPhoto = {
@@ -870,7 +773,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     }
     setTempPhoto(null);
     setValidationError(null);
-    captureLockRef.current = false; // Ensure unlocked
+    captureLockRef.current = false; // FIX: Release lock
     
     if (currentStepIndex >= SCAN_STEPS.length - 1) {
         window.speechSynthesis.cancel();
@@ -886,16 +789,20 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   };
 
   const retakePhoto = () => {
+    stopCountdown(); // Safety cleanup
     setTempPhoto(null);
     setStatus('searching');
     statusRef.current = 'searching';
     setHoldProgress(0);
     holdStartTimeRef.current = null;
     setValidationError(null);
-    captureLockRef.current = false; // Release lock
+    captureLockRef.current = false; // FIX: Release lock
   };
 
   const onResults = useCallback((results: any) => {
+    // FIX: Fallback logic inside loop
+    if (modelLoadError) return;
+
     if (!isMountedRef.current) return;
     if (statusRef.current === 'capturing' || statusRef.current === 'review' || captureLockRef.current) return;
     
@@ -922,6 +829,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     lastLandmarksRef.current = landmarks;
 
     const nose = landmarks[1];
+    // ... logic remains same ...
     const leftCheek = landmarks[234];
     const rightCheek = landmarks[454];
     const midEyes = { x: (landmarks[33].x + landmarks[263].x) / 2, y: (landmarks[33].y + landmarks[263].y) / 2 };
@@ -941,7 +849,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     const isPitchGood = Math.abs(diffPitch) < pitchTol;
 
     let newGuidance: { text: string, type: 'up'|'down'|'left'|'right'|null } = { text: '', type: null };
-    
     const isMirrored = facingMode === 'user';
 
     if (!isYawGood) {
@@ -973,7 +880,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       setHoldProgress(0);
       holdStartTimeRef.current = null;
     }
-  }, [handleCapture, SCAN_STEPS, facingMode, lang]);
+  }, [handleCapture, SCAN_STEPS, facingMode, lang, modelLoadError]);
 
   const onResultsRef = useRef(onResults);
   useEffect(() => { onResultsRef.current = onResults; }, [onResults]);
@@ -982,7 +889,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     isMountedRef.current = true;
     if (window.speechSynthesis) window.speechSynthesis.getVoices();
 
-    // FIX: Catch error on loadScript
     loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js')
       .then(() => {
         if (!isMountedRef.current) return;
@@ -1000,7 +906,9 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       })
       .catch((err) => {
           console.error("Failed to load FaceMesh", err);
-          setCameraError("AI Model Load Failed. Please refresh.");
+          // FIX: Soft fail -> Manual Mode
+          setIsModelLoaded(true);
+          setModelLoadError(true);
       });
 
     return () => {
@@ -1010,24 +918,19 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       const fm = faceMeshRef.current;
       if (fm) try { fm.close(); } catch (e) {}
       window.speechSynthesis.cancel();
-      // FIX: Clean up countdown interval if unmounting mid-count
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      stopCountdown();
     };
-  }, []);
+  }, [stopCountdown]);
 
+  // ... (startCamera useEffect logic remains mostly same, just check for modelLoadError in process loop) ...
   useEffect(() => {
     const startCamera = async () => {
       if (streamRef.current) {
           streamRef.current.getTracks().forEach(track => track.stop());
       }
-
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-              width: { ideal: 1920 }, 
-              height: { ideal: 1080 }, 
-              facingMode: facingMode 
-          }
+          video: { width: { ideal: 1920 }, height: { ideal: 1080 }, facingMode: facingMode }
         });
         streamRef.current = stream;
         
@@ -1036,9 +939,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           videoRef.current.onloadedmetadata = () => {
             if (isMountedRef.current) {
               videoRef.current?.play();
-              
               const track = stream.getVideoTracks()[0];
-              // FIX: Basic error handling for capabilities
               try {
                   const caps = track.getCapabilities() as any; 
                   setHasTorch(!!caps.torch);
@@ -1046,14 +947,16 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
               } catch(e) {}
 
               const step = SCAN_STEPS[currentStepIndex];
-              if (step.zoom) {
-                  applyZoom(step.zoom);
-              } else {
-                  applyZoom(1.0); 
-              }
+              if (step.zoom) applyZoom(step.zoom); else applyZoom(1.0); 
 
               const process = async () => {
-                if (!isMountedRef.current || !faceMeshRef.current) return;
+                if (!isMountedRef.current) return;
+                if (modelLoadError) return; // Don't try to send to AI if failed
+
+                if (!faceMeshRef.current) {
+                    rafIdRef.current = requestAnimationFrame(process);
+                    return;
+                }
                 if (processingRef.current) {
                     rafIdRef.current = requestAnimationFrame(process);
                     return;
@@ -1061,7 +964,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                 if (videoRef.current && videoRef.current.readyState >= 2) {
                     processingRef.current = true;
                     try {
-                        // FIX: Add capture lock check here too to save resources
                         if (!captureLockRef.current && faceMeshRef.current && isMountedRef.current) {
                             await faceMeshRef.current.send({ image: videoRef.current });
                         }
@@ -1080,10 +982,10 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         setCameraError("Camera access denied.");
       }
     };
-
     if (isMountedRef.current) startCamera();
-  }, [facingMode, currentStepIndex]); 
+  }, [facingMode, currentStepIndex, modelLoadError]); 
 
+  // UI parts ...
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (circumference * holdProgress) / 100;
@@ -1093,6 +995,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
   return (
     <div className="absolute inset-0 z-0 bg-[#F7F8FA] flex flex-col text-[#0E1A2B] overflow-hidden font-sans" dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Video element and overlays... */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <video 
           ref={videoRef} 
@@ -1101,27 +1004,13 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           muted 
           style={{ filter: `brightness(${brightness}%) contrast(${contrast}%)` }} 
         />
-        {/* Dark Vignette Overlay */}
-        <div 
-            className="absolute inset-0 z-10 bg-black"
-            style={{ 
-                maskImage: 'radial-gradient(circle at center, transparent 45%, black 100%)', 
-                WebkitMaskImage: 'radial-gradient(circle at center, transparent 45%, black 100%)',
-                opacity: 0.5
-            }}
-        />
+        <div className="absolute inset-0 z-10 bg-black" style={{ maskImage: 'radial-gradient(circle at center, transparent 45%, black 100%)', WebkitMaskImage: 'radial-gradient(circle at center, transparent 45%, black 100%)', opacity: 0.5 }} />
       </div>
 
       <AnimatePresence>
         {status === 'review' && tempPhoto && (
-            <motion.div 
-                {...{
-                    initial: { opacity: 0, scale: 0.95 },
-                    animate: { opacity: 1, scale: 1 },
-                    exit: { opacity: 0, scale: 0.95 }
-                } as any}
-                className="absolute inset-0 z-[100] bg-[#F7F8FA]/95 flex flex-col items-center justify-center p-6"
-            >
+            <motion.div {...{ initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.95 } } as any} className="absolute inset-0 z-[100] bg-[#F7F8FA]/95 flex flex-col items-center justify-center p-6">
+                {/* ... Review UI ... */}
                 <div className="w-full max-w-sm space-y-6">
                     <h3 className="text-xl font-black uppercase text-center tracking-widest text-[#0E1A2B]">Validate Capture</h3>
                     <div className="aspect-square rounded-[2.5rem] overflow-hidden border-2 border-slate-200 relative shadow-2xl bg-white">
@@ -1130,15 +1019,10 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                            Quality: {getQualityLabel(currentQualityScore)}
                         </div>
                     </div>
-
                     <div className="flex flex-col gap-3 w-full">
                         <div className="flex gap-4">
-                            <button onClick={retakePhoto} className="flex-1 py-4 rounded-2xl bg-white hover:bg-slate-5 border border-slate-200 text-[#0E1A2B] font-black uppercase text-xs tracking-widest transition-all">
-                                Improve
-                            </button>
-                            <button onClick={confirmPhoto} className="flex-1 py-4 rounded-2xl bg-[#0E1A2B] text-white hover:bg-teal-600 font-black uppercase text-xs tracking-widest transition-all shadow-xl">
-                                Confirm
-                            </button>
+                            <button onClick={retakePhoto} className="flex-1 py-4 rounded-2xl bg-white hover:bg-slate-5 border border-slate-200 text-[#0E1A2B] font-black uppercase text-xs tracking-widest transition-all">Improve</button>
+                            <button onClick={confirmPhoto} className="flex-1 py-4 rounded-2xl bg-[#0E1A2B] text-white hover:bg-teal-600 font-black uppercase text-xs tracking-widest transition-all shadow-xl">Confirm</button>
                         </div>
                     </div>
                 </div>
@@ -1163,68 +1047,35 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           {currentStep.guideType === 'circle' && (
               <div className={`absolute inset-0 border-2 rounded-full scale-50 animate-pulse ${status === 'holding' ? 'border-teal-500' : status === 'aligning' ? 'border-yellow-400' : 'border-white/40'}`} />
           )}
-
+          {/* ... Errors and Guidance ... */}
           <AnimatePresence>
             {validationError && (
-                 <motion.div 
-                    {...{
-                        initial: { opacity: 0, y: 10 },
-                        animate: { opacity: 1, y: 0 },
-                        exit: { opacity: 0 }
-                    } as any}
-                    className="absolute -top-16 left-0 right-0 flex justify-center"
-                 >
+                 <motion.div {...{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0 } } as any} className="absolute -top-16 left-0 right-0 flex justify-center">
                     <div className="bg-red-50 text-red-600 px-4 py-3 rounded-xl font-bold text-xs uppercase tracking-wide flex items-center gap-2 shadow-xl border border-red-100">
                         <AlertTriangle size={16} /> {validationError}
                     </div>
                  </motion.div>
             )}
           </AnimatePresence>
-
+          {/* ... Guidance Arrows ... */}
           {status === 'out-of-bounds' && (
              <div className="absolute -top-12 left-0 right-0 flex justify-center">
-                <motion.div 
-                    {...{
-                        initial: { opacity: 0, y: 10 },
-                        animate: { opacity: 1, y: 0 }
-                    } as any}
-                    className="bg-red-500 text-white px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg"
-                >
+                <motion.div {...{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } } as any} className="bg-red-500 text-white px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg">
                    <Maximize size={14} /> {translations[lang].scannerSteps.guidance.moveBack} / Center Face
                 </motion.div>
              </div>
           )}
-          
-          {(status === 'aligning' || status === 'searching') && guidance.type && (
-             <motion.div 
-               key={guidance.type}
-               {...{
-                   initial: { opacity: 0 },
-                   animate: { opacity: 1 },
-                   exit: { opacity: 0 }
-               } as any}
-               className="absolute inset-0 flex items-center justify-center pointer-events-none"
-             >
+          {(status === 'aligning' || status === 'searching') && guidance.type && !modelLoadError && (
+             <motion.div key={guidance.type} {...{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } } as any} className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 {guidance.type === 'left' && <motion.div {...{animate: { x: [-15, 0, -15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute left-4"><ArrowLeft className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
                 {guidance.type === 'right' && <motion.div {...{animate: { x: [15, 0, 15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute right-4"><ArrowRight className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
                 {guidance.type === 'up' && <motion.div {...{animate: { y: [-15, 0, -15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute top-4"><ArrowUp className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
                 {guidance.type === 'down' && <motion.div {...{animate: { y: [15, 0, 15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute bottom-4"><ArrowDown className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
              </motion.div>
           )}
-
           {countdown !== null && (
               <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div 
-                    key={countdown} 
-                    {...{
-                        initial: { scale: 2, opacity: 0 },
-                        animate: { scale: 1, opacity: 1 },
-                        exit: { scale: 0, opacity: 0 }
-                    } as any}
-                    className="text-9xl font-black text-white drop-shadow-2xl"
-                  >
-                      {countdown}
-                  </motion.div>
+                  <motion.div key={countdown} {...{ initial: { scale: 2, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0, opacity: 0 } } as any} className="text-9xl font-black text-white drop-shadow-2xl">{countdown}</motion.div>
               </div>
           )}
         </motion.div>
@@ -1240,6 +1091,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       )}
 
       <div className="absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
+        {/* Header Area */}
         <div className="p-6 bg-gradient-to-b from-white/95 via-white/50 to-transparent flex justify-between items-start pointer-events-auto">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -1252,26 +1104,24 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                {status === 'aligning' && currentStep.checkTexture && (
                  <span className="text-yellow-600 text-[10px] font-black flex items-center gap-1 uppercase bg-yellow-100 px-2 py-1 rounded-full">FOCUSING...</span>
                )}
+               {modelLoadError && (
+                 <span className="text-red-500 text-[10px] font-black flex items-center gap-1 uppercase bg-red-50 px-2 py-1 rounded-full"><WifiOff size={10} /> MANUAL MODE</span>
+               )}
             </div>
             <h2 className="text-xl font-black tracking-tight drop-shadow-sm uppercase text-[#0E1A2B]">{currentStep.label}</h2>
           </div>
-          
           <div className="flex items-center gap-2">
-             {/* FIX: DEV Mode only */}
              {import.meta.env.DEV && (
-                 <button onClick={handleTestSkip} className="p-3 bg-white/80 hover:bg-teal-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 text-xs font-bold text-teal-600 shadow-sm">
-                    <FastForward className="w-5 h-5" />
-                 </button>
+                 <button onClick={handleTestSkip} className="p-3 bg-white/80 hover:bg-teal-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 text-xs font-bold text-teal-600 shadow-sm"><FastForward className="w-5 h-5" /></button>
              )}
              <button onClick={() => setAudioEnabled(!audioEnabled)} className="p-3 bg-white/80 hover:bg-slate-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 shadow-sm">
                 {audioEnabled ? <Volume2 className="w-5 h-5 text-[#0E1A2B]" /> : <VolumeX className="w-5 h-5 text-slate-400" />}
             </button>
-            <button onClick={onExit} className="p-3 bg-white/80 hover:bg-red-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 shadow-sm text-slate-500 hover:text-red-500">
-              <X className="w-5 h-5" />
-            </button>
+            <button onClick={onExit} className="p-3 bg-white/80 hover:bg-red-50 rounded-2xl transition-all backdrop-blur-xl border border-slate-200 shadow-sm text-slate-500 hover:text-red-500"><X className="w-5 h-5" /></button>
           </div>
         </div>
 
+        {/* Camera Error Modal */}
         {cameraError && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#F7F8FA]/95 z-50 p-10 pointer-events-auto text-center">
               <div className="space-y-6">
@@ -1284,49 +1134,33 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         )}
 
         <div className="p-8 pb-12 bg-gradient-to-t from-white/95 via-white/50 to-transparent flex flex-col items-center pointer-events-auto">
+          {/* Instructions */}
           <div className="mb-10 text-center bg-white/80 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-slate-200 shadow-2xl max-w-sm w-full transition-all duration-300">
             <h3 className="text-base font-bold leading-tight uppercase tracking-tight text-[#0E1A2B]">
-                {status === 'holding' ? translations[lang].scannerSteps.guidance.perfect : status === 'out-of-bounds' ? translations[lang].scannerSteps.guidance.moveBack : status === 'aligning' && guidance.text ? guidance.text : currentStep.instruction}
+                {modelLoadError ? "Manual Capture Mode" : status === 'holding' ? translations[lang].scannerSteps.guidance.perfect : status === 'out-of-bounds' ? translations[lang].scannerSteps.guidance.moveBack : status === 'aligning' && guidance.text ? guidance.text : currentStep.instruction}
             </h3>
             {currentStep.subInstruction && <p className="text-slate-500 text-xs font-medium mt-1">{currentStep.subInstruction}</p>}
-            {status === 'aligning' && currentStep.useAI && !guidance.text && (
-                <motion.p 
-                    {...{
-                        initial: { opacity: 0, y: 5 },
-                        animate: { opacity: 1, y: 0 }
-                    } as any}
-                    className="text-amber-500 text-[10px] font-black uppercase tracking-widest mt-2"
-                >
+            {status === 'aligning' && currentStep.useAI && !guidance.text && !modelLoadError && (
+                <motion.p {...{ initial: { opacity: 0, y: 5 }, animate: { opacity: 1, y: 0 } } as any} className="text-amber-500 text-[10px] font-black uppercase tracking-widest mt-2">
                     {translations[lang].scannerSteps.guidance.adjustAngle}
                 </motion.p>
             )}
           </div>
 
+          {/* Capture Button / Ring */}
           <div className="relative w-28 h-28 flex items-center justify-center">
-            {currentStep.useAI || currentStep.checkTexture ? (
+            {(!modelLoadError && (currentStep.useAI || currentStep.checkTexture)) ? (
                 <>
                     <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="6" />
-                    <motion.circle 
-                        cx="50" 
-                        cy="50" 
-                        r={radius} 
-                        fill="none" 
-                        stroke={status === 'holding' ? '#14B8A6' : status === 'aligning' ? '#fbbf24' : 'rgba(0,0,0,0.1)'} 
-                        strokeWidth="6" 
-                        strokeDasharray={circumference} 
-                        {...{
-                            animate: { strokeDashoffset: dashOffset },
-                            transition: { type: 'tween', ease: 'linear', duration: 0.1 }
-                        } as any}
-                        strokeLinecap="round" 
-                    />
+                    <motion.circle cx="50" cy="50" r={radius} fill="none" stroke={status === 'holding' ? '#14B8A6' : status === 'aligning' ? '#fbbf24' : 'rgba(0,0,0,0.1)'} strokeWidth="6" strokeDasharray={circumference} {...{ animate: { strokeDashoffset: dashOffset }, transition: { type: 'tween', ease: 'linear', duration: 0.1 } } as any} strokeLinecap="round" />
                     </svg>
                     <div className={`relative z-10 w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 ${status === 'holding' ? 'bg-white shadow-[0_0_30px_rgba(20,184,166,0.3)] scale-110 border border-teal-100' : status === 'out-of-bounds' ? 'bg-red-50 border border-red-100' : 'bg-white border border-slate-100'}`}>
                     {status === 'capturing' ? <RefreshCw className="w-6 h-6 animate-spin text-[#0E1A2B]" /> : status === 'holding' ? <Timer className="w-6 h-6 text-teal-600 animate-pulse" /> : <CameraIcon className={`w-6 h-6 ${status === 'out-of-bounds' ? 'text-red-500' : 'text-slate-400'}`} />}
                     </div>
                 </>
             ) : (
+                // Fallback Manual Button (or non-AI steps)
                 <button onClick={startCountdownCapture} disabled={countdown !== null} className="w-24 h-24 rounded-full bg-white border-4 border-slate-100 shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center active:scale-95 transition-all text-[#0E1A2B]">
                     {countdown !== null ? <span className="text-2xl font-black">{countdown}</span> : <Scan className="w-8 h-8" />}
                 </button>
@@ -1338,9 +1172,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                  <button onClick={toggleManualFlash} className={`p-4 rounded-2xl border backdrop-blur-md transition-all ${flashEnabled ? 'bg-yellow-50 border-yellow-200 shadow-sm' : 'bg-white/80 border-slate-200 hover:bg-white'}`}>
                     {flashEnabled ? <Zap className="w-5 h-5 text-yellow-500" /> : <ZapOff className="w-5 h-5 text-slate-400" />}
                  </button>
-             ) : (
-                 <div className="w-14" />
-             )}
+             ) : (<div className="w-14" />)}
 
              <div className="flex items-center gap-3">
                 <button onClick={() => setShowSettings(!showSettings)} className="p-4 rounded-2xl bg-white/80 hover:bg-white transition-colors border border-slate-200 backdrop-blur-md shadow-sm">
@@ -1354,14 +1186,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
           <AnimatePresence>
             {showSettings && (
-              <motion.div 
-                {...{
-                    initial: { opacity: 0, y: 20, scale: 0.95 },
-                    animate: { opacity: 1, y: 0, scale: 1 },
-                    exit: { opacity: 0, y: 20, scale: 0.95 }
-                } as any}
-                className="absolute bottom-32 left-6 right-6 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-[2.5rem] p-8 shadow-2xl"
-              >
+              <motion.div {...{ initial: { opacity: 0, y: 20, scale: 0.95 }, animate: { opacity: 1, y: 0, scale: 1 }, exit: { opacity: 0, y: 20, scale: 0.95 } } as any} className="absolute bottom-32 left-6 right-6 bg-white/95 backdrop-blur-2xl border border-slate-200 rounded-[2.5rem] p-8 shadow-2xl">
                 <div className="space-y-6">
                   <RangeControl icon={Sun} label="Exposure" value={brightness} onChange={setBrightness} />
                   <RangeControl icon={Sparkles} label="Contrast" value={contrast} onChange={setContrast} />
