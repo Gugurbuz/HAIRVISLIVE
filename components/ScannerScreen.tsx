@@ -286,7 +286,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
             id: 'left', 
             label: t.leftLabel, 
             instruction: t.leftInstruction, 
-            target: { yaw: -90, pitch: 0, roll: 0, yawTolerance: 20, pitchTolerance: 20 }, 
+            target: { yaw: -55, pitch: 0, roll: 0, yawTolerance: 30, pitchTolerance: 20 }, 
             guideType: 'left',
             speakText: t.leftSpeak,
             useAI: true,
