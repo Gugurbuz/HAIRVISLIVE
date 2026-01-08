@@ -53,6 +53,21 @@ const App: React.FC = () => {
     const handleOAuthCallback = async () => {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       if (hashParams.has('access_token')) {
+        const savedState = localStorage.getItem('pendingAuthState');
+        if (savedState) {
+          try {
+            const parsed = JSON.parse(savedState);
+            setAnalysisResult(parsed.analysisResult);
+            setAfterImage(parsed.afterImage);
+            setPlanningImage(parsed.planningImage);
+            setCapturedPhotos(parsed.capturedPhotos);
+            setIntakeData(parsed.intakeData);
+            setAppState('AUTH_GATE');
+            localStorage.removeItem('pendingAuthState');
+          } catch (e) {
+            console.error('Failed to restore auth state:', e);
+          }
+        }
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     };
@@ -120,6 +135,15 @@ const App: React.FC = () => {
   // Intake Complete -> Go to Auth Gate (OTP)
   const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
+
+    localStorage.setItem('pendingAuthState', JSON.stringify({
+      analysisResult,
+      afterImage,
+      planningImage,
+      capturedPhotos,
+      intakeData: data,
+    }));
+
     setAppState('AUTH_GATE');
   };
 

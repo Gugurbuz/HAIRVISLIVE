@@ -17,6 +17,20 @@ export default function SocialAuthModal({ onComplete, lang }: SocialAuthModalPro
   const isTR = lang === 'TR';
 
   useEffect(() => {
+    const checkExistingSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const user = session.user;
+        onComplete({
+          email: user.email || '',
+          name: user.user_metadata?.full_name || user.user_metadata?.name || 'User',
+          userId: user.id,
+        });
+      }
+    };
+
+    checkExistingSession();
+
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         const user = session.user;
