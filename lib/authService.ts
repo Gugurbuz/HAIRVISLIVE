@@ -1,73 +1,85 @@
 import { supabase } from './supabase';
 
-export type OTPType = 'email' | 'sms';
-
 interface AuthResponse {
   success: boolean;
   error?: string;
   data?: any;
 }
 
-/**
- * Kullanıcıya E-posta ile OTP (Tek Seferlik Kod) gönderir.
- * @param email - Kullanıcının email adresi
- */
-export const sendOtp = async (email: string): Promise<AuthResponse> => {
+export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
-    if (!email || !email.includes('@')) {
-      return { success: false, error: 'Geçerli bir e-posta adresi giriniz.' };
-    }
-
-    const { data, error } = await supabase.auth.signInWithOtp({
-      email: email,
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        shouldCreateUser: true,
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
       },
     });
 
     if (error) {
-      console.error('OTP Gönderme Hatası:', error.message);
-      if (error.message.includes("Signups not allowed")) {
-         return { success: false, error: "Yeni üye alımı şu an kapalıdır." };
-      }
+      console.error('Google Sign In Error:', error.message);
       return { success: false, error: error.message };
     }
 
     return { success: true, data };
-
   } catch (error: any) {
-    console.error('Beklenmeyen Hata (Send):', error);
-    return { success: false, error: 'Kod gönderilirken bir hata oluştu.' };
+    console.error('Unexpected Error (Google):', error);
+    return { success: false, error: 'Google ile giriş yapılırken bir hata oluştu.' };
   }
 };
 
-/**
- * Kullanıcının e-postasına gelen 6 haneli kodu doğrular.
- * @param email - Kullanıcının email adresi
- * @param token - Gelen 6 haneli kod
- */
-export const verifyOtp = async (email: string, token: string): Promise<AuthResponse> => {
+export const signInWithApple = async (): Promise<AuthResponse> => {
   try {
-    if (!token || token.length < 6) {
-      return { success: false, error: 'Lütfen 6 haneli kodu eksiksiz girin.' };
-    }
-
-    const { data, error } = await supabase.auth.verifyOtp({
-      email: email,
-      token: token,
-      type: 'email',
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     });
 
     if (error) {
-      console.error('Doğrulama Hatası:', error.message);
-      return { success: false, error: 'Girdiğiniz kod hatalı veya süresi dolmuş.' };
+      console.error('Apple Sign In Error:', error.message);
+      return { success: false, error: error.message };
     }
 
-    // Başarılı giriş
     return { success: true, data };
-
   } catch (error: any) {
-    console.error('Beklenmeyen Hata (Verify):', error);
-    return { success: false, error: 'Doğrulama sırasında teknik bir sorun oluştu.' };
+    console.error('Unexpected Error (Apple):', error);
+    return { success: false, error: 'Apple ile giriş yapılırken bir hata oluştu.' };
+  }
+};
+
+export const signOut = async (): Promise<AuthResponse> => {
+  try {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error('Sign Out Error:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Unexpected Error (Sign Out):', error);
+    return { success: false, error: 'Çıkış yapılırken bir hata oluştu.' };
+  }
+};
+
+export const getCurrentUser = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+
+    if (error) {
+      console.error('Get User Error:', error.message);
+      return null;
+    }
+
+    return user;
+  } catch (error: any) {
+    console.error('Unexpected Error (Get User):', error);
+    return null;
   }
 };

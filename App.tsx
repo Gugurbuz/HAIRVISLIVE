@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LandingScreen from './components/LandingScreen';
 import ScannerScreen from './components/ScannerScreen';
 import PreScanScreen from './components/PreScanScreen';
-import AuthOTPModal from './components/AuthOTPModal';
+import SocialAuthModal from './components/SocialAuthModal';
 import DashboardScreen from './components/DashboardScreen';
 import PartnerPortalScreen from './components/PartnerPortalScreen';
 import PartnerJoinScreen from './components/PartnerJoinScreen';
@@ -114,16 +114,17 @@ const App: React.FC = () => {
   };
 
   // Auth Complete -> Go to Result (Finalize Lead)
-  const handleAuthComplete = (authData: any) => {
-    // Combine Intake Data + Auth Data (Verified Phone/Email)
+  const handleAuthComplete = (authData: { email: string; name: string; userId: string }) => {
+    // Combine Intake Data + Auth Data (OAuth)
     const mergedData: any = {
       ...intakeData,
-      contactMethod: authData.type,
-      contactValue: authData.value,
+      contactMethod: 'email',
+      contactValue: authData.email,
+      userName: authData.name,
+      userId: authData.userId,
       verified: true,
     };
 
-    // (3) Lead guard’ları finalize içinde zaten var ama burada da netleştirelim
     finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
   };
 
@@ -344,9 +345,9 @@ const App: React.FC = () => {
       isUnlocked: false,
       isNegotiable: true,
       patientDetails: {
-        fullName: 'Verified Patient',
-        phone: mergedData.contactMethod === 'phone' ? mergedData.contactValue : '',
-        email: mergedData.contactMethod === 'email' ? mergedData.contactValue : '',
+        fullName: mergedData.userName || 'Verified Patient',
+        phone: '',
+        email: mergedData.contactValue || '',
         consent: true,
         kvkk: true,
         gender: mergedData.gender,
@@ -358,9 +359,9 @@ const App: React.FC = () => {
         surgical_plan_image: planImg,
         simulation_image: simImg,
       },
-      name: 'Verified Patient',
-      email: mergedData.contactMethod === 'email' ? mergedData.contactValue : '',
-      phone: mergedData.contactMethod === 'phone' ? mergedData.contactValue : '',
+      name: mergedData.userName || 'Verified Patient',
+      email: mergedData.contactValue || '',
+      phone: '',
       concerns: mergedData.goal ? [mergedData.goal] : [],
       source: 'scanner',
       scanData: {
@@ -537,11 +538,11 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* OTP GATE */}
+        {/* OAUTH GATE */}
         {appState === 'AUTH_GATE' && (
           <div className="w-full min-h-screen relative flex items-center justify-center animate-in fade-in duration-700 bg-[#F7F8FA]">
             <div className="relative z-20 px-6 w-full max-w-xl">
-              <AuthOTPModal
+              <SocialAuthModal
                 onComplete={handleAuthComplete}
                 lang={lang}
               />

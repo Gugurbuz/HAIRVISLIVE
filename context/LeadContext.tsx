@@ -26,17 +26,16 @@ export interface IntakeData {
   history?: string;
   goal?: string;
   expectation?: string;
-  
+
   // Layer B: Optimization
   timeline?: string;
   budget?: string;
   location?: string;
   meds?: string;
-  
-  // Layer C: Consent & Contact
-  contactMethod?: 'email' | 'whatsapp' | 'anonymous' | null;
-  contactValue?: string;
-  consentGiven?: boolean;
+
+  // Layer C: Consent & OAuth
+  consent?: boolean;
+  kvkk?: boolean;
 }
 
 export interface LeadData {

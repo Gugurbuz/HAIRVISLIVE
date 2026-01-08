@@ -442,9 +442,8 @@ const PreReportIntakeScreen: React.FC<PreReportIntakeProps> = ({ onComplete, lan
         onComplete={(consentData) => {
           const finalData = {
             ...intakeRef.current,
-            contactMethod: consentData.method,
-            contactValue: consentData.value,
-            consentGiven: true
+            consent: consentData.consent,
+            kvkk: consentData.kvkk,
           } as IntakeData;
           finishProcess(finalData);
         }}
