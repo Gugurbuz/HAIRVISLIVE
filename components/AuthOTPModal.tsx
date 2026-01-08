@@ -1,198 +1,177 @@
-
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ShieldCheck, 
-  Smartphone, 
-  Mail, 
-  ArrowRight, 
-  Loader2, 
-  Lock, 
-  CheckCircle2 
-} from 'lucide-react';
-import { LanguageCode } from '../translations';
+import React, { useState } from 'react';
+import { X, Mail, ArrowRight, CheckCircle, Loader2 } from 'lucide-react';
+import { sendOtp, verifyOtp } from '../lib/authService';
 
 interface AuthOTPModalProps {
-  onComplete: (contactData: any) => void;
-  lang: LanguageCode;
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
 }
 
-const AuthOTPModal: React.FC<AuthOTPModalProps> = ({ onComplete, lang }) => {
-  const [step, setStep] = useState<'input' | 'verify'>('input');
-  const [contactType, setContactType] = useState<'phone' | 'email'>('phone');
-  const [inputValue, setInputValue] = useState('');
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
-  const [isLoading, setIsLoading] = useState(false);
+type Step = 'input' | 'verify';
+
+export default function AuthOTPModal({ isOpen, onClose, onSuccess }: AuthOTPModalProps) {
+  const [step, setStep] = useState<Step>('input');
+  const [email, setEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  
+  // Yükleniyor durumları
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isRTL = lang === 'AR';
+  if (!isOpen) return null;
 
-  // Mock sending OTP
-  const handleSendCode = (e: React.FormEvent) => {
+  // 1. Aşama: Kod Gönder
+  const handleSendCode = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (inputValue.length < 5) {
-        setError("Please enter a valid contact.");
-        return;
-    }
     setError(null);
-    setIsLoading(true);
-    
-    // Simulate Network Request
-    setTimeout(() => {
-        setIsLoading(false);
-        setStep('verify');
-    }, 1500);
-  };
+    setLoading(true);
 
-  // Handle OTP Input
-  const handleOtpChange = (index: number, value: string) => {
-    if (isNaN(Number(value))) return;
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
+    const result = await sendOtp(email);
 
-    // Auto-focus next
-    if (value && index < 5) {
-        const nextInput = document.getElementById(`otp-${index + 1}`);
-        nextInput?.focus();
+    setLoading(false);
+
+    if (result.success) {
+      setStep('verify');
+    } else {
+      setError(result.error || 'Kod gönderilemedi.');
     }
   };
 
-  const handleVerify = () => {
-    const code = otp.join('');
-    if (code.length < 6) return;
-    
-    setIsLoading(true);
-    // Simulate Verification
-    setTimeout(() => {
-        setIsLoading(false);
-        onComplete({
-            type: contactType,
-            value: inputValue,
-            verified: true
-        });
-    }, 1500);
+  // 2. Aşama: Kodu Doğrula
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    const result = await verifyOtp(email, otpCode);
+
+    setLoading(false);
+
+    if (result.success) {
+      // Başarılı!
+      onSuccess();
+      onClose();
+    } else {
+      setError(result.error || 'Kod hatalı.');
+    }
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, scale: 0.95, y: 20 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      className={`w-full max-w-md bg-white p-8 rounded-[2.5rem] shadow-2xl border border-slate-100 relative overflow-hidden ${isRTL ? 'text-right' : 'text-left'}`}
-      dir={isRTL ? 'rtl' : 'ltr'}
-    >
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-teal-100 shadow-sm">
-           {step === 'input' ? <Lock size={32} className="text-teal-600" /> : <ShieldCheck size={32} className="text-teal-600" />}
-        </div>
-        <h2 className="text-2xl font-black text-[#0E1A2B] tracking-tight leading-none mb-2">
-            {step === 'input' ? 'Secure Your Report' : 'Verify Identity'}
-        </h2>
-        <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-xs mx-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 relative shadow-2xl">
+        
+        {/* Kapatma Butonu */}
+        <button 
+          onClick={onClose}
+          className="absolute right-4 top-4 text-gray-400 hover:text-white transition-colors"
+        >
+          <X className="w-6 h-6" />
+        </button>
+
+        {/* Başlık */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Mail className="w-8 h-8 text-blue-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            {step === 'input' ? 'Giriş Yap / Kayıt Ol' : 'Kodu Doğrula'}
+          </h2>
+          <p className="text-gray-400">
             {step === 'input' 
-                ? 'Your analysis is ready. Verify your number to view your report and control clinic access.' 
-                : `Enter the code sent to ${inputValue}`
-            }
-        </p>
-      </div>
+              ? 'Analiz sonucunuzu kaydetmek için e-postanızı girin.' 
+              : `${email} adresine gönderilen 6 haneli kodu girin.`}
+          </p>
+        </div>
 
-      <AnimatePresence mode="wait">
-        {step === 'input' ? (
-            <motion.form 
-                key="input"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                onSubmit={handleSendCode}
-                className="space-y-6"
-            >
-                {/* Type Toggle */}
-                <div className="flex p-1 bg-slate-50 rounded-xl border border-slate-100">
-                    <button
-                        type="button"
-                        onClick={() => setContactType('phone')}
-                        className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${contactType === 'phone' ? 'bg-white text-[#0E1A2B] shadow-sm' : 'text-slate-400'}`}
-                    >
-                        <Smartphone size={14} /> Phone
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setContactType('email')}
-                        className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${contactType === 'email' ? 'bg-white text-[#0E1A2B] shadow-sm' : 'text-slate-400'}`}
-                    >
-                        <Mail size={14} /> Email
-                    </button>
-                </div>
-
-                <div className="space-y-2">
-                    <div className="relative group">
-                        <input 
-                            type={contactType === 'email' ? 'email' : 'tel'}
-                            placeholder={contactType === 'email' ? 'name@example.com' : '+1 555 000 0000'}
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-[#0E1A2B] placeholder:text-slate-300 focus:border-teal-500 focus:bg-white outline-none transition-all text-center tracking-wide"
-                            autoFocus
-                        />
-                    </div>
-                    {error && <p className="text-red-500 text-[10px] font-bold text-center">{error}</p>}
-                </div>
-
-                <div className="space-y-3">
-                    <button 
-                        type="submit"
-                        disabled={isLoading || !inputValue}
-                        className="w-full py-4 bg-[#0E1A2B] text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-teal-600 transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        {isLoading ? <Loader2 className="animate-spin" /> : <>Send Code <ArrowRight size={14} /></>}
-                    </button>
-                    <p className="text-[9px] text-center text-slate-400 font-medium">
-                        We respect your privacy. No spam, ever.
-                    </p>
-                </div>
-            </motion.form>
-        ) : (
-            <motion.div 
-                key="verify"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="space-y-8"
-            >
-                <div className="flex gap-2 justify-center">
-                    {otp.map((digit, idx) => (
-                        <input
-                            key={idx}
-                            id={`otp-${idx}`}
-                            type="text"
-                            maxLength={1}
-                            value={digit}
-                            onChange={(e) => handleOtpChange(idx, e.target.value)}
-                            className="w-12 h-14 bg-slate-50 border border-slate-200 rounded-xl text-2xl font-black text-center text-[#0E1A2B] focus:border-teal-500 focus:bg-white outline-none transition-all caret-teal-500"
-                        />
-                    ))}
-                </div>
-
-                <button 
-                    onClick={handleVerify}
-                    disabled={isLoading || otp.join('').length < 6}
-                    className="w-full py-4 bg-teal-500 text-white rounded-xl font-black text-xs uppercase tracking-[0.2em] hover:bg-teal-600 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                    {isLoading ? <Loader2 className="animate-spin" /> : <>Verify & Access <CheckCircle2 size={16} /></>}
-                </button>
-
-                <button 
-                    onClick={() => setStep('input')}
-                    className="w-full text-center text-[10px] font-bold text-slate-400 hover:text-slate-600"
-                >
-                    Change {contactType}
-                </button>
-            </motion.div>
+        {/* Hata Mesajı */}
+        {error && (
+          <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
         )}
-      </AnimatePresence>
-    </motion.div>
-  );
-};
 
-export default AuthOTPModal;
+        {/* FORM 1: E-posta Girişi */}
+        {step === 'input' && (
+          <form onSubmit={handleSendCode} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">E-Posta Adresi</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ornek@email.com"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Gönderiliyor...
+                </>
+              ) : (
+                <>
+                  Kod Gönder
+                  <ArrowRight className="w-5 h-5" />
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* FORM 2: Kod Doğrulama */}
+        {step === 'verify' && (
+          <form onSubmit={handleVerifyCode} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-1">Doğrulama Kodu</label>
+              <input
+                type="text"
+                required
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                placeholder="123456"
+                className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-white text-center text-2xl tracking-widest focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+               {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Doğrulanıyor...
+                </>
+              ) : (
+                <>
+                  Girişi Tamamla
+                  <CheckCircle className="w-5 h-5" />
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setStep('input'); setError(null); }}
+              className="w-full text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              E-posta adresini değiştir
+            </button>
+          </form>
+        )}
+
+      </div>
+    </div>
+  );
+}
