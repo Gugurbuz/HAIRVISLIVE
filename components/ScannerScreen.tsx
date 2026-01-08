@@ -22,8 +22,7 @@ import {
   ZoomIn,
   FastForward,
   Zap,
-  ZapOff,
-  WifiOff // Model yüklenemezse göstermek için ikon
+  ZapOff
 } from 'lucide-react';
 import { translations, LanguageCode } from '../translations';
 
@@ -54,11 +53,6 @@ const getAudioContext = () => {
     return sharedAudioCtx;
 };
 
-// ... (getLanguageTag, getBestVoice, speak, analyzeImageContent, playSound, vibrate, RangeControl fonksiyonları aynen kalacak) ...
-// (Buraya yukarıdaki helper fonksiyonları eklediğini varsayıyorum, yer kaplamaması için tekrar kopyalamadım)
-// KODUN Geri kalanı için gerekli importlar ve helperlar yukarıdaki gibidir.
-
-// Helper fonksiyonları tekrar ekliyorum ki eksiksiz olsun:
 const getLanguageTag = (lang: LanguageCode): string => {
     switch (lang) {
         case 'TR': return 'tr-TR';
@@ -274,9 +268,8 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   const [flashEnabled, setFlashEnabled] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
 
-  // Error & Fallback States
+  // Error States (No fallback state anymore)
   const [isModelLoaded, setIsModelLoaded] = useState(false);
-  const [modelLoadError, setModelLoadError] = useState(false); // New: Handle script fail
   const [cameraError, setCameraError] = useState<string | null>(null);
   
   const [brightness, setBrightness] = useState(100);
@@ -362,7 +355,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       ];
   }, [lang]);
 
-  // FIX: Standardized countdown cleanup helper
   const stopCountdown = useCallback(() => {
     if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
@@ -443,7 +435,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   };
 
   const toggleCamera = async () => {
-      // FIX: Ensure torch is off before switching
       if (flashEnabled) {
           await applyTorch(false);
       }
@@ -480,11 +471,13 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
   // --- MACRO & DONOR (BLIND SHOT) AUTO-CAPTURE LOOP ---
   useEffect(() => {
-    const step = SCAN_STEPS[currentStepIndex];
-    if (!step.checkTexture) {
-        if (macroIntervalRef.current) clearInterval(macroIntervalRef.current);
-        return;
+    if (macroIntervalRef.current) {
+        clearInterval(macroIntervalRef.current);
+        macroIntervalRef.current = null;
     }
+
+    const step = SCAN_STEPS[currentStepIndex];
+    if (!step.checkTexture) return;
 
     const t = translations[lang].scannerSteps.guidance;
     const video = videoRef.current;
@@ -502,7 +495,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
         const analyzeWidth = 240; 
         const aspectRatio = video.videoWidth / video.videoHeight;
-        // FIX: Round dimensions to integer
         const analyzeHeight = Math.max(1, Math.round(analyzeWidth / aspectRatio));
 
         if (analysisCanvas.width !== analyzeWidth) {
@@ -603,7 +595,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
 
   const startCountdownCapture = () => {
-    stopCountdown(); // Clean previous first
+    stopCountdown();
     
     if (status === 'capturing' || captureLockRef.current) return;
     setValidationError(null);
@@ -643,7 +635,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     const overlayRect = overlay.getBoundingClientRect();
     const sourceW = video.videoWidth;
     const sourceH = video.videoHeight;
-    // ... Aspect ratio logic same as before ...
     const elW = videoRect.width;
     const elH = videoRect.height;
     const sourceRatio = sourceW / sourceH;
@@ -666,7 +657,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     const cropW = overlayRect.width * scale;
     const cropH = overlayRect.height * scale;
 
-    // FIX: Int coordinates
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(cropW);
     canvas.height = Math.round(cropH);
@@ -748,8 +738,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       setTempPhoto(dataUrl);
       setStatus('review');
       statusRef.current = 'review';
-      // FIX: Lock is NOT released here intentionally.
-      // It will be released in retake or confirm.
     }, 400);
 
   }, [brightness, contrast, audioEnabled, lang, SCAN_STEPS, facingMode]);
@@ -758,7 +746,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     if (!tempPhoto) return;
     if (audioEnabled) playSound('success');
     
-    stopCountdown(); // Safety cleanup
+    stopCountdown(); 
 
     const currentStep = SCAN_STEPS[currentStepIndex];
     const newPhoto = {
@@ -773,7 +761,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     }
     setTempPhoto(null);
     setValidationError(null);
-    captureLockRef.current = false; // FIX: Release lock
+    captureLockRef.current = false; 
     
     if (currentStepIndex >= SCAN_STEPS.length - 1) {
         window.speechSynthesis.cancel();
@@ -789,20 +777,17 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
   };
 
   const retakePhoto = () => {
-    stopCountdown(); // Safety cleanup
+    stopCountdown(); 
     setTempPhoto(null);
     setStatus('searching');
     statusRef.current = 'searching';
     setHoldProgress(0);
     holdStartTimeRef.current = null;
     setValidationError(null);
-    captureLockRef.current = false; // FIX: Release lock
+    captureLockRef.current = false; 
   };
 
   const onResults = useCallback((results: any) => {
-    // FIX: Fallback logic inside loop
-    if (modelLoadError) return;
-
     if (!isMountedRef.current) return;
     if (statusRef.current === 'capturing' || statusRef.current === 'review' || captureLockRef.current) return;
     
@@ -829,7 +814,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     lastLandmarksRef.current = landmarks;
 
     const nose = landmarks[1];
-    // ... logic remains same ...
     const leftCheek = landmarks[234];
     const rightCheek = landmarks[454];
     const midEyes = { x: (landmarks[33].x + landmarks[263].x) / 2, y: (landmarks[33].y + landmarks[263].y) / 2 };
@@ -880,7 +864,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       setHoldProgress(0);
       holdStartTimeRef.current = null;
     }
-  }, [handleCapture, SCAN_STEPS, facingMode, lang, modelLoadError]);
+  }, [handleCapture, SCAN_STEPS, facingMode, lang]);
 
   const onResultsRef = useRef(onResults);
   useEffect(() => { onResultsRef.current = onResults; }, [onResults]);
@@ -906,9 +890,8 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       })
       .catch((err) => {
           console.error("Failed to load FaceMesh", err);
-          // FIX: Soft fail -> Manual Mode
-          setIsModelLoaded(true);
-          setModelLoadError(true);
+          // HARD FAIL: Don't allow manual bypass if user wants strict AI
+          setCameraError("Yapay Zeka Modeli Yüklenemedi. Lütfen internetinizi kontrol edip sayfayı yenileyin.");
       });
 
     return () => {
@@ -922,7 +905,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     };
   }, [stopCountdown]);
 
-  // ... (startCamera useEffect logic remains mostly same, just check for modelLoadError in process loop) ...
   useEffect(() => {
     const startCamera = async () => {
       if (streamRef.current) {
@@ -951,8 +933,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
               const process = async () => {
                 if (!isMountedRef.current) return;
-                if (modelLoadError) return; // Don't try to send to AI if failed
-
+                
                 if (!faceMeshRef.current) {
                     rafIdRef.current = requestAnimationFrame(process);
                     return;
@@ -983,9 +964,8 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       }
     };
     if (isMountedRef.current) startCamera();
-  }, [facingMode, currentStepIndex, modelLoadError]); 
+  }, [facingMode, currentStepIndex]); 
 
-  // UI parts ...
   const radius = 42;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (circumference * holdProgress) / 100;
@@ -995,7 +975,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
   return (
     <div className="absolute inset-0 z-0 bg-[#F7F8FA] flex flex-col text-[#0E1A2B] overflow-hidden font-sans" dir={isRTL ? 'rtl' : 'ltr'}>
-      {/* Video element and overlays... */}
       <div className="absolute inset-0 z-0 overflow-hidden">
         <video 
           ref={videoRef} 
@@ -1010,7 +989,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       <AnimatePresence>
         {status === 'review' && tempPhoto && (
             <motion.div {...{ initial: { opacity: 0, scale: 0.95 }, animate: { opacity: 1, scale: 1 }, exit: { opacity: 0, scale: 0.95 } } as any} className="absolute inset-0 z-[100] bg-[#F7F8FA]/95 flex flex-col items-center justify-center p-6">
-                {/* ... Review UI ... */}
                 <div className="w-full max-w-sm space-y-6">
                     <h3 className="text-xl font-black uppercase text-center tracking-widest text-[#0E1A2B]">Validate Capture</h3>
                     <div className="aspect-square rounded-[2.5rem] overflow-hidden border-2 border-slate-200 relative shadow-2xl bg-white">
@@ -1047,7 +1025,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           {currentStep.guideType === 'circle' && (
               <div className={`absolute inset-0 border-2 rounded-full scale-50 animate-pulse ${status === 'holding' ? 'border-teal-500' : status === 'aligning' ? 'border-yellow-400' : 'border-white/40'}`} />
           )}
-          {/* ... Errors and Guidance ... */}
           <AnimatePresence>
             {validationError && (
                  <motion.div {...{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0 } } as any} className="absolute -top-16 left-0 right-0 flex justify-center">
@@ -1057,7 +1034,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                  </motion.div>
             )}
           </AnimatePresence>
-          {/* ... Guidance Arrows ... */}
           {status === 'out-of-bounds' && (
              <div className="absolute -top-12 left-0 right-0 flex justify-center">
                 <motion.div {...{ initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 } } as any} className="bg-red-500 text-white px-4 py-2 rounded-full font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg">
@@ -1065,7 +1041,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                 </motion.div>
              </div>
           )}
-          {(status === 'aligning' || status === 'searching') && guidance.type && !modelLoadError && (
+          {(status === 'aligning' || status === 'searching') && guidance.type && (
              <motion.div key={guidance.type} {...{ initial: { opacity: 0 }, animate: { opacity: 1 }, exit: { opacity: 0 } } as any} className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 {guidance.type === 'left' && <motion.div {...{animate: { x: [-15, 0, -15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute left-4"><ArrowLeft className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
                 {guidance.type === 'right' && <motion.div {...{animate: { x: [15, 0, 15], opacity: [0.5, 1, 0.5] }, transition: { duration: 1.5, repeat: Infinity }} as any} className="absolute right-4"><ArrowRight className="w-16 h-16 text-yellow-400" strokeWidth={4} /></motion.div>}
@@ -1091,7 +1067,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       )}
 
       <div className="absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
-        {/* Header Area */}
         <div className="p-6 bg-gradient-to-b from-white/95 via-white/50 to-transparent flex justify-between items-start pointer-events-auto">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -1103,9 +1078,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                )}
                {status === 'aligning' && currentStep.checkTexture && (
                  <span className="text-yellow-600 text-[10px] font-black flex items-center gap-1 uppercase bg-yellow-100 px-2 py-1 rounded-full">FOCUSING...</span>
-               )}
-               {modelLoadError && (
-                 <span className="text-red-500 text-[10px] font-black flex items-center gap-1 uppercase bg-red-50 px-2 py-1 rounded-full"><WifiOff size={10} /> MANUAL MODE</span>
                )}
             </div>
             <h2 className="text-xl font-black tracking-tight drop-shadow-sm uppercase text-[#0E1A2B]">{currentStep.label}</h2>
@@ -1121,7 +1093,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           </div>
         </div>
 
-        {/* Camera Error Modal */}
         {cameraError && (
           <div className="absolute inset-0 flex items-center justify-center bg-[#F7F8FA]/95 z-50 p-10 pointer-events-auto text-center">
               <div className="space-y-6">
@@ -1134,22 +1105,20 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
         )}
 
         <div className="p-8 pb-12 bg-gradient-to-t from-white/95 via-white/50 to-transparent flex flex-col items-center pointer-events-auto">
-          {/* Instructions */}
           <div className="mb-10 text-center bg-white/80 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-slate-200 shadow-2xl max-w-sm w-full transition-all duration-300">
             <h3 className="text-base font-bold leading-tight uppercase tracking-tight text-[#0E1A2B]">
-                {modelLoadError ? "Manual Capture Mode" : status === 'holding' ? translations[lang].scannerSteps.guidance.perfect : status === 'out-of-bounds' ? translations[lang].scannerSteps.guidance.moveBack : status === 'aligning' && guidance.text ? guidance.text : currentStep.instruction}
+                {status === 'holding' ? translations[lang].scannerSteps.guidance.perfect : status === 'out-of-bounds' ? translations[lang].scannerSteps.guidance.moveBack : status === 'aligning' && guidance.text ? guidance.text : currentStep.instruction}
             </h3>
             {currentStep.subInstruction && <p className="text-slate-500 text-xs font-medium mt-1">{currentStep.subInstruction}</p>}
-            {status === 'aligning' && currentStep.useAI && !guidance.text && !modelLoadError && (
+            {status === 'aligning' && currentStep.useAI && !guidance.text && (
                 <motion.p {...{ initial: { opacity: 0, y: 5 }, animate: { opacity: 1, y: 0 } } as any} className="text-amber-500 text-[10px] font-black uppercase tracking-widest mt-2">
                     {translations[lang].scannerSteps.guidance.adjustAngle}
                 </motion.p>
             )}
           </div>
 
-          {/* Capture Button / Ring */}
           <div className="relative w-28 h-28 flex items-center justify-center">
-            {(!modelLoadError && (currentStep.useAI || currentStep.checkTexture)) ? (
+            {(currentStep.useAI || currentStep.checkTexture) ? (
                 <>
                     <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
                     <circle cx="50" cy="50" r={radius} fill="none" stroke="rgba(0,0,0,0.05)" strokeWidth="6" />
@@ -1160,7 +1129,6 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                     </div>
                 </>
             ) : (
-                // Fallback Manual Button (or non-AI steps)
                 <button onClick={startCountdownCapture} disabled={countdown !== null} className="w-24 h-24 rounded-full bg-white border-4 border-slate-100 shadow-[0_0_40px_rgba(0,0,0,0.05)] flex items-center justify-center active:scale-95 transition-all text-[#0E1A2B]">
                     {countdown !== null ? <span className="text-2xl font-black">{countdown}</span> : <Scan className="w-8 h-8" />}
                 </button>
