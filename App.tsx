@@ -35,6 +35,7 @@ const App: React.FC = () => {
   const [afterImage, setAfterImage] = useState<string | null>(null);
   const [planningImage, setPlanningImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
 
   // retry için son scan’i tut
   const lastScanRef = useRef<{ photos: any[]; skip: boolean } | null>(null);
@@ -390,7 +391,9 @@ const App: React.FC = () => {
         {appState === 'LANDING' && (
           <LandingScreen
             onStart={handleStartSimulation}
-            onVisitClinic={() => setAppState('CLINIC_DETAILS')}
+            onVisitClinic={() => {
+              setAppState('DIRECTORY');
+            }}
             onBrowseDirectory={() => setAppState('DIRECTORY')}
             lang={lang}
           />
@@ -425,13 +428,17 @@ const App: React.FC = () => {
         {appState === 'DIRECTORY' && (
           <ClinicDirectoryScreen
             onBack={() => setAppState('LANDING')}
-            onVisitClinic={() => setAppState('CLINIC_DETAILS')}
+            onVisitClinic={(clinicId) => {
+              setSelectedClinicId(clinicId);
+              setAppState('CLINIC_DETAILS');
+            }}
           />
         )}
 
-        {appState === 'CLINIC_DETAILS' && (
+        {appState === 'CLINIC_DETAILS' && selectedClinicId && (
           <ClinicScreen
             lang={lang}
+            clinicId={selectedClinicId}
             onBack={() => setAppState('DIRECTORY')}
             onBook={handleStartSimulation}
           />

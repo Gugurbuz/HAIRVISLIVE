@@ -18,8 +18,12 @@ import {
 } from 'lucide-react';
 import { translations, LanguageCode } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CLINICS_DATA, CATEGORIES, ClinicCategory } from '../data/clinics';
+import { CATEGORIES, ClinicCategory } from '../data/clinics';
 import { supabase } from '../lib/supabase';
+import { clinicService } from '../lib/clinicService';
+import type { Database } from '../lib/database.types';
+
+type Clinic = Database['public']['Tables']['clinics']['Row'];
 
 // --- PERFORMANCE HELPERS ---
 // Mobilde olup olmadığını anlamak için basit kontrol
@@ -209,15 +213,49 @@ const TopClinics = ({
   const [activeCat, setActiveCat] = useState<ClinicCategory>('All');
   const scrollRef = useRef<HTMLDivElement>(null);
   const isPaused = useRef(false);
-  const isMobile = useIsMobile(); // Mobile kontrolü
+  const isMobile = useIsMobile();
+  const [clinics, setClinics] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchClinics = async () => {
+      try {
+        const { data, error } = await clinicService.getAllClinics({ status: 'ACTIVE', limit: 10 });
+        if (data && !error) {
+          const transformed = data.map(dbClinic => {
+            const metadata = (dbClinic.metadata as any) || {};
+            const specialties = metadata.specialties || [];
+            return {
+              id: dbClinic.id,
+              name: dbClinic.name,
+              location: dbClinic.location || 'Unknown',
+              rating: (4.7 + Math.random() * 0.3).toFixed(1),
+              reviews: Math.floor(Math.random() * 3000) + 500,
+              price: '€2,200',
+              img: dbClinic.logo_url || 'https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=600',
+              tags: specialties.slice(0, 2),
+              waitTime: '2-4 Weeks',
+              features: specialties.slice(0, 2)
+            };
+          });
+          setClinics(transformed);
+        }
+      } catch (err) {
+        console.error('Error fetching clinics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchClinics();
+  }, []);
 
   const filteredClinics = useMemo(() => {
     return activeCat === 'All'
-      ? CLINICS_DATA
-      : CLINICS_DATA.filter((c) =>
-          c.tags.some((t) => t.includes(activeCat) || (activeCat === 'Sapphire FUE' && t === 'Best Value'))
+      ? clinics
+      : clinics.filter((c) =>
+          c.tags.some((t: string) => t.includes(activeCat) || (activeCat === 'Sapphire FUE' && t === 'Best Value'))
         );
-  }, [activeCat]);
+  }, [activeCat, clinics]);
 
   // OPTIMIZATION 3: Mobilde Auto-Scroll'u iptal et.
   // Mobilde auto-scroll hem performansı düşürür hem de UX açısından kötüdür.

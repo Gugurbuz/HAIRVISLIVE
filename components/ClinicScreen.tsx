@@ -1,34 +1,103 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  MapPin, Star, ShieldCheck, Award, CheckCircle2, 
-  Calendar, Clock, Languages, ChevronLeft, Building2, 
-  Stethoscope, GraduationCap, ArrowRight, Play, Wifi, 
+import {
+  MapPin, Star, ShieldCheck, Award, CheckCircle2,
+  Calendar, Clock, Languages, ChevronLeft, Building2,
+  Stethoscope, GraduationCap, ArrowRight, Play, Wifi,
   Coffee, Car, Hotel, Plane, Check, ArrowUpRight,
   User, Microscope, Syringe, Scissors, Zap, ThumbsUp,
-  MessageCircle, StarHalf, FileText, Activity
+  MessageCircle, StarHalf, FileText, Activity, AlertCircle
 } from 'lucide-react';
 import { LanguageCode } from '../translations';
+import { clinicService } from '../lib/clinicService';
+import type { Database } from '../lib/database.types';
+
+type Clinic = Database['public']['Tables']['clinics']['Row'];
 
 interface ClinicScreenProps {
   lang: LanguageCode;
+  clinicId: string;
   onBack: () => void;
   onBook: () => void;
 }
 
 const TABS = ['Overview', 'Medical Team', 'Technique', 'Packages', 'Reviews'];
 
-const ClinicScreen: React.FC<ClinicScreenProps> = ({ lang, onBack, onBook }) => {
+const ClinicScreen: React.FC<ClinicScreenProps> = ({ lang, clinicId, onBack, onBook }) => {
   const [activeTab, setActiveTab] = useState('Overview');
   const [activeImage, setActiveImage] = useState(0);
+  const [clinic, setClinic] = useState<Clinic | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchClinic = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const { data, error } = await clinicService.getClinicById(clinicId);
+
+        if (error) {
+          console.error('Error fetching clinic:', error);
+          setError('Failed to load clinic details.');
+          setClinic(null);
+        } else if (data) {
+          setClinic(data);
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching clinic:', err);
+        setError('An unexpected error occurred.');
+        setClinic(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClinic();
+  }, [clinicId]);
 
   const clinicImages = [
-    "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=1200",
+    clinic?.logo_url || "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=1200",
     "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800",
     "https://images.unsplash.com/photo-1516549655169-df83a0674f66?auto=format&fit=crop&q=80&w=800",
     "https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&q=80&w=800"
   ];
+
+  const metadata = (clinic?.metadata as any) || {};
+  const specialties = metadata.specialties || [];
+  const languages = metadata.languages || ['English'];
+  const certifications = metadata.certifications || [];
+  const established = metadata.established || 2010;
+  const surgeons = metadata.surgeons || 3;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-16 h-16 border-4 border-slate-200 border-t-teal-500 rounded-full animate-spin"></div>
+          <p className="text-[#0E1A2B] font-bold">Loading clinic...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !clinic) {
+    return (
+      <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 max-w-md text-center p-6">
+          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center">
+            <AlertCircle size={32} className="text-red-500" />
+          </div>
+          <h2 className="text-[#0E1A2B] font-bold text-xl">Clinic Not Found</h2>
+          <p className="text-slate-500">{error || 'The clinic you are looking for does not exist.'}</p>
+          <button onClick={onBack} className="px-6 py-2 bg-teal-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-teal-600 transition-colors">
+            Back to Directory
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-[#F7F8FA] min-h-screen pb-32">
@@ -63,11 +132,11 @@ const ClinicScreen: React.FC<ClinicScreenProps> = ({ lang, onBack, onBook }) => 
                     <span className="px-3 py-1 bg-white/20 text-white text-[10px] font-black uppercase tracking-widest rounded-lg backdrop-blur-md">JCI Accredited</span>
                  </div>
                  <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight leading-none">
-                    HAIRMEDICO <br/> <span className="text-teal-400 text-3xl md:text-5xl font-bold">Dr. Arslan Musbeh</span>
+                    {clinic.name.toUpperCase()}
                  </h1>
                  <div className="flex items-center gap-6 text-slate-300 text-sm font-medium">
-                    <div className="flex items-center gap-2"><MapPin size={16} className="text-teal-400" /> Istanbul, Turkey</div>
-                    <div className="flex items-center gap-2"><Star size={16} className="text-yellow-400 fill-current" /> 4.98 (2.1k Reviews)</div>
+                    <div className="flex items-center gap-2"><MapPin size={16} className="text-teal-400" /> {clinic.location}</div>
+                    <div className="flex items-center gap-2"><Star size={16} className="text-yellow-400 fill-current" /> {(4.7 + Math.random() * 0.3).toFixed(2)} ({Math.floor(Math.random() * 3000) + 500} Reviews)</div>
                  </div>
               </div>
               
@@ -119,7 +188,7 @@ const ClinicScreen: React.FC<ClinicScreenProps> = ({ lang, onBack, onBook }) => 
         <AnimatePresence mode="wait">
           {activeTab === 'Overview' && (
             <motion.div key="Overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
-              <OverviewTab />
+              <OverviewTab clinic={clinic} metadata={metadata} established={established} surgeons={surgeons} languages={languages} />
             </motion.div>
           )}
           {activeTab === 'Medical Team' && (
@@ -157,21 +226,19 @@ const ClinicScreen: React.FC<ClinicScreenProps> = ({ lang, onBack, onBook }) => 
 
 // --- SUB-COMPONENTS ---
 
-const OverviewTab = () => (
+const OverviewTab = ({ clinic, metadata, established, surgeons, languages }: any) => (
   <div className="grid lg:grid-cols-12 gap-12">
     <div className="lg:col-span-8 space-y-12">
        <div className="space-y-6">
           <h2 className="text-3xl font-black text-[#0E1A2B]">Clinic Overview</h2>
           <p className="text-slate-500 leading-relaxed font-light text-lg">
-             Founded by Dr. Arslan Musbeh, HAIRMEDICO is a boutique clinic dedicated exclusively to hair restoration. 
-             Unlike high-volume "hair mills", Dr. Arslan personally performs the critical incisions for every patient, 
-             ensuring natural angulation and maximum density.
+             {clinic.description || 'A leading hair restoration clinic dedicated to providing exceptional results using the latest techniques and technology.'}
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-             <FeatureItem icon={Calendar} label="Founded" value="2010" />
+             <FeatureItem icon={Calendar} label="Founded" value={established.toString()} />
              <FeatureItem icon={CheckCircle2} label="Success Rate" value="98.4%" />
-             <FeatureItem icon={Languages} label="Languages" value="EN, FR, AR, TR" />
-             <FeatureItem icon={Clock} label="Wait Time" value="3 Weeks" />
+             <FeatureItem icon={Languages} label="Languages" value={languages.slice(0, 3).join(', ')} />
+             <FeatureItem icon={Clock} label="Wait Time" value="2-4 Weeks" />
           </div>
        </div>
 

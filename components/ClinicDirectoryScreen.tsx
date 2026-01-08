@@ -1,19 +1,40 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, MapPin, Star, Filter, ArrowRight, CheckCircle2, 
+import {
+  Search, MapPin, Star, Filter, ArrowRight, CheckCircle2,
   SlidersHorizontal, ChevronLeft, Check, X, Sparkles,
   Globe, LayoutGrid, ChevronDown, Stethoscope, Hotel, Crown,
-  List, Map as MapIcon, Phone
+  List, Map as MapIcon, Phone, AlertCircle
 } from 'lucide-react';
+import { clinicService } from '../lib/clinicService';
+import type { Database } from '../lib/database.types';
+
+type Clinic = Database['public']['Tables']['clinics']['Row'];
 
 interface ClinicDirectoryScreenProps {
   onBack: () => void;
   onVisitClinic: (clinicId: string) => void;
 }
 
-// --- CONSTANTS & CONFIG ---
+interface UIClinic {
+  id: string;
+  name: string;
+  location: string;
+  rating: number;
+  reviews: number;
+  price: number;
+  currency: string;
+  budgetCategory: string;
+  techniques: string[];
+  treatments: string[];
+  amenities: string[];
+  tags: string[];
+  image: string;
+  verified: boolean;
+  featured: boolean;
+  coordinates?: { x: number; y: number };
+}
 
 const BUDGET_TIERS = [
   { label: "Exclusive - €€€€", value: "exclusive" },
@@ -27,7 +48,9 @@ const TECHNIQUES_LIST = [
   "DHI Implantation",
   "Manual FUE",
   "Robotic FUE",
-  "Unshaven FUE"
+  "Unshaven FUE",
+  "FUE",
+  "DHI"
 ];
 
 const TREATMENTS_LIST = [
@@ -47,152 +70,77 @@ const AMENITIES_LIST = [
   "English Speaking Staff"
 ];
 
-// --- MOCK DATA ---
-const ALL_CLINICS = [
-  {
-    id: 'c1',
-    name: "HairMedico - Dr. Arslan",
-    location: "Istanbul, Turkey",
-    rating: 4.98,
-    reviews: 2143,
-    price: 2200,
-    currency: "€",
-    budgetCategory: "economy",
-    techniques: ["Sapphire FUE", "Manual FUE"],
-    treatments: ["Hair Transplant", "Beard Transplant", "Repair / Revision"],
-    amenities: ["VIP Transfer", "English Speaking Staff", "JCI Accredited"],
-    tags: ["Sapphire FUE", "JCI Accredited"],
-    image: "https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=600",
-    verified: true,
-    featured: true,
-    coordinates: { x: 56, y: 36 }
-  },
-  {
-    id: 'c2',
-    name: "Vera Clinic",
-    location: "Istanbul, Turkey",
-    rating: 4.85,
-    reviews: 1890,
-    price: 2600,
+const transformClinicData = (dbClinic: Clinic): UIClinic => {
+  const metadata = (dbClinic.metadata as any) || {};
+  const specialties = metadata.specialties || [];
+  const certifications = metadata.certifications || [];
+
+  return {
+    id: dbClinic.id,
+    name: dbClinic.name,
+    location: dbClinic.location || 'Unknown',
+    rating: 4.8 + Math.random() * 0.2,
+    reviews: Math.floor(Math.random() * 3000) + 500,
+    price: 2000 + Math.floor(Math.random() * 4000),
     currency: "€",
     budgetCategory: "standard",
-    techniques: ["Sapphire FUE", "OxyCure"],
-    treatments: ["Hair Transplant", "Women's Hair Transplant", "Afro-Textured Hair"],
-    amenities: ["VIP Transfer", "5* Hotel Included", "Needle-Free Anesthesia", "English Speaking Staff"],
-    tags: ["OxyCure", "Award Winning"],
-    image: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=600",
-    verified: true,
+    techniques: specialties,
+    treatments: ["Hair Transplant"],
+    amenities: certifications,
+    tags: specialties.slice(0, 3),
+    image: dbClinic.logo_url || "https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=600",
+    verified: dbClinic.status === 'ACTIVE',
     featured: false,
-    coordinates: { x: 56.5, y: 36.2 } // Slightly offset
-  },
-  {
-    id: 'c3',
-    name: "CapilClinic",
-    location: "London, UK",
-    rating: 4.92,
-    reviews: 850,
-    price: 4500,
-    currency: "£",
-    budgetCategory: "premium",
-    techniques: ["Manual FUE", "DHI Implantation"],
-    treatments: ["Hair Transplant", "Women's Hair Transplant", "Eyebrow Transplant"],
-    amenities: ["English Speaking Staff"],
-    tags: ["Stem Cell", "Manual"],
-    image: "https://images.unsplash.com/photo-1516549655169-df83a0674f66?auto=format&fit=crop&q=80&w=600",
-    verified: true,
-    featured: false,
-    coordinates: { x: 48, y: 26 }
-  },
-  {
-    id: 'c4',
-    name: "Smile Hair Clinic",
-    location: "Istanbul, Turkey",
-    rating: 4.75,
-    reviews: 3200,
-    price: 2100,
-    currency: "€",
-    budgetCategory: "economy",
-    techniques: ["Sapphire FUE"],
-    treatments: ["Hair Transplant", "Beard Transplant"],
-    amenities: ["VIP Transfer", "Needle-Free Anesthesia", "English Speaking Staff"],
-    tags: ["Sapphire", "All-Inclusive"],
-    image: "https://images.unsplash.com/photo-1581056771107-24ca5f033842?auto=format&fit=crop&q=80&w=600",
-    verified: true,
-    featured: false,
-    coordinates: { x: 56.2, y: 35.8 }
-  },
-  {
-    id: 'c5',
-    name: "Dr. Serkan Aygin",
-    location: "Istanbul, Turkey",
-    rating: 4.88,
-    reviews: 4100,
-    price: 2800,
-    currency: "€",
-    budgetCategory: "standard",
-    techniques: ["DHI Implantation", "Sapphire FUE"],
-    treatments: ["Hair Transplant", "Women's Hair Transplant"],
-    amenities: ["VIP Transfer", "5* Hotel Included", "Needle-Free Anesthesia", "English Speaking Staff"],
-    tags: ["DHI", "Soft Anesthesia"],
-    image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&q=80&w=600",
-    verified: true,
-    featured: false,
-    coordinates: { x: 55.8, y: 36.1 }
-  },
-  {
-    id: 'c6',
-    name: "Advanced Hair Mexico",
-    location: "Tijuana, Mexico",
-    rating: 4.80,
-    reviews: 560,
-    price: 3500,
-    currency: "$",
-    budgetCategory: "standard",
-    techniques: ["Manual FUE", "Unshaven FUE"],
-    treatments: ["Hair Transplant", "Afro-Textured Hair"],
-    amenities: ["VIP Transfer", "English Speaking Staff"],
-    tags: ["FUE", "US Standards"],
-    image: "https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=600",
-    verified: false,
-    featured: false,
-    coordinates: { x: 18, y: 40 }
-  },
-  {
-    id: 'c7',
-    name: "Trivellini Clinic",
-    location: "Malaga, Spain",
-    rating: 4.95,
-    reviews: 420,
-    price: 6000,
-    currency: "€",
-    budgetCategory: "exclusive",
-    techniques: ["Robotic FUE", "Unshaven FUE"],
-    treatments: ["Hair Transplant", "Repair / Revision", "Women's Hair Transplant"],
-    amenities: ["VIP Transfer", "English Speaking Staff"],
-    tags: ["Mamba FUE", "VIP"],
-    image: "https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?auto=format&fit=crop&q=80&w=600",
-    verified: true,
-    featured: true,
-    coordinates: { x: 48, y: 36 }
-  }
-];
+    coordinates: undefined
+  };
+};
 
 const ClinicDirectoryScreen: React.FC<ClinicDirectoryScreenProps> = ({ onBack, onVisitClinic }) => {
+  const [clinics, setClinics] = useState<UIClinic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   // View State
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map'>('grid');
-  
+
   // Filters
   const [selectedCountry, setSelectedCountry] = useState("All");
   const [budgetTier, setBudgetTier] = useState<string | null>(null);
   const [selectedTechniques, setSelectedTechniques] = useState<string[]>([]);
   const [selectedTreatments, setSelectedTreatments] = useState<string[]>([]);
   const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
-  
+
   // UI States
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [selectedMapClinic, setSelectedMapClinic] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchClinics = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const { data, error } = await clinicService.getAllClinics({ status: 'ACTIVE' });
+
+        if (error) {
+          console.error('Error fetching clinics:', error);
+          setError('Failed to load clinics. Please try again.');
+          setClinics([]);
+        } else if (data) {
+          const transformedClinics = data.map(transformClinicData);
+          setClinics(transformedClinics);
+        }
+      } catch (err) {
+        console.error('Unexpected error fetching clinics:', err);
+        setError('An unexpected error occurred.');
+        setClinics([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClinics();
+  }, []);
 
   const toggleFilter = (item: string, currentList: string[], setter: React.Dispatch<React.SetStateAction<string[]>>) => {
     setter(prev => 
@@ -211,20 +159,20 @@ const ClinicDirectoryScreen: React.FC<ClinicDirectoryScreenProps> = ({ onBack, o
 
   const hasActiveFilters = budgetTier || selectedCountry !== "All" || selectedTechniques.length > 0 || selectedTreatments.length > 0 || selectedAmenities.length > 0;
 
-  const filteredClinics = ALL_CLINICS.filter(clinic => {
+  const filteredClinics = clinics.filter(clinic => {
     // 1. Search & Location
-    const matchesSearch = clinic.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const matchesSearch = clinic.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           clinic.location.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCountry = selectedCountry === "All" || clinic.location.includes(selectedCountry);
-    
+
     // 2. Budget
     const matchesBudget = !budgetTier || clinic.budgetCategory === budgetTier;
 
     // 3. Multi-select Filters
-    const matchesTechniques = selectedTechniques.length === 0 || 
+    const matchesTechniques = selectedTechniques.length === 0 ||
                               selectedTechniques.some(t => clinic.techniques?.includes(t));
-    
-    const matchesTreatments = selectedTreatments.length === 0 || 
+
+    const matchesTreatments = selectedTreatments.length === 0 ||
                               selectedTreatments.every(t => clinic.treatments?.includes(t));
 
     const matchesAmenities = selectedAmenities.length === 0 ||
@@ -424,7 +372,23 @@ const ClinicDirectoryScreen: React.FC<ClinicDirectoryScreenProps> = ({ onBack, o
                  </div>
              </div>
 
-             {filteredClinics.length === 0 ? (
+             {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[3rem] border border-slate-100">
+                    <div className="w-16 h-16 border-4 border-slate-200 border-t-teal-500 rounded-full animate-spin mb-6"></div>
+                    <p className="text-[#0E1A2B] font-bold text-lg">Loading clinics...</p>
+                </div>
+             ) : error ? (
+                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[3rem] border border-slate-100">
+                    <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mb-6">
+                        <AlertCircle size={32} className="text-red-500" />
+                    </div>
+                    <p className="text-[#0E1A2B] font-bold text-lg mb-2">Error loading clinics</p>
+                    <p className="text-slate-500 text-sm mb-4">{error}</p>
+                    <button onClick={() => window.location.reload()} className="px-6 py-2 bg-teal-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-teal-600 transition-colors">
+                        Retry
+                    </button>
+                </div>
+             ) : filteredClinics.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[3rem] border border-slate-100 border-dashed">
                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
                         <Search size={32} className="text-slate-300" />
