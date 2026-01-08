@@ -24,24 +24,10 @@ import {
   Zap,
   ZapOff
 } from 'lucide-react';
+import { FaceMesh } from '@mediapipe/face_mesh';
 import { translations, LanguageCode } from '../translations';
 
 // --- YARDIMCI FONKSIYONLAR ---
-
-const loadScript = (src: string) => {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = src;
-    script.crossOrigin = "anonymous";
-    script.onload = () => resolve(true);
-    script.onerror = (err) => reject(err);
-    document.body.appendChild(script);
-  });
-};
 
 // Singleton AudioContext
 let sharedAudioCtx: AudioContext | null = null;
@@ -873,26 +859,22 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
     isMountedRef.current = true;
     if (window.speechSynthesis) window.speechSynthesis.getVoices();
 
-    loadScript('https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.js')
-      .then(() => {
-        if (!isMountedRef.current) return;
-        const faceMesh = new (window as any).FaceMesh({
-          locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${file}`
-        });
-        
-        faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
-        faceMesh.onResults((results: any) => {
-          if (isMountedRef.current && onResultsRef.current) {
-            onResultsRef.current(results);
-          }
-        });
-        faceMeshRef.current = faceMesh;
-      })
-      .catch((err) => {
-          console.error("Failed to load FaceMesh", err);
-          // HARD FAIL: Don't allow manual bypass if user wants strict AI
-          setCameraError("Yapay Zeka Modeli Yüklenemedi. Lütfen internetinizi kontrol edip sayfayı yenileyin.");
+    try {
+      const faceMesh = new FaceMesh({
+        locateFile: (file: string) => `/mediapipe/face_mesh/${file}`
       });
+
+      faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.6 });
+      faceMesh.onResults((results: any) => {
+        if (isMountedRef.current && onResultsRef.current) {
+          onResultsRef.current(results);
+        }
+      });
+      faceMeshRef.current = faceMesh;
+    } catch (err) {
+      console.error("Failed to load FaceMesh", err);
+      setCameraError("Yapay Zeka Modeli Yüklenemedi. Lütfen sayfayı yenileyin.");
+    }
 
     return () => {
       isMountedRef.current = false;
