@@ -138,8 +138,8 @@ const BeforeAfterSlider = ({
   }, [autoPeriodMs]);
 
   const sliderMaskStyle = isRTL
-    ? `linear-gradient(to left, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`
-    : `linear-gradient(to right, black calc(${sliderPos}% - 5%), transparent calc(${sliderPos}% + 5%))`;
+    ? `linear-gradient(to left, black calc(${sliderPos}% - 1%), transparent calc(${sliderPos}% + 1%))`
+    : `linear-gradient(to right, black calc(${sliderPos}% - 1%), transparent calc(${sliderPos}% + 1%))`;
 
   const edgeFadeMask = `radial-gradient(ellipse at center, black 60%, transparent 100%)`;
 
