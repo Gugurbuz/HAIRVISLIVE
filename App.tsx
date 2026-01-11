@@ -76,6 +76,26 @@ const App: React.FC = () => {
 
   const isDev = import.meta.env.DEV;
 
+  // ✅ DEV ONLY: Ctrl/Cmd + Shift + D => ADMIN_DEBUG, ESC => LANDING
+  useEffect(() => {
+    if (!isDev) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setAppState('ADMIN_DEBUG');
+        console.log('[ADMIN DEBUG] activated');
+      }
+
+      if (e.key === 'Escape' && appState === 'ADMIN_DEBUG') {
+        setAppState('LANDING');
+      }
+    };
+
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [appState, isDev]);
+
   const classifyUserError = (err: any) => {
     const msg = String(err?.message || err || '').toLowerCase();
 
@@ -136,13 +156,16 @@ const App: React.FC = () => {
   const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
 
-    localStorage.setItem('pendingAuthState', JSON.stringify({
-      analysisResult,
-      afterImage,
-      planningImage,
-      capturedPhotos,
-      intakeData: data,
-    }));
+    localStorage.setItem(
+      'pendingAuthState',
+      JSON.stringify({
+        analysisResult,
+        afterImage,
+        planningImage,
+        capturedPhotos,
+        intakeData: data,
+      })
+    );
 
     setAppState('AUTH_GATE');
   };
@@ -237,21 +260,26 @@ const App: React.FC = () => {
         };
 
         setAnalysisResult(mockResult);
-        setPlanningImage('https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200');
-        setAfterImage('https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200');
+        setPlanningImage(
+          'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200'
+        );
+        setAfterImage(
+          'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200'
+        );
         setIsAnalyzing(false);
       }, 1500);
 
       return;
     }
 
+    // ✅ FIX: catch içinde de kullanılabilsin diye dış scope
+    let viewImages: ScalpImages | null = null;
+
     try {
       const getPhoto = (id: string) =>
-        photos.find((p) => p.id === id)?.preview.split(',')[1] ||
-        photos[0]?.preview.split(',')[1] ||
-        '';
+        photos.find((p) => p.id === id)?.preview.split(',')[1] || photos[0]?.preview.split(',')[1] || '';
 
-      const viewImages: ScalpImages = {
+      viewImages = {
         front: getPhoto('front'),
         left: getPhoto('left'),
         right: getPhoto('right'),
@@ -272,7 +300,7 @@ const App: React.FC = () => {
         operationType: 'scalp_analysis',
         inputData: { viewTypes: Object.keys(viewImages) },
         outputData: result,
-        imageUrls: capturedPhotos.map(p => p.id),
+        imageUrls: capturedPhotos.map((p) => p.id),
         durationMs: Date.now() - analysisStartTime,
       });
 
@@ -331,7 +359,8 @@ const App: React.FC = () => {
     const consent = mergedData?.consent === true;
     const kvkk = mergedData?.kvkk === true;
 
-    const hasNorwood = !!result?.diagnosis?.norwood_scale && String(result?.diagnosis?.norwood_scale).trim().length > 0;
+    const hasNorwood =
+      !!result?.diagnosis?.norwood_scale && String(result?.diagnosis?.norwood_scale).trim().length > 0;
     const hasGrafts = typeof result?.technical_metrics?.graft_count_min === 'number' || !!result?.technical_metrics?.graft_count_min;
 
     if (!verified) {
