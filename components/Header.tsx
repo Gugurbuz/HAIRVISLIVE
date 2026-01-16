@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ appState, setAppState, lang, set
   }, [appState]);
 
   // View Logic
-  const isSimulationMode = ['SELECT_TYPE', 'PRE_SCAN', 'SCAN', 'AUTH_GATE', 'ANALYZE', 'RESULT'].includes(appState);
+  const isSimulationMode = ['SELECT_TYPE', 'PRE_SCAN', 'SCAN', 'AUTH_GATE', 'ANALYZING', 'INTAKE', 'RESULT'].includes(appState);
   const isDarkHeader = ['PARTNER_PORTAL', 'CLINIC_DETAILS'].includes(appState);
   const hideMainHeader = ['CLINIC_LANDING', 'PARTNER_JOIN', 'SCAN', 'PATIENT_PORTAL', 'BLOG', 'PRE_SCAN'].includes(appState);
   const transparentHeaderPages = ['PARTNER_PORTAL', 'CLINIC_DETAILS'];
@@ -82,8 +82,8 @@ export const Header: React.FC<HeaderProps> = ({ appState, setAppState, lang, set
                         <div className={`w-2 h-2 rounded-full ${(appState === 'PRE_SCAN' || appState === 'SCAN') ? 'bg-teal-500' : 'bg-slate-300'}`} />
                         <span className="font-bold uppercase tracking-widest text-xs">{t.navCapture}</span>
                       </div>
-                      <div className={`flex items-center gap-3 ${(appState === 'ANALYZE' || appState === 'AUTH_GATE') ? 'text-teal-600' : 'text-slate-400'}`}>
-                        <div className={`w-2 h-2 rounded-full ${(appState === 'ANALYZE' || appState === 'AUTH_GATE') ? 'bg-teal-500' : 'bg-slate-300'}`} />
+                      <div className={`flex items-center gap-3 ${(appState === 'AUTH_GATE' || appState === 'ANALYZING' || appState === 'INTAKE') ? 'text-teal-600' : 'text-slate-400'}`}>
+                        <div className={`w-2 h-2 rounded-full ${(appState === 'AUTH_GATE' || appState === 'ANALYZING' || appState === 'INTAKE') ? 'bg-teal-500' : 'bg-slate-300'}`} />
                         <span className="font-bold uppercase tracking-widest text-xs">{t.navAnalysis}</span>
                       </div>
                       <div className={`flex items-center gap-3 ${appState === 'RESULT' ? 'text-teal-600' : 'text-slate-400'}`}>
@@ -155,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({ appState, setAppState, lang, set
             ) : (
               <>
                 <NavItem active={appState === 'PRE_SCAN' || appState === 'SCAN'} label={t.navCapture} isDark={isDarkHeader} />
-                <NavItem active={appState === 'ANALYZE' || appState === 'AUTH_GATE'} label={t.navAnalysis} isDark={isDarkHeader} />
+                <NavItem active={appState === 'AUTH_GATE' || appState === 'ANALYZING' || appState === 'INTAKE'} label={t.navAnalysis} isDark={isDarkHeader} />
                 <NavItem active={appState === 'RESULT'} label={t.navReport} isDark={isDarkHeader} />
               </>
             )}

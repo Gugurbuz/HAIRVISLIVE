@@ -64,17 +64,13 @@ const App: React.FC = () => {
   useEffect(() => {
     const resumePendingAuthFlow = async () => {
       try {
-        // ÖNEMLİ: URL'i en başta yakalayalım
-        console.log('[OAuth] Initial URL:', window.location.href);
-        console.log('[OAuth] Search params:', window.location.search);
-        console.log('[OAuth] Hash:', window.location.hash);
-        console.log('[OAuth] sessionStorage has pendingAuthState:', !!sessionStorage.getItem('pendingAuthState'));
+        console.log('[OAuth] Checking for OAuth callback...');
+        console.log('[OAuth] URL:', window.location.href);
 
         const url = new URL(window.location.href);
         const searchParams = url.searchParams;
         const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
 
-        // URL'den OAuth kalıntılarını temizle (önce)
         const hasOAuthArtifacts =
           searchParams.has('code') ||
           searchParams.has('error') ||
@@ -83,7 +79,7 @@ const App: React.FC = () => {
           hashParams.has('access_token') ||
           hashParams.has('error');
 
-        // Eğer bu bir PKCE dönüşüyse, code'u session'a çevir ve bekle
+        // Exchange PKCE code for session if present
         if (searchParams.has('code')) {
           console.log('[OAuth] Exchanging code for session...');
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
@@ -91,33 +87,17 @@ const App: React.FC = () => {
             console.error('[OAuth] Code exchange failed:', exchangeError);
           } else if (data?.session) {
             console.log('[OAuth] Session established:', data.session.user.email);
-          }
-        }
 
-        // Supabase bazı akışlarda URL fragment'i erken temizleyebiliyor.
-        // Bu yüzden asıl sinyalimiz: pendingAuthState var mı?
-        const pendingStateRaw = sessionStorage.getItem('pendingAuthState');
-        console.log('[OAuth] Pending state found:', !!pendingStateRaw);
+            // Check if we have pending scan data (user came from scan flow)
+            const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
+            if (pendingScanDataRaw) {
+              console.log('[OAuth] Pending scan data found, starting analysis...');
 
-        if (pendingStateRaw) {
-          try {
-            const savedState = JSON.parse(pendingStateRaw);
-            const createdAt = typeof savedState.createdAt === 'number' ? savedState.createdAt : null;
-            const isFresh = createdAt ? Date.now() - createdAt < 30 * 60 * 1000 : true; // 30 dk
-
-            if (isFresh && savedState.analysisResult && savedState.intakeData) {
-              console.log('[OAuth] Restoring saved state from sessionStorage');
-
-              // State'i restore et
-              setAnalysisResult(savedState.analysisResult);
-              setAfterImage(savedState.afterImage);
-              setPlanningImage(savedState.planningImage);
-              setIntakeData(savedState.intakeData);
-
-              // Fotoğrafları restore et
+              const savedScanData = JSON.parse(pendingScanDataRaw);
               const restoredPhotos: any[] = [];
-              savedState.capturedPhotos.forEach((placeholder: any, idx: number) => {
-                const preview = sessionStorage.getItem(`photo_${idx}`);
+
+              savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
+                const preview = sessionStorage.getItem(`scan_photo_${idx}`);
                 if (preview) {
                   restoredPhotos.push({
                     ...placeholder,
@@ -125,34 +105,41 @@ const App: React.FC = () => {
                   });
                 }
               });
-              setCapturedPhotos(restoredPhotos);
 
-              console.log('[OAuth] State restored, going to AUTH_GATE');
-              setAppState('AUTH_GATE');
-            } else {
-              console.log('[OAuth] State expired or incomplete');
+              if (restoredPhotos.length > 0) {
+                // Store auth data
+                sessionStorage.setItem('authData', JSON.stringify({
+                  email: data.session.user.email || '',
+                  name: data.session.user.user_metadata?.full_name || data.session.user.email || 'User',
+                  userId: data.session.user.id,
+                }));
+
+                // Restore photos
+                setCapturedPhotos(restoredPhotos);
+                lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
+
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+
+                // Start analysis
+                setAppState('ANALYZING');
+                runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(() => {
+                  setAppState('INTAKE');
+
+                  // Clean up scan data
+                  sessionStorage.removeItem('pendingScanData');
+                  savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
+                    sessionStorage.removeItem(`scan_photo_${idx}`);
+                  });
+                });
+
+                return;
+              }
             }
-
-            // Temizle
-            sessionStorage.removeItem('pendingAuthState');
-            savedState.capturedPhotos.forEach((_: any, idx: number) => {
-              sessionStorage.removeItem(`photo_${idx}`);
-            });
-          } catch (e) {
-            console.error('[OAuth] Failed to parse pending state:', e);
-            sessionStorage.removeItem('pendingAuthState');
-          }
-        } else if (hasOAuthArtifacts) {
-          // OAuth dönüşü var ama pending state yok - bu kullanıcı rapor akışı dışında giriş yapmış
-          console.log('[OAuth] OAuth callback detected but no pending state - user logged in outside of report flow');
-          // Session kurulmuş olabilir, kontrol et
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            console.log('[OAuth] User logged in:', session.user.email, '- staying on current page');
-            // Kullanıcı giriş yaptı ama rapor akışında değil - LANDING'de kalsın
           }
         }
 
+        // Clean up OAuth artifacts from URL
         if (hasOAuthArtifacts) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
@@ -213,67 +200,131 @@ const App: React.FC = () => {
 
   const handleScanComplete = (photos: any[], skip: boolean = false) => {
     setCapturedPhotos(photos);
-    setAppState('ANALYZE');
 
     // retry için sakla
     lastScanRef.current = { photos, skip };
 
-    // Trigger background analysis immediately
-    runBackgroundAnalysis(photos, skip);
-  };
-
-  // Intake Complete -> Go to Auth Gate (OTP)
-  const handleIntakeComplete = (data: IntakeData) => {
-    setIntakeData(data);
-
+    // Save photos to sessionStorage for post-auth analysis
     try {
-      // sessionStorage kullan - sayfa yenilendiğinde korunur ama tab kapanınca silinir
-      // capturedPhotos'ları base64 olmadan sadece placeholder olarak kaydet
       const stateToSave = {
-        analysisResult,
-        afterImage,
-        planningImage,
-        // Fotoğrafları kaydetme, çok büyük
-        capturedPhotos: capturedPhotos.map(p => ({ id: p.id, label: p.label })),
-        intakeData: data,
+        capturedPhotos: photos.map(p => ({ id: p.id, label: p.label })),
+        skipAnalysis: skip,
         createdAt: Date.now(),
       };
 
-      console.log('[App] Saving pending auth state to sessionStorage');
-      sessionStorage.setItem('pendingAuthState', JSON.stringify(stateToSave));
+      console.log('[App] Saving scan data to sessionStorage');
+      sessionStorage.setItem('pendingScanData', JSON.stringify(stateToSave));
 
-      // Ayrıca fotoğraf preview'lerini ayrı ayrı kaydet (daha kontrollü)
-      capturedPhotos.forEach((photo, idx) => {
+      photos.forEach((photo, idx) => {
         try {
-          sessionStorage.setItem(`photo_${idx}`, photo.preview);
+          sessionStorage.setItem(`scan_photo_${idx}`, photo.preview);
         } catch (e) {
           console.warn(`[App] Could not save photo ${idx}:`, e);
         }
       });
     } catch (e) {
-      console.error('[App] Failed to save pending auth state:', e);
+      console.error('[App] Failed to save scan data:', e);
     }
 
+    // Go to auth first, then analyze
     setAppState('AUTH_GATE');
   };
 
-  // Auth Complete -> Go to Result (Finalize Lead)
-  const handleAuthComplete = (authData: { email: string; name: string; userId: string }) => {
+  // Intake Complete -> Finalize Lead Creation
+  const handleIntakeComplete = (data: IntakeData) => {
+    setIntakeData(data);
+
+    // Get auth data from sessionStorage
+    try {
+      const authDataRaw = sessionStorage.getItem('authData');
+      if (!authDataRaw) {
+        console.error('[App] No auth data found after intake');
+        setError(lang === 'TR' ? 'Oturum verisi bulunamadı.' : 'Session data not found.');
+        setAppState('LANDING');
+        return;
+      }
+
+      const authData = JSON.parse(authDataRaw);
+
+      // Combine Intake Data + Auth Data
+      const mergedData: any = {
+        ...data,
+        contactMethod: 'email',
+        contactValue: authData.email,
+        userName: authData.name,
+        userId: authData.userId,
+        verified: true,
+      };
+
+      console.log('[App] Creating lead with merged data');
+      finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+
+      // Clean up
+      sessionStorage.removeItem('authData');
+    } catch (e) {
+      console.error('[App] Failed to finalize lead:', e);
+      setError(lang === 'TR' ? 'Kayıt oluşturulamadı.' : 'Failed to create lead.');
+    }
+  };
+
+  // Auth Complete -> Start Analysis -> Go to Intake
+  const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
     console.log('[App] Auth complete called:', authData.email);
-    console.log('[App] Current analysis result:', !!analysisResult);
-    console.log('[App] Current intake data:', !!intakeData);
 
-    // Combine Intake Data + Auth Data (OAuth)
-    const mergedData: any = {
-      ...intakeData,
-      contactMethod: 'email',
-      contactValue: authData.email,
-      userName: authData.name,
-      userId: authData.userId,
-      verified: true,
-    };
+    // Store auth data for later use
+    sessionStorage.setItem('authData', JSON.stringify(authData));
 
-    finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+    // Restore scan data from sessionStorage
+    try {
+      const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
+      if (!pendingScanDataRaw) {
+        console.error('[App] No pending scan data found after auth');
+        setError(lang === 'TR' ? 'Scan verisi bulunamadı. Lütfen tekrar scan yapın.' : 'Scan data not found. Please scan again.');
+        setAppState('LANDING');
+        return;
+      }
+
+      const savedScanData = JSON.parse(pendingScanDataRaw);
+      const restoredPhotos: any[] = [];
+
+      savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
+        const preview = sessionStorage.getItem(`scan_photo_${idx}`);
+        if (preview) {
+          restoredPhotos.push({
+            ...placeholder,
+            preview,
+          });
+        }
+      });
+
+      if (restoredPhotos.length === 0) {
+        console.error('[App] No photos could be restored');
+        setError(lang === 'TR' ? 'Fotoğraflar yüklenemedi. Lütfen tekrar scan yapın.' : 'Photos could not be loaded. Please scan again.');
+        setAppState('LANDING');
+        return;
+      }
+
+      console.log('[App] Restored photos:', restoredPhotos.length);
+      setCapturedPhotos(restoredPhotos);
+      lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
+
+      // Start analysis
+      setAppState('ANALYZING');
+      await runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false);
+
+      // After analysis completes, go to intake
+      setAppState('INTAKE');
+
+      // Clean up scan data
+      sessionStorage.removeItem('pendingScanData');
+      savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
+        sessionStorage.removeItem(`scan_photo_${idx}`);
+      });
+    } catch (e) {
+      console.error('[App] Failed to restore scan data:', e);
+      setError(lang === 'TR' ? 'Scan verisi yüklenemedi.' : 'Failed to load scan data.');
+      setAppState('LANDING');
+    }
   };
 
   // (2) Kullanıcıya retry
@@ -625,74 +676,6 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* INTAKE PHASE (Progressive Profiling) */}
-        {appState === 'ANALYZE' && (
-          <div className="w-full min-h-screen bg-[#F7F8FA] px-6 pt-28 pb-10">
-            <div className="max-w-2xl mx-auto">
-              {/* (2) Error Banner */}
-              {error && (
-                <div className="mb-4 rounded-2xl border border-red-200 bg-white p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-red-600">
-                    {lang === 'TR' ? 'Bir sorun oldu' : 'Something went wrong'}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-700">{error}</div>
-
-                  <div className="mt-3 flex items-center gap-3">
-                    <button
-                      onClick={handleRetryAnalysis}
-                      disabled={isAnalyzing}
-                      className="rounded-xl px-4 py-2 text-sm font-semibold bg-slate-900 text-white disabled:opacity-60"
-                    >
-                      {isAnalyzing
-                        ? (lang === 'TR' ? 'Tekrar deneniyor...' : 'Retrying...')
-                        : (lang === 'TR' ? 'Tekrar Dene' : 'Retry')}
-                    </button>
-
-                    <button
-                      onClick={() => setError(null)}
-                      className="rounded-xl px-4 py-2 text-sm font-semibold bg-white border border-slate-200 text-slate-800"
-                    >
-                      {lang === 'TR' ? 'Kapat' : 'Dismiss'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* (2) Analyzing Status */}
-              {!error && (
-                <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-slate-900">
-                    {lang === 'TR' ? 'Analiz hazırlanıyor' : 'Preparing your analysis'}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-600">
-                    {isAnalyzing
-                      ? (lang === 'TR' ? 'Lütfen kısa bir süre bekleyin...' : 'Please wait a moment...')
-                      : (lang === 'TR' ? 'Analiz tamamlandı.' : 'Analysis completed.')}
-                  </div>
-
-                  {/* Opsiyonel: retry butonu (analiz bitse bile) */}
-                  <div className="mt-3">
-                    <button
-                      onClick={handleRetryAnalysis}
-                      disabled={isAnalyzing}
-                      className="rounded-xl px-4 py-2 text-sm font-semibold bg-white border border-slate-200 text-slate-800 disabled:opacity-60"
-                    >
-                      {lang === 'TR' ? 'Analizi Yenile' : 'Refresh analysis'}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Intake form */}
-              <div className="rounded-2xl bg-white shadow-sm border border-slate-200">
-                <PreReportIntakeScreen
-                  lang={lang}
-                  onComplete={handleIntakeComplete}
-                />
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* OAUTH GATE */}
         {appState === 'AUTH_GATE' && (
@@ -702,6 +685,48 @@ const App: React.FC = () => {
                 onComplete={handleAuthComplete}
                 lang={lang}
               />
+            </div>
+          </div>
+        )}
+
+        {/* ANALYZING (Loading after auth) */}
+        {appState === 'ANALYZING' && (
+          <div className="w-full min-h-screen bg-[#F7F8FA] flex items-center justify-center px-6">
+            <div className="max-w-md w-full text-center space-y-6">
+              <div className="w-16 h-16 mx-auto">
+                <div className="w-full h-full border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                  {lang === 'TR' ? 'Analiz Hazırlanıyor' : 'Preparing Analysis'}
+                </h2>
+                <p className="text-slate-600">
+                  {lang === 'TR' ? 'Fotoğraflarınız analiz ediliyor, lütfen bekleyin...' : 'Analyzing your photos, please wait...'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* INTAKE PHASE (After Analysis) */}
+        {appState === 'INTAKE' && (
+          <div className="w-full min-h-screen bg-[#F7F8FA] px-6 pt-28 pb-10">
+            <div className="max-w-2xl mx-auto">
+              {error && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-white p-4 shadow-sm">
+                  <div className="text-sm font-semibold text-red-600">
+                    {lang === 'TR' ? 'Bir sorun oldu' : 'Something went wrong'}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-700">{error}</div>
+                </div>
+              )}
+
+              <div className="rounded-2xl bg-white shadow-sm border border-slate-200">
+                <PreReportIntakeScreen
+                  lang={lang}
+                  onComplete={handleIntakeComplete}
+                />
+              </div>
             </div>
           </div>
         )}
