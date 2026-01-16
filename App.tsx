@@ -51,9 +51,27 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   }, [appState]);
 
+  // Global Supabase auth listener
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[App] Global auth state change:', event, session?.user?.email);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     const resumePendingAuthFlow = async () => {
       try {
+        // ÖNEMLİ: URL'i en başta yakalayalım
+        console.log('[OAuth] Initial URL:', window.location.href);
+        console.log('[OAuth] Search params:', window.location.search);
+        console.log('[OAuth] Hash:', window.location.hash);
+        console.log('[OAuth] localStorage keys:', Object.keys(localStorage));
+        console.log('[OAuth] pendingAuthState in localStorage:', localStorage.getItem('pendingAuthState'));
+
         const url = new URL(window.location.href);
         const searchParams = url.searchParams;
         const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
@@ -102,6 +120,15 @@ const App: React.FC = () => {
 
           // Döngüye girmemesi için her durumda temizle
           secureStorage.removeItem('pendingAuthState');
+        } else if (hasOAuthArtifacts) {
+          // OAuth dönüşü var ama pending state yok - bu kullanıcı rapor akışı dışında giriş yapmış
+          console.log('[OAuth] OAuth callback detected but no pending state - user logged in outside of report flow');
+          // Session kurulmuş olabilir, kontrol et
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            console.log('[OAuth] User logged in:', session.user.email, '- staying on current page');
+            // Kullanıcı giriş yaptı ama rapor akışında değil - LANDING'de kalsın
+          }
         }
 
         if (hasOAuthArtifacts) {
