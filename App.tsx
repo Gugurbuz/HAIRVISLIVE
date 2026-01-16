@@ -618,7 +618,7 @@ const App: React.FC = () => {
         )}
 
         {appState === 'SCAN' && (
-          <div className="w-full h-screen flex flex-col items-center justify-center bg-[#F7F8FA] pt-24 md:pt-32">
+          <div className="w-full h-[100svh] flex flex-col items-center justify-center bg-[#F7F8FA] [padding-top:env(safe-area-inset-top)] [padding-bottom:env(safe-area-inset-bottom)]">
             <div className="relative w-full flex-1 lg:max-h-[85vh] lg:max-w-[440px] lg:rounded-[3.5rem] lg:border-[12px] lg:border-slate-800 overflow-hidden bg-black shadow-2xl">
               <ScannerScreen onComplete={handleScanComplete} onExit={() => setAppState('LANDING')} lang={lang} />
             </div>
