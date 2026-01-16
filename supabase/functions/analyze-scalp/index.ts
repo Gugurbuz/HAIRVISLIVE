@@ -4,8 +4,12 @@ import { getPrompt } from '../_shared/prompts.ts';
 import { validateScalpAnalysis, formatValidationErrors } from '../_shared/validation.ts';
 import { logPromptUsage, logValidationError, createInputHash, measureOutputSize } from '../_shared/logger.ts';
 import { getFeatureFlags, isFeatureEnabled, getFeatureConfig } from '../_shared/feature-flags.ts';
-import { checkRateLimit, createRateLimitResponse } from '../_shared/rate-limiter.ts';
-import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+};
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
@@ -21,21 +25,11 @@ interface ScalpImages {
 }
 
 Deno.serve(async (req: Request) => {
-  const corsHeaders = getCorsHeaders(req);
-
   if (req.method === 'OPTIONS') {
-    return handleCorsPreflightRequest(req);
-  }
-
-  const rateLimitResult = await checkRateLimit(req, {
-    endpoint: 'analyze-scalp',
-    maxRequests: 10,
-    windowMs: 60000,
-    blockDurationMs: 300000,
-  });
-
-  if (!rateLimitResult.allowed) {
-    return createRateLimitResponse(rateLimitResult, corsHeaders);
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
   }
 
   const startTime = Date.now();
@@ -60,16 +54,10 @@ Deno.serve(async (req: Request) => {
         confidence: 85,
         recommendations: {
           primary: 'Sapphire FUE Hair Transplant',
-          alternative: ['DHI Method'],
-          medicalTreatment: ['PRP Therapy', 'Finasteride'],
-          lifestyle: ['Reduce stress', 'Improve diet'],
+          supporting: ['PRP Therapy', 'Finasteride']
         },
         analysis: {
-          hairDensity: 'Medium',
-          scalpHealth: 'Good',
-          donorAreaQuality: 'Good',
-          candidacy: 'Good',
-          notes: 'Mock analysis response for testing',
+          summary: 'Mock analysis response for testing'
         }
       };
 
@@ -78,7 +66,6 @@ Deno.serve(async (req: Request) => {
           ...corsHeaders,
           'Content-Type': 'application/json',
           'X-Mock-Mode': 'true',
-          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
         },
       });
     }
@@ -96,13 +83,13 @@ Deno.serve(async (req: Request) => {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const { prompt, version, promptId } = await getPrompt('scalp_analysis');
+    const { prompt, version } = getPrompt('scalp_analysis');
 
     const imageParts = [];
     if (images.front) {
       imageParts.push({
         inlineData: {
-          data: images.front.includes(',') ? images.front.split(',')[1] : images.front,
+          data: images.front.split(',')[1],
           mimeType: 'image/jpeg',
         },
       });
@@ -110,7 +97,7 @@ Deno.serve(async (req: Request) => {
     if (images.top) {
       imageParts.push({
         inlineData: {
-          data: images.top.includes(',') ? images.top.split(',')[1] : images.top,
+          data: images.top.split(',')[1],
           mimeType: 'image/jpeg',
         },
       });
@@ -118,7 +105,7 @@ Deno.serve(async (req: Request) => {
     if (images.left) {
       imageParts.push({
         inlineData: {
-          data: images.left.includes(',') ? images.left.split(',')[1] : images.left,
+          data: images.left.split(',')[1],
           mimeType: 'image/jpeg',
         },
       });
@@ -126,7 +113,7 @@ Deno.serve(async (req: Request) => {
     if (images.right) {
       imageParts.push({
         inlineData: {
-          data: images.right.includes(',') ? images.right.split(',')[1] : images.right,
+          data: images.right.split(',')[1],
           mimeType: 'image/jpeg',
         },
       });
@@ -153,7 +140,6 @@ Deno.serve(async (req: Request) => {
     const outputSize = measureOutputSize(validation.success ? validation.data : parsedData);
 
     usageLogId = await logPromptUsage({
-      promptId,
       promptName: 'scalp_analysis',
       promptVersion: version,
       executionTimeMs: executionTime,
@@ -185,7 +171,6 @@ Deno.serve(async (req: Request) => {
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
-            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
           },
         }
       );
@@ -195,7 +180,6 @@ Deno.serve(async (req: Request) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
-        'X-RateLimit-Remaining': String(rateLimitResult.remaining),
       },
     });
   } catch (error) {
@@ -221,7 +205,6 @@ Deno.serve(async (req: Request) => {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
-          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
         },
       }
     );

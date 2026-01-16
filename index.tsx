@@ -27,27 +27,3 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
-
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker
-      .register('/sw.js')
-      .then((registration) => {
-        console.log('[SW] Registered successfully:', registration.scope);
-
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                console.log('[SW] New content available, please refresh');
-              }
-            });
-          }
-        });
-      })
-      .catch((error) => {
-        console.error('[SW] Registration failed:', error);
-      });
-  });
-}

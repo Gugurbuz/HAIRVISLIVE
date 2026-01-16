@@ -1,11 +1,4 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-export const FALLBACK_PROMPTS = {
+export const PROMPTS = {
   scalp_analysis: {
     name: 'scalp_analysis',
     version: 'v1.0.0',
@@ -81,45 +74,10 @@ Generate the image with natural lighting, realistic density, and professional me
   },
 };
 
-export async function getPrompt(name: string): Promise<{ prompt: string; version: string; promptId?: string }> {
-  try {
-    const { data, error } = await supabase
-      .from('prompts')
-      .select('id, prompt_text, version')
-      .eq('name', name)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error(`Error fetching prompt ${name} from database:`, error);
-      const fallback = FALLBACK_PROMPTS[name as keyof typeof FALLBACK_PROMPTS];
-      if (!fallback) {
-        throw new Error(`Prompt not found: ${name}`);
-      }
-      return { prompt: fallback.prompt, version: fallback.version };
-    }
-
-    if (data) {
-      return {
-        prompt: data.prompt_text,
-        version: data.version,
-        promptId: data.id,
-      };
-    }
-
-    const fallback = FALLBACK_PROMPTS[name as keyof typeof FALLBACK_PROMPTS];
-    if (!fallback) {
-      throw new Error(`Prompt not found: ${name}`);
-    }
-    return { prompt: fallback.prompt, version: fallback.version };
-  } catch (error) {
-    console.error(`Error in getPrompt for ${name}:`, error);
-    const fallback = FALLBACK_PROMPTS[name as keyof typeof FALLBACK_PROMPTS];
-    if (!fallback) {
-      throw new Error(`Prompt not found: ${name}`);
-    }
-    return { prompt: fallback.prompt, version: fallback.version };
+export function getPrompt(name: string): { prompt: string; version: string } {
+  const config = PROMPTS[name as keyof typeof PROMPTS];
+  if (!config) {
+    throw new Error(`Prompt not found: ${name}`);
   }
+  return { prompt: config.prompt, version: config.version };
 }

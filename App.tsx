@@ -1,31 +1,27 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import LoadingScreen from './components/LoadingScreen';
+import React, { useState, useEffect, useRef } from 'react';
+import LandingScreen from './components/LandingScreen';
+import ScannerScreen from './components/ScannerScreen';
+import PreScanScreen from './components/PreScanScreen';
+import SocialAuthModal from './components/SocialAuthModal';
+import DashboardScreen from './components/DashboardScreen';
+import PartnerPortalScreen from './components/PartnerPortalScreen';
+import PartnerJoinScreen from './components/PartnerJoinScreen';
+import PatientPortalScreen from './components/PatientPortalScreen';
+import ClinicLandingScreen from './components/ClinicLandingScreen';
+import ClinicScreen from './components/ClinicScreen';
+import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
+import PreReportIntakeScreen from './components/PreReportIntakeScreen';
+import BlogScreen from './components/BlogScreen';
+import MonitoringDashboard from './components/MonitoringDashboard';
+import AdminDebugScreen from './components/AdminDebugScreen';
 import Footer from './components/Footer';
+import TypeSelectionScreen from './components/TypeSelectionScreen';
 import { Header } from './components/Header';
-
-const LandingScreen = lazy(() => import('./components/LandingScreen'));
-const ScannerScreen = lazy(() => import('./components/ScannerScreen'));
-const PreScanScreen = lazy(() => import('./components/PreScanScreen'));
-const SocialAuthModal = lazy(() => import('./components/SocialAuthModal'));
-const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
-const PartnerPortalScreen = lazy(() => import('./components/PartnerPortalScreen'));
-const PartnerJoinScreen = lazy(() => import('./components/PartnerJoinScreen'));
-const PatientPortalScreen = lazy(() => import('./components/PatientPortalScreen'));
-const ClinicLandingScreen = lazy(() => import('./components/ClinicLandingScreen'));
-const ClinicScreen = lazy(() => import('./components/ClinicScreen'));
-const ClinicDirectoryScreen = lazy(() => import('./components/ClinicDirectoryScreen'));
-const PreReportIntakeScreen = lazy(() => import('./components/PreReportIntakeScreen'));
-const BlogScreen = lazy(() => import('./components/BlogScreen'));
-const MonitoringDashboard = lazy(() => import('./components/MonitoringDashboard'));
-const AdminDebugScreen = lazy(() => import('./components/AdminDebugScreen'));
-const TypeSelectionScreen = lazy(() => import('./components/TypeSelectionScreen'));
 import { translations, LanguageCode } from './translations';
 import { geminiService, ScalpImages } from './geminiService';
 import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { useSession } from './context/SessionContext';
 import { AppState } from './types';
-import { secureStorage } from './lib/auth/secureStorage';
-import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('LANDING');
@@ -54,83 +50,31 @@ const App: React.FC = () => {
   }, [appState]);
 
   useEffect(() => {
-    const resumePendingAuthFlow = async () => {
-      try {
-        const url = new URL(window.location.href);
-        const searchParams = url.searchParams;
-        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
-
-        // Supabase bazı akışlarda URL fragment'i erken temizleyebiliyor.
-        // Bu yüzden asıl sinyalimiz: pendingAuthState var mı?
-        const savedState = await secureStorage.getItem<any>('pendingAuthState');
-
-        // Eğer bu bir PKCE dönüşüyse, code'u session'a çevir.
-        if (searchParams.has('code')) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
-          if (exchangeError) {
-            console.error('OAuth code exchange failed:', exchangeError);
-          }
-        }
-
-        // Analiz/intake context'i restore et ve Auth Gate'e dön.
+    const handleOAuthCallback = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      if (hashParams.has('access_token')) {
+        const savedState = localStorage.getItem('pendingAuthState');
         if (savedState) {
-          const createdAt = typeof savedState.createdAt === 'number' ? savedState.createdAt : null;
-          const isFresh = createdAt ? Date.now() - createdAt < 30 * 60 * 1000 : true; // 30 dk
-
-          if (isFresh) {
-            setAnalysisResult(savedState.analysisResult);
-            setAfterImage(savedState.afterImage);
-            setPlanningImage(savedState.planningImage);
-            setCapturedPhotos(savedState.capturedPhotos);
-            setIntakeData(savedState.intakeData);
+          try {
+            const parsed = JSON.parse(savedState);
+            setAnalysisResult(parsed.analysisResult);
+            setAfterImage(parsed.afterImage);
+            setPlanningImage(parsed.planningImage);
+            setCapturedPhotos(parsed.capturedPhotos);
+            setIntakeData(parsed.intakeData);
             setAppState('AUTH_GATE');
+            localStorage.removeItem('pendingAuthState');
+          } catch (e) {
+            console.error('Failed to restore auth state:', e);
           }
-
-          // Döngüye girmemesi için her durumda temizle
-          secureStorage.removeItem('pendingAuthState');
         }
-
-        // URL'den OAuth kalıntılarını temizle (code, token, error vs.)
-        const hasOAuthArtifacts =
-          searchParams.has('code') ||
-          searchParams.has('error') ||
-          searchParams.has('error_description') ||
-          searchParams.has('access_token') ||
-          hashParams.has('access_token') ||
-          hashParams.has('error');
-
-        if (hasOAuthArtifacts) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } catch (e) {
-        console.error('Failed to resume pending auth flow:', e);
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     };
-
-    resumePendingAuthFlow();
+    handleOAuthCallback();
   }, []);
 
   const isDev = import.meta.env.DEV;
-
-  // ✅ DEV ONLY: Ctrl/Cmd + Shift + D => ADMIN_DEBUG, ESC => LANDING
-  useEffect(() => {
-    if (!isDev) return;
-
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
-        e.preventDefault();
-        setAppState('ADMIN_DEBUG');
-        console.log('[ADMIN DEBUG] activated');
-      }
-
-      if (e.key === 'Escape' && appState === 'ADMIN_DEBUG') {
-        setAppState('LANDING');
-      }
-    };
-
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [appState, isDev]);
 
   const classifyUserError = (err: any) => {
     const msg = String(err?.message || err || '').toLowerCase();
@@ -189,17 +133,16 @@ const App: React.FC = () => {
   };
 
   // Intake Complete -> Go to Auth Gate (OTP)
-  const handleIntakeComplete = async (data: IntakeData) => {
+  const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
 
-    await secureStorage.setItem('pendingAuthState', {
+    localStorage.setItem('pendingAuthState', JSON.stringify({
       analysisResult,
       afterImage,
       planningImage,
       capturedPhotos,
       intakeData: data,
-      createdAt: Date.now(),
-    });
+    }));
 
     setAppState('AUTH_GATE');
   };
@@ -255,49 +198,60 @@ const App: React.FC = () => {
     if (canUseMock) {
       setTimeout(() => {
         const mockResult = {
-          norwoodScale: 'NW3',
-          hairLossPattern: 'Receding hairline with frontal thinning',
-          severity: 'Moderate',
-          affectedAreas: ['Frontal', 'Temporal'],
-          estimatedGrafts: 2750,
-          graftsRange: { min: 2500, max: 3000 },
-          confidence: 85,
-          recommendations: {
-            primary: 'Sapphire FUE Hair Transplant',
-            alternative: ['DHI Method'],
-            medicalTreatment: ['PRP Therapy', 'Finasteride'],
-            lifestyle: ['Reduce stress', 'Improve diet'],
+          diagnosis: {
+            norwood_scale: 'NW3',
+            analysis_summary: 'Visual estimation indicates pattern consistent with typical NW3 recession.',
           },
-          analysis: {
-            hairDensity: 'Medium',
-            scalpHealth: 'Good',
-            donorAreaQuality: 'Good',
-            candidacy: 'Good',
-            notes: 'Mock analysis response for testing',
+          detailed_analysis: {
+            current_condition_summary: 'Frontal recession visible.',
+            hair_quality_assessment: 'Medium caliber.',
+            projected_results_summary: 'High density expected.',
+          },
+          technical_metrics: {
+            graft_count_min: 2500,
+            graft_count_max: 3000,
+            graft_distribution: { zone_1: 1500, zone_2: 1000, zone_3: 500 },
+            estimated_session_time_hours: 6,
+            suggested_technique: 'Sapphire FUE',
+            technique_reasoning: 'Often selected for higher density in frontal zones.',
+          },
+          donor_assessment: {
+            density_rating: 'Good',
+            estimated_hairs_per_cm2: 70,
+            total_safe_capacity_grafts: 4000,
+            donor_condition_summary: 'Visual analysis suggests adequate donor density.',
+          },
+          phenotypic_features: {
+            apparent_age: 35,
+            skin_tone: 'Medium',
+            skin_undertone: 'Warm',
+            beard_presence: 'Stubble',
+            beard_texture: 'Wavy',
+            eyebrow_density: 'Medium',
+            eyebrow_color: 'Dark',
+          },
+          scalp_geometry: {
+            hairline_design_polygon: [{ x: 0, y: 0 }],
+            high_density_zone_polygon: [{ x: 0, y: 0 }],
           },
         };
 
         setAnalysisResult(mockResult);
-        setPlanningImage(
-          'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200'
-        );
-        setAfterImage(
-          'https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200'
-        );
+        setPlanningImage('https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200');
+        setAfterImage('https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=1200');
         setIsAnalyzing(false);
       }, 1500);
 
       return;
     }
 
-    // ✅ FIX: catch içinde de kullanılabilsin diye dış scope
-    let viewImages: ScalpImages | null = null;
-
     try {
       const getPhoto = (id: string) =>
-        photos.find((p) => p.id === id)?.preview.split(',')[1] || photos[0]?.preview.split(',')[1] || '';
+        photos.find((p) => p.id === id)?.preview.split(',')[1] ||
+        photos[0]?.preview.split(',')[1] ||
+        '';
 
-      viewImages = {
+      const viewImages: ScalpImages = {
         front: getPhoto('front'),
         left: getPhoto('left'),
         right: getPhoto('right'),
@@ -318,29 +272,23 @@ const App: React.FC = () => {
         operationType: 'scalp_analysis',
         inputData: { viewTypes: Object.keys(viewImages) },
         outputData: result,
-        imageUrls: capturedPhotos.map((p) => p.id),
+        imageUrls: capturedPhotos.map(p => p.id),
         durationMs: Date.now() - analysisStartTime,
       });
 
       // STEP 2: Surgical Plan Generation (Doctor Drawing)
-      let planImage = null;
-      try {
-        planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, result);
-        setPlanningImage(planImage);
-        (result as any).surgical_plan_image = planImage || undefined;
-      } catch (planError) {
-        console.warn('Plan generation failed, continuing without it:', planError);
-      }
+      // (geminiService içinde şimdilik stub var; akış bozulmasın)
+      const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, result);
+      setPlanningImage(planImage);
+
+      // Store plan image in result for later reference
+      (result as any).surgical_plan_image = planImage || undefined;
 
       // STEP 3: Targeted Simulation
-      let simImage = null;
-      try {
-        simImage = await geminiService.generateSimulation(mainPhoto, planImage, result);
-        setAfterImage(simImage);
-        (result as any).simulation_image = simImage || undefined;
-      } catch (simError) {
-        console.warn('Simulation generation failed, continuing without it:', simError);
-      }
+      const simImage = await geminiService.generateSimulation(mainPhoto, planImage, result);
+      setAfterImage(simImage);
+
+      (result as any).simulation_image = simImage || undefined;
 
       await logAnalysis({
         operationType: 'simulation_generation',
@@ -367,15 +315,10 @@ const App: React.FC = () => {
 
       // Fallback - ama lead yaratma guard'ları bunu engelleyecek
       setAnalysisResult({
-        norwoodScale: 'NW?',
-        hairLossPattern: lang === 'TR' ? 'Analiz yapılamadı' : 'Analysis unavailable',
-        severity: 'Unknown',
-        affectedAreas: [],
-        estimatedGrafts: 0,
-        graftsRange: { min: 0, max: 0 },
-        confidence: 0,
-        recommendations: {},
-        analysis: {},
+        diagnosis: {
+          norwood_scale: 'NW?',
+          analysis_summary: lang === 'TR' ? 'Analiz şu an üretilemedi.' : 'Analysis currently unavailable.',
+        },
       });
 
       setIsAnalyzing(false);
@@ -388,9 +331,8 @@ const App: React.FC = () => {
     const consent = mergedData?.consent === true;
     const kvkk = mergedData?.kvkk === true;
 
-    const hasNorwood =
-      !!result?.norwoodScale && String(result?.norwoodScale).trim().length > 0;
-    const hasGrafts = typeof result?.graftsRange?.min === 'number' || typeof result?.estimatedGrafts === 'number';
+    const hasNorwood = !!result?.diagnosis?.norwood_scale && String(result?.diagnosis?.norwood_scale).trim().length > 0;
+    const hasGrafts = typeof result?.technical_metrics?.graft_count_min === 'number' || !!result?.technical_metrics?.graft_count_min;
 
     if (!verified) {
       setError(lang === 'TR' ? 'Doğrulama tamamlanmadan kayıt oluşturulamaz.' : 'Verification is required to create a lead.');
@@ -415,7 +357,7 @@ const App: React.FC = () => {
     }
 
     // Lead oluşturma
-    const donorRating = result.analysis?.donorAreaQuality || 'Good';
+    const donorRating = result.donor_assessment?.density_rating || 'Good';
     let calculatedSuitability: 'suitable' | 'borderline' | 'not_recommended' = 'suitable';
 
     if (donorRating === 'Poor') calculatedSuitability = 'not_recommended';
@@ -424,10 +366,10 @@ const App: React.FC = () => {
     const newLead: LeadData = {
       id: `L-${Math.floor(Math.random() * 10000)}`,
       countryCode: lang === 'EN' ? 'US' : lang,
-      age: mergedData.age || 30,
+      age: result.phenotypic_features?.apparent_age || 30,
       gender: (mergedData.gender as 'Male' | 'Female') || 'Male',
-      norwoodScale: result.norwoodScale || 'NW3',
-      estimatedGrafts: `${result.graftsRange?.min || result.estimatedGrafts || 2500}`,
+      norwoodScale: result.diagnosis?.norwood_scale || 'NW3',
+      estimatedGrafts: `${result.technical_metrics?.graft_count_min || 2500}`,
       registrationDate: 'Just Now',
       timestamp: Date.now(),
       thumbnailUrl: simImg || capturedPhotos[0]?.preview,
@@ -481,7 +423,6 @@ const App: React.FC = () => {
       <Header appState={appState} setAppState={setAppState} lang={lang} setLang={setLang} />
 
       <main className="relative flex-grow">
-        <Suspense fallback={<LoadingScreen />}>
         {appState === 'LANDING' && (
           <LandingScreen
             onStart={handleStartSimulation}
@@ -656,7 +597,6 @@ const App: React.FC = () => {
             />
           </div>
         )}
-        </Suspense>
       </main>
 
       {showFooter && <Footer lang={lang} onNavigate={(page) => setAppState(page as any)} />}

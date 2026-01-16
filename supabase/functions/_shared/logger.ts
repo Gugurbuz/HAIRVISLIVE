@@ -1,4 +1,4 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.38.4';
 import type { ValidationError } from './validation.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -7,7 +7,6 @@ const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export interface PromptUsageLog {
-  promptId?: string;
   promptName: string;
   promptVersion: string;
   executionTimeMs: number;
@@ -36,7 +35,6 @@ export async function logPromptUsage(log: PromptUsageLog): Promise<string | null
     const { data, error } = await supabase
       .from('prompt_usage_logs')
       .insert({
-        prompt_id: log.promptId,
         prompt_name: log.promptName,
         prompt_version: log.promptVersion,
         execution_time_ms: log.executionTimeMs,
