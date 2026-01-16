@@ -4,12 +4,8 @@ import { getPrompt } from '../_shared/prompts.ts';
 import { validateScalpAnalysis, formatValidationErrors } from '../_shared/validation.ts';
 import { logPromptUsage, logValidationError, createInputHash, measureOutputSize } from '../_shared/logger.ts';
 import { getFeatureFlags, isFeatureEnabled, getFeatureConfig } from '../_shared/feature-flags.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+import { checkRateLimit, createRateLimitResponse } from '../_shared/rate-limiter.ts';
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
@@ -25,11 +21,21 @@ interface ScalpImages {
 }
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return handleCorsPreflightRequest(req);
+  }
+
+  const rateLimitResult = await checkRateLimit(req, {
+    endpoint: 'analyze-scalp',
+    maxRequests: 10,
+    windowMs: 60000,
+    blockDurationMs: 300000,
+  });
+
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
 
   const startTime = Date.now();
@@ -54,10 +60,16 @@ Deno.serve(async (req: Request) => {
         confidence: 85,
         recommendations: {
           primary: 'Sapphire FUE Hair Transplant',
-          supporting: ['PRP Therapy', 'Finasteride']
+          alternative: ['DHI Method'],
+          medicalTreatment: ['PRP Therapy', 'Finasteride'],
+          lifestyle: ['Reduce stress', 'Improve diet'],
         },
         analysis: {
-          summary: 'Mock analysis response for testing'
+          hairDensity: 'Medium',
+          scalpHealth: 'Good',
+          donorAreaQuality: 'Good',
+          candidacy: 'Good',
+          notes: 'Mock analysis response for testing',
         }
       };
 
@@ -66,6 +78,7 @@ Deno.serve(async (req: Request) => {
           ...corsHeaders,
           'Content-Type': 'application/json',
           'X-Mock-Mode': 'true',
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
         },
       });
     }
@@ -89,7 +102,7 @@ Deno.serve(async (req: Request) => {
     if (images.front) {
       imageParts.push({
         inlineData: {
-          data: images.front.split(',')[1],
+          data: images.front.includes(',') ? images.front.split(',')[1] : images.front,
           mimeType: 'image/jpeg',
         },
       });
@@ -97,7 +110,7 @@ Deno.serve(async (req: Request) => {
     if (images.top) {
       imageParts.push({
         inlineData: {
-          data: images.top.split(',')[1],
+          data: images.top.includes(',') ? images.top.split(',')[1] : images.top,
           mimeType: 'image/jpeg',
         },
       });
@@ -105,7 +118,7 @@ Deno.serve(async (req: Request) => {
     if (images.left) {
       imageParts.push({
         inlineData: {
-          data: images.left.split(',')[1],
+          data: images.left.includes(',') ? images.left.split(',')[1] : images.left,
           mimeType: 'image/jpeg',
         },
       });
@@ -113,7 +126,7 @@ Deno.serve(async (req: Request) => {
     if (images.right) {
       imageParts.push({
         inlineData: {
-          data: images.right.split(',')[1],
+          data: images.right.includes(',') ? images.right.split(',')[1] : images.right,
           mimeType: 'image/jpeg',
         },
       });
@@ -171,6 +184,7 @@ Deno.serve(async (req: Request) => {
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
           },
         }
       );
@@ -180,6 +194,7 @@ Deno.serve(async (req: Request) => {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
+        'X-RateLimit-Remaining': String(rateLimitResult.remaining),
       },
     });
   } catch (error) {
@@ -205,6 +220,7 @@ Deno.serve(async (req: Request) => {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
         },
       }
     );

@@ -22,6 +22,7 @@ import { geminiService, ScalpImages } from './geminiService';
 import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { useSession } from './context/SessionContext';
 import { AppState } from './types';
+import { secureStorage } from './lib/auth/secureStorage';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('LANDING');
@@ -53,20 +54,19 @@ const App: React.FC = () => {
     const handleOAuthCallback = async () => {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       if (hashParams.has('access_token')) {
-        const savedState = localStorage.getItem('pendingAuthState');
-        if (savedState) {
-          try {
-            const parsed = JSON.parse(savedState);
-            setAnalysisResult(parsed.analysisResult);
-            setAfterImage(parsed.afterImage);
-            setPlanningImage(parsed.planningImage);
-            setCapturedPhotos(parsed.capturedPhotos);
-            setIntakeData(parsed.intakeData);
+        try {
+          const savedState = await secureStorage.getItem('pendingAuthState');
+          if (savedState) {
+            setAnalysisResult(savedState.analysisResult);
+            setAfterImage(savedState.afterImage);
+            setPlanningImage(savedState.planningImage);
+            setCapturedPhotos(savedState.capturedPhotos);
+            setIntakeData(savedState.intakeData);
             setAppState('AUTH_GATE');
-            localStorage.removeItem('pendingAuthState');
-          } catch (e) {
-            console.error('Failed to restore auth state:', e);
+            secureStorage.removeItem('pendingAuthState');
           }
+        } catch (e) {
+          console.error('Failed to restore auth state:', e);
         }
         window.history.replaceState({}, document.title, window.location.pathname);
       }
@@ -153,19 +153,16 @@ const App: React.FC = () => {
   };
 
   // Intake Complete -> Go to Auth Gate (OTP)
-  const handleIntakeComplete = (data: IntakeData) => {
+  const handleIntakeComplete = async (data: IntakeData) => {
     setIntakeData(data);
 
-    localStorage.setItem(
-      'pendingAuthState',
-      JSON.stringify({
-        analysisResult,
-        afterImage,
-        planningImage,
-        capturedPhotos,
-        intakeData: data,
-      })
-    );
+    await secureStorage.setItem('pendingAuthState', {
+      analysisResult,
+      afterImage,
+      planningImage,
+      capturedPhotos,
+      intakeData: data,
+    });
 
     setAppState('AUTH_GATE');
   };

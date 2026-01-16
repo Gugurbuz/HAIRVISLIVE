@@ -3,12 +3,8 @@ import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3';
 import { getPrompt } from '../_shared/prompts.ts';
 import { logPromptUsage, createInputHash } from '../_shared/logger.ts';
 import { getFeatureFlags, isFeatureEnabled } from '../_shared/feature-flags.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+import { checkRateLimit, createRateLimitResponse } from '../_shared/rate-limiter.ts';
+import { getCorsHeaders, handleCorsPreflightRequest } from '../_shared/cors.ts';
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
@@ -36,11 +32,21 @@ interface ScalpAnalysisResult {
 }
 
 Deno.serve(async (req: Request) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return handleCorsPreflightRequest(req);
+  }
+
+  const rateLimitResult = await checkRateLimit(req, {
+    endpoint: 'generate-simulation',
+    maxRequests: 5,
+    windowMs: 60000,
+    blockDurationMs: 300000,
+  });
+
+  if (!rateLimitResult.allowed) {
+    return createRateLimitResponse(rateLimitResult, corsHeaders);
   }
 
   const startTime = Date.now();
@@ -59,6 +65,7 @@ Deno.serve(async (req: Request) => {
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
           },
         }
       );
@@ -107,7 +114,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
     const imageParts = [
       {
         inlineData: {
-          data: mainImage.split(',')[1],
+          data: mainImage.includes(',') ? mainImage.split(',')[1] : mainImage,
           mimeType: 'image/jpeg',
         },
       },
@@ -116,7 +123,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
     if (contextImages?.front) {
       imageParts.push({
         inlineData: {
-          data: contextImages.front.split(',')[1],
+          data: contextImages.front.includes(',') ? contextImages.front.split(',')[1] : contextImages.front,
           mimeType: 'image/jpeg',
         },
       });
@@ -124,7 +131,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
     if (contextImages?.top) {
       imageParts.push({
         inlineData: {
-          data: contextImages.top.split(',')[1],
+          data: contextImages.top.includes(',') ? contextImages.top.split(',')[1] : contextImages.top,
           mimeType: 'image/jpeg',
         },
       });
@@ -151,6 +158,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
+        'X-RateLimit-Remaining': String(rateLimitResult.remaining),
       },
     });
   } catch (error) {
@@ -176,6 +184,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': String(rateLimitResult.remaining),
         },
       }
     );
