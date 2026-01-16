@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import LandingScreen from './components/LandingScreen';
-import ScannerScreen from './components/ScannerScreen';
-import PreScanScreen from './components/PreScanScreen';
-import SocialAuthModal from './components/SocialAuthModal';
-import DashboardScreen from './components/DashboardScreen';
-import PartnerPortalScreen from './components/PartnerPortalScreen';
-import PartnerJoinScreen from './components/PartnerJoinScreen';
-import PatientPortalScreen from './components/PatientPortalScreen';
-import ClinicLandingScreen from './components/ClinicLandingScreen';
-import ClinicScreen from './components/ClinicScreen';
-import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
-import PreReportIntakeScreen from './components/PreReportIntakeScreen';
-import BlogScreen from './components/BlogScreen';
-import MonitoringDashboard from './components/MonitoringDashboard';
-import AdminDebugScreen from './components/AdminDebugScreen';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import LoadingScreen from './components/LoadingScreen';
 import Footer from './components/Footer';
-import TypeSelectionScreen from './components/TypeSelectionScreen';
 import { Header } from './components/Header';
+
+const LandingScreen = lazy(() => import('./components/LandingScreen'));
+const ScannerScreen = lazy(() => import('./components/ScannerScreen'));
+const PreScanScreen = lazy(() => import('./components/PreScanScreen'));
+const SocialAuthModal = lazy(() => import('./components/SocialAuthModal'));
+const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
+const PartnerPortalScreen = lazy(() => import('./components/PartnerPortalScreen'));
+const PartnerJoinScreen = lazy(() => import('./components/PartnerJoinScreen'));
+const PatientPortalScreen = lazy(() => import('./components/PatientPortalScreen'));
+const ClinicLandingScreen = lazy(() => import('./components/ClinicLandingScreen'));
+const ClinicScreen = lazy(() => import('./components/ClinicScreen'));
+const ClinicDirectoryScreen = lazy(() => import('./components/ClinicDirectoryScreen'));
+const PreReportIntakeScreen = lazy(() => import('./components/PreReportIntakeScreen'));
+const BlogScreen = lazy(() => import('./components/BlogScreen'));
+const MonitoringDashboard = lazy(() => import('./components/MonitoringDashboard'));
+const AdminDebugScreen = lazy(() => import('./components/AdminDebugScreen'));
+const TypeSelectionScreen = lazy(() => import('./components/TypeSelectionScreen'));
 import { translations, LanguageCode } from './translations';
 import { geminiService, ScalpImages } from './geminiService';
 import { useLeads, LeadData, IntakeData } from './context/LeadContext';
@@ -449,6 +451,7 @@ const App: React.FC = () => {
       <Header appState={appState} setAppState={setAppState} lang={lang} setLang={setLang} />
 
       <main className="relative flex-grow">
+        <Suspense fallback={<LoadingScreen />}>
         {appState === 'LANDING' && (
           <LandingScreen
             onStart={handleStartSimulation}
@@ -623,6 +626,7 @@ const App: React.FC = () => {
             />
           </div>
         )}
+        </Suspense>
       </main>
 
       {showFooter && <Footer lang={lang} onNavigate={(page) => setAppState(page as any)} />}
