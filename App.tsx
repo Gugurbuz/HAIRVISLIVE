@@ -220,41 +220,25 @@ const App: React.FC = () => {
     if (canUseMock) {
       setTimeout(() => {
         const mockResult = {
-          diagnosis: {
-            norwood_scale: 'NW3',
-            analysis_summary: 'Visual estimation indicates pattern consistent with typical NW3 recession.',
+          norwoodScale: 'NW3',
+          hairLossPattern: 'Receding hairline with frontal thinning',
+          severity: 'Moderate',
+          affectedAreas: ['Frontal', 'Temporal'],
+          estimatedGrafts: 2750,
+          graftsRange: { min: 2500, max: 3000 },
+          confidence: 85,
+          recommendations: {
+            primary: 'Sapphire FUE Hair Transplant',
+            alternative: ['DHI Method'],
+            medicalTreatment: ['PRP Therapy', 'Finasteride'],
+            lifestyle: ['Reduce stress', 'Improve diet'],
           },
-          detailed_analysis: {
-            current_condition_summary: 'Frontal recession visible.',
-            hair_quality_assessment: 'Medium caliber.',
-            projected_results_summary: 'High density expected.',
-          },
-          technical_metrics: {
-            graft_count_min: 2500,
-            graft_count_max: 3000,
-            graft_distribution: { zone_1: 1500, zone_2: 1000, zone_3: 500 },
-            estimated_session_time_hours: 6,
-            suggested_technique: 'Sapphire FUE',
-            technique_reasoning: 'Often selected for higher density in frontal zones.',
-          },
-          donor_assessment: {
-            density_rating: 'Good',
-            estimated_hairs_per_cm2: 70,
-            total_safe_capacity_grafts: 4000,
-            donor_condition_summary: 'Visual analysis suggests adequate donor density.',
-          },
-          phenotypic_features: {
-            apparent_age: 35,
-            skin_tone: 'Medium',
-            skin_undertone: 'Warm',
-            beard_presence: 'Stubble',
-            beard_texture: 'Wavy',
-            eyebrow_density: 'Medium',
-            eyebrow_color: 'Dark',
-          },
-          scalp_geometry: {
-            hairline_design_polygon: [{ x: 0, y: 0 }],
-            high_density_zone_polygon: [{ x: 0, y: 0 }],
+          analysis: {
+            hairDensity: 'Medium',
+            scalpHealth: 'Good',
+            donorAreaQuality: 'Good',
+            candidacy: 'Good',
+            notes: 'Mock analysis response for testing',
           },
         };
 
@@ -304,18 +288,24 @@ const App: React.FC = () => {
       });
 
       // STEP 2: Surgical Plan Generation (Doctor Drawing)
-      // (geminiService içinde şimdilik stub var; akış bozulmasın)
-      const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, result);
-      setPlanningImage(planImage);
-
-      // Store plan image in result for later reference
-      (result as any).surgical_plan_image = planImage || undefined;
+      let planImage = null;
+      try {
+        planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, result);
+        setPlanningImage(planImage);
+        (result as any).surgical_plan_image = planImage || undefined;
+      } catch (planError) {
+        console.warn('Plan generation failed, continuing without it:', planError);
+      }
 
       // STEP 3: Targeted Simulation
-      const simImage = await geminiService.generateSimulation(mainPhoto, planImage, result);
-      setAfterImage(simImage);
-
-      (result as any).simulation_image = simImage || undefined;
+      let simImage = null;
+      try {
+        simImage = await geminiService.generateSimulation(mainPhoto, planImage, result);
+        setAfterImage(simImage);
+        (result as any).simulation_image = simImage || undefined;
+      } catch (simError) {
+        console.warn('Simulation generation failed, continuing without it:', simError);
+      }
 
       await logAnalysis({
         operationType: 'simulation_generation',
@@ -342,10 +332,15 @@ const App: React.FC = () => {
 
       // Fallback - ama lead yaratma guard'ları bunu engelleyecek
       setAnalysisResult({
-        diagnosis: {
-          norwood_scale: 'NW?',
-          analysis_summary: lang === 'TR' ? 'Analiz şu an üretilemedi.' : 'Analysis currently unavailable.',
-        },
+        norwoodScale: 'NW?',
+        hairLossPattern: lang === 'TR' ? 'Analiz yapılamadı' : 'Analysis unavailable',
+        severity: 'Unknown',
+        affectedAreas: [],
+        estimatedGrafts: 0,
+        graftsRange: { min: 0, max: 0 },
+        confidence: 0,
+        recommendations: {},
+        analysis: {},
       });
 
       setIsAnalyzing(false);

@@ -103,7 +103,13 @@ class SecureStorage {
       combined.set(iv);
       combined.set(new Uint8Array(ciphertext), iv.length);
 
-      return btoa(String.fromCharCode(...combined));
+      let binary = '';
+      const chunkSize = 8192;
+      for (let i = 0; i < combined.length; i += chunkSize) {
+        const chunk = combined.subarray(i, Math.min(i + chunkSize, combined.length));
+        binary += String.fromCharCode(...chunk);
+      }
+      return btoa(binary);
     } catch (error) {
       console.error('Encryption failed:', error);
       throw new Error('Failed to encrypt data');
