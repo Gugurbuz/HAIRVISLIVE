@@ -23,7 +23,6 @@ import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { useSession } from './context/SessionContext';
 import { AppState } from './types';
 import { supabase } from './lib/supabase';
-import { secureStorage } from './lib/secureStorage';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('LANDING');
@@ -69,8 +68,7 @@ const App: React.FC = () => {
         console.log('[OAuth] Initial URL:', window.location.href);
         console.log('[OAuth] Search params:', window.location.search);
         console.log('[OAuth] Hash:', window.location.hash);
-        console.log('[OAuth] localStorage keys:', Object.keys(localStorage));
-        console.log('[OAuth] pendingAuthState in localStorage:', localStorage.getItem('pendingAuthState'));
+        console.log('[OAuth] sessionStorage has pendingAuthState:', !!sessionStorage.getItem('pendingAuthState'));
 
         const url = new URL(window.location.href);
         const searchParams = url.searchParams;
@@ -98,28 +96,52 @@ const App: React.FC = () => {
 
         // Supabase bazı akışlarda URL fragment'i erken temizleyebiliyor.
         // Bu yüzden asıl sinyalimiz: pendingAuthState var mı?
-        const savedState = await secureStorage.getItem<any>('pendingAuthState');
-        console.log('[OAuth] Pending state found:', !!savedState);
+        const pendingStateRaw = sessionStorage.getItem('pendingAuthState');
+        console.log('[OAuth] Pending state found:', !!pendingStateRaw);
 
-        // Analiz/intake context'i restore et ve Auth Gate'e dön.
-        if (savedState) {
-          const createdAt = typeof savedState.createdAt === 'number' ? savedState.createdAt : null;
-          const isFresh = createdAt ? Date.now() - createdAt < 30 * 60 * 1000 : true; // 30 dk
+        if (pendingStateRaw) {
+          try {
+            const savedState = JSON.parse(pendingStateRaw);
+            const createdAt = typeof savedState.createdAt === 'number' ? savedState.createdAt : null;
+            const isFresh = createdAt ? Date.now() - createdAt < 30 * 60 * 1000 : true; // 30 dk
 
-          if (isFresh) {
-            console.log('[OAuth] Restoring saved state and going to AUTH_GATE');
-            setAnalysisResult(savedState.analysisResult);
-            setAfterImage(savedState.afterImage);
-            setPlanningImage(savedState.planningImage);
-            setCapturedPhotos(savedState.capturedPhotos);
-            setIntakeData(savedState.intakeData);
-            setAppState('AUTH_GATE');
-          } else {
-            console.log('[OAuth] State expired, not restoring');
+            if (isFresh && savedState.analysisResult && savedState.intakeData) {
+              console.log('[OAuth] Restoring saved state from sessionStorage');
+
+              // State'i restore et
+              setAnalysisResult(savedState.analysisResult);
+              setAfterImage(savedState.afterImage);
+              setPlanningImage(savedState.planningImage);
+              setIntakeData(savedState.intakeData);
+
+              // Fotoğrafları restore et
+              const restoredPhotos: any[] = [];
+              savedState.capturedPhotos.forEach((placeholder: any, idx: number) => {
+                const preview = sessionStorage.getItem(`photo_${idx}`);
+                if (preview) {
+                  restoredPhotos.push({
+                    ...placeholder,
+                    preview,
+                  });
+                }
+              });
+              setCapturedPhotos(restoredPhotos);
+
+              console.log('[OAuth] State restored, going to AUTH_GATE');
+              setAppState('AUTH_GATE');
+            } else {
+              console.log('[OAuth] State expired or incomplete');
+            }
+
+            // Temizle
+            sessionStorage.removeItem('pendingAuthState');
+            savedState.capturedPhotos.forEach((_: any, idx: number) => {
+              sessionStorage.removeItem(`photo_${idx}`);
+            });
+          } catch (e) {
+            console.error('[OAuth] Failed to parse pending state:', e);
+            sessionStorage.removeItem('pendingAuthState');
           }
-
-          // Döngüye girmemesi için her durumda temizle
-          secureStorage.removeItem('pendingAuthState');
         } else if (hasOAuthArtifacts) {
           // OAuth dönüşü var ama pending state yok - bu kullanıcı rapor akışı dışında giriş yapmış
           console.log('[OAuth] OAuth callback detected but no pending state - user logged in outside of report flow');
@@ -204,14 +226,33 @@ const App: React.FC = () => {
   const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
 
-    secureStorage.setItem('pendingAuthState', {
-      analysisResult,
-      afterImage,
-      planningImage,
-      capturedPhotos,
-      intakeData: data,
-      createdAt: Date.now(),
-    });
+    try {
+      // sessionStorage kullan - sayfa yenilendiğinde korunur ama tab kapanınca silinir
+      // capturedPhotos'ları base64 olmadan sadece placeholder olarak kaydet
+      const stateToSave = {
+        analysisResult,
+        afterImage,
+        planningImage,
+        // Fotoğrafları kaydetme, çok büyük
+        capturedPhotos: capturedPhotos.map(p => ({ id: p.id, label: p.label })),
+        intakeData: data,
+        createdAt: Date.now(),
+      };
+
+      console.log('[App] Saving pending auth state to sessionStorage');
+      sessionStorage.setItem('pendingAuthState', JSON.stringify(stateToSave));
+
+      // Ayrıca fotoğraf preview'lerini ayrı ayrı kaydet (daha kontrollü)
+      capturedPhotos.forEach((photo, idx) => {
+        try {
+          sessionStorage.setItem(`photo_${idx}`, photo.preview);
+        } catch (e) {
+          console.warn(`[App] Could not save photo ${idx}:`, e);
+        }
+      });
+    } catch (e) {
+      console.error('[App] Failed to save pending auth state:', e);
+    }
 
     setAppState('AUTH_GATE');
   };
