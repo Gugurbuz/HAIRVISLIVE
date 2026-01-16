@@ -42,12 +42,10 @@ export function getCorsHeaders(request: Request): Record<string, string> {
     if (PRODUCTION_ORIGINS.includes(origin)) {
       allowedOrigin = origin;
     } else {
-      allowedOrigin = PRODUCTION_ORIGINS[0];
+      allowedOrigin = '*';
     }
   } else {
-    if (origin) {
-      allowedOrigin = origin;
-    }
+    allowedOrigin = origin || '*';
   }
 
   return {
@@ -55,7 +53,6 @@ export function getCorsHeaders(request: Request): Record<string, string> {
     'Access-Control-Allow-Methods': ALLOWED_METHODS.join(', '),
     'Access-Control-Allow-Headers': ALLOWED_HEADERS.join(', '),
     'Access-Control-Max-Age': '86400',
-    'Vary': 'Origin',
   };
 }
 
