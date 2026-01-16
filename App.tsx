@@ -58,37 +58,7 @@ const App: React.FC = () => {
         const searchParams = url.searchParams;
         const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
 
-        // Supabase bazı akışlarda URL fragment'i erken temizleyebiliyor.
-        // Bu yüzden asıl sinyalimiz: pendingAuthState var mı?
-        const savedState = await secureStorage.getItem<any>('pendingAuthState');
-
-        // Eğer bu bir PKCE dönüşüyse, code'u session'a çevir.
-        if (searchParams.has('code')) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
-          if (exchangeError) {
-            console.error('OAuth code exchange failed:', exchangeError);
-          }
-        }
-
-        // Analiz/intake context'i restore et ve Auth Gate'e dön.
-        if (savedState) {
-          const createdAt = typeof savedState.createdAt === 'number' ? savedState.createdAt : null;
-          const isFresh = createdAt ? Date.now() - createdAt < 30 * 60 * 1000 : true; // 30 dk
-
-          if (isFresh) {
-            setAnalysisResult(savedState.analysisResult);
-            setAfterImage(savedState.afterImage);
-            setPlanningImage(savedState.planningImage);
-            setCapturedPhotos(savedState.capturedPhotos);
-            setIntakeData(savedState.intakeData);
-            setAppState('AUTH_GATE');
-          }
-
-          // Döngüye girmemesi için her durumda temizle
-          secureStorage.removeItem('pendingAuthState');
-        }
-
-        // URL'den OAuth kalıntılarını temizle (code, token, error vs.)
+        // URL'den OAuth kalıntılarını temizle (önce)
         const hasOAuthArtifacts =
           searchParams.has('code') ||
           searchParams.has('error') ||
@@ -97,11 +67,48 @@ const App: React.FC = () => {
           hashParams.has('access_token') ||
           hashParams.has('error');
 
+        // Eğer bu bir PKCE dönüşüyse, code'u session'a çevir ve bekle
+        if (searchParams.has('code')) {
+          console.log('[OAuth] Exchanging code for session...');
+          const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (exchangeError) {
+            console.error('[OAuth] Code exchange failed:', exchangeError);
+          } else if (data?.session) {
+            console.log('[OAuth] Session established:', data.session.user.email);
+          }
+        }
+
+        // Supabase bazı akışlarda URL fragment'i erken temizleyebiliyor.
+        // Bu yüzden asıl sinyalimiz: pendingAuthState var mı?
+        const savedState = await secureStorage.getItem<any>('pendingAuthState');
+        console.log('[OAuth] Pending state found:', !!savedState);
+
+        // Analiz/intake context'i restore et ve Auth Gate'e dön.
+        if (savedState) {
+          const createdAt = typeof savedState.createdAt === 'number' ? savedState.createdAt : null;
+          const isFresh = createdAt ? Date.now() - createdAt < 30 * 60 * 1000 : true; // 30 dk
+
+          if (isFresh) {
+            console.log('[OAuth] Restoring saved state and going to AUTH_GATE');
+            setAnalysisResult(savedState.analysisResult);
+            setAfterImage(savedState.afterImage);
+            setPlanningImage(savedState.planningImage);
+            setCapturedPhotos(savedState.capturedPhotos);
+            setIntakeData(savedState.intakeData);
+            setAppState('AUTH_GATE');
+          } else {
+            console.log('[OAuth] State expired, not restoring');
+          }
+
+          // Döngüye girmemesi için her durumda temizle
+          secureStorage.removeItem('pendingAuthState');
+        }
+
         if (hasOAuthArtifacts) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (e) {
-        console.error('Failed to resume pending auth flow:', e);
+        console.error('[OAuth] Failed to resume pending auth flow:', e);
       }
     };
 
@@ -184,6 +191,10 @@ const App: React.FC = () => {
 
   // Auth Complete -> Go to Result (Finalize Lead)
   const handleAuthComplete = (authData: { email: string; name: string; userId: string }) => {
+    console.log('[App] Auth complete called:', authData.email);
+    console.log('[App] Current analysis result:', !!analysisResult);
+    console.log('[App] Current intake data:', !!intakeData);
+
     // Combine Intake Data + Auth Data (OAuth)
     const mergedData: any = {
       ...intakeData,
@@ -361,7 +372,9 @@ const App: React.FC = () => {
   };
 
   const finalizeLeadCreation = (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
-    // (3) LEAD GUARD’LARI — zorunlu kriterler
+    console.log('[App] Finalizing lead creation...');
+
+    // (3) LEAD GUARD'LARI — zorunlu kriterler
     const verified = mergedData?.verified === true;
     const consent = mergedData?.consent === true;
     const kvkk = mergedData?.kvkk === true;
@@ -369,19 +382,24 @@ const App: React.FC = () => {
     const hasNorwood = !!result?.diagnosis?.norwood_scale && String(result?.diagnosis?.norwood_scale).trim().length > 0;
     const hasGrafts = typeof result?.technical_metrics?.graft_count_min === 'number' || !!result?.technical_metrics?.graft_count_min;
 
+    console.log('[App] Lead guards:', { verified, consent, kvkk, hasNorwood, hasGrafts });
+
     if (!verified) {
+      console.log('[App] Failed: Not verified');
       setError(lang === 'TR' ? 'Doğrulama tamamlanmadan kayıt oluşturulamaz.' : 'Verification is required to create a lead.');
       setAppState('RESULT'); // yine sonuç ekranına gider ama lead yazmaz
       return;
     }
 
     if (!consent || !kvkk) {
+      console.log('[App] Failed: No consent or KVKK');
       setError(lang === 'TR' ? 'KVKK ve açık rıza onayı olmadan kayıt oluşturulamaz.' : 'Consent and KVKK approval are required.');
       setAppState('RESULT');
       return;
     }
 
     if (!hasNorwood || !hasGrafts) {
+      console.log('[App] Failed: Missing analysis data');
       setError(
         lang === 'TR'
           ? 'Analiz verisi eksik olduğu için kayıt oluşturulamadı. Lütfen tekrar deneyin.'
@@ -446,6 +464,7 @@ const App: React.FC = () => {
       },
     };
 
+    console.log('[App] Adding lead and navigating to RESULT');
     addLead(newLead);
     setAppState('RESULT');
   };
