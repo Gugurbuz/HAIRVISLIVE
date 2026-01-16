@@ -91,14 +91,24 @@ Deno.serve(async (req: Request) => {
 
     const { prompt, version } = getPrompt('hair_simulation');
 
+    // Safely extract data from analysis result
+    const norwoodScale = analysisResult.norwoodScale || analysisResult.diagnosis?.norwood_scale || 'Unknown';
+    const hairLossPattern = analysisResult.hairLossPattern || analysisResult.diagnosis?.analysis_summary || 'General hair loss';
+    const severity = analysisResult.severity || 'Moderate';
+    const estimatedGrafts = analysisResult.estimatedGrafts || analysisResult.technical_metrics?.graft_count_min || 2500;
+    const graftsMin = analysisResult.graftsRange?.min || analysisResult.technical_metrics?.graft_count_min || estimatedGrafts;
+    const graftsMax = analysisResult.graftsRange?.max || analysisResult.technical_metrics?.graft_count_max || estimatedGrafts;
+    const affectedAreas = analysisResult.affectedAreas || ['Frontal'];
+    const primaryTreatment = analysisResult.recommendations?.primary || analysisResult.technical_metrics?.suggested_technique || 'Hair Transplant';
+
     const contextText = `
 Patient Analysis:
-- Norwood Scale: ${analysisResult.norwoodScale}
-- Hair Loss Pattern: ${analysisResult.hairLossPattern}
-- Severity: ${analysisResult.severity}
-- Estimated Grafts: ${analysisResult.estimatedGrafts} (${analysisResult.graftsRange.min}-${analysisResult.graftsRange.max})
-- Affected Areas: ${analysisResult.affectedAreas.join(', ')}
-- Primary Treatment: ${analysisResult.recommendations?.primary || 'Hair Transplant'}
+- Norwood Scale: ${norwoodScale}
+- Hair Loss Pattern: ${hairLossPattern}
+- Severity: ${severity}
+- Estimated Grafts: ${estimatedGrafts} (${graftsMin}-${graftsMax})
+- Affected Areas: ${Array.isArray(affectedAreas) ? affectedAreas.join(', ') : affectedAreas}
+- Primary Treatment: ${primaryTreatment}
 
 Generate a realistic "after" simulation showing the expected results of hair restoration based on this analysis.`;
 

@@ -544,7 +544,7 @@ const App: React.FC = () => {
       estimatedGrafts: `${result.technical_metrics?.graft_count_min || 2500}`,
       registrationDate: 'Just Now',
       timestamp: Date.now(),
-      thumbnailUrl: simImg || capturedPhotos[0]?.preview,
+      thumbnailUrl: simImg || '',
       status: 'AVAILABLE' as const,
       price: 65,
       proposalPrice: 12,
@@ -571,11 +571,10 @@ const App: React.FC = () => {
       concerns: mergedData.goal ? [mergedData.goal] : [],
       source: 'scanner',
       scanData: {
-        photos: capturedPhotos.map((p: any) => ({ label: p.label, preview: p.preview })),
-        analysisImages: {
-          simulation: simImg,
-          planning: planImg,
-        },
+        photoCount: capturedPhotos.length,
+        photoLabels: capturedPhotos.map((p: any) => p.label || p.id),
+        hasSimulation: !!simImg,
+        hasPlanningImage: !!planImg,
       },
       metadata: {
         lang,
