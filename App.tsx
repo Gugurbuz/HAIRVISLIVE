@@ -359,8 +359,8 @@ const App: React.FC = () => {
     const kvkk = mergedData?.kvkk === true;
 
     const hasNorwood =
-      !!result?.diagnosis?.norwood_scale && String(result?.diagnosis?.norwood_scale).trim().length > 0;
-    const hasGrafts = typeof result?.technical_metrics?.graft_count_min === 'number' || !!result?.technical_metrics?.graft_count_min;
+      !!result?.norwoodScale && String(result?.norwoodScale).trim().length > 0;
+    const hasGrafts = typeof result?.graftsRange?.min === 'number' || typeof result?.estimatedGrafts === 'number';
 
     if (!verified) {
       setError(lang === 'TR' ? 'Doğrulama tamamlanmadan kayıt oluşturulamaz.' : 'Verification is required to create a lead.');
@@ -385,7 +385,7 @@ const App: React.FC = () => {
     }
 
     // Lead oluşturma
-    const donorRating = result.donor_assessment?.density_rating || 'Good';
+    const donorRating = result.analysis?.donorAreaQuality || 'Good';
     let calculatedSuitability: 'suitable' | 'borderline' | 'not_recommended' = 'suitable';
 
     if (donorRating === 'Poor') calculatedSuitability = 'not_recommended';
@@ -394,10 +394,10 @@ const App: React.FC = () => {
     const newLead: LeadData = {
       id: `L-${Math.floor(Math.random() * 10000)}`,
       countryCode: lang === 'EN' ? 'US' : lang,
-      age: result.phenotypic_features?.apparent_age || 30,
+      age: mergedData.age || 30,
       gender: (mergedData.gender as 'Male' | 'Female') || 'Male',
-      norwoodScale: result.diagnosis?.norwood_scale || 'NW3',
-      estimatedGrafts: `${result.technical_metrics?.graft_count_min || 2500}`,
+      norwoodScale: result.norwoodScale || 'NW3',
+      estimatedGrafts: `${result.graftsRange?.min || result.estimatedGrafts || 2500}`,
       registrationDate: 'Just Now',
       timestamp: Date.now(),
       thumbnailUrl: simImg || capturedPhotos[0]?.preview,
