@@ -108,7 +108,7 @@ export async function checkRateLimit(
       return {
         allowed: false,
         remaining: 0,
-        resetAt: new Date(existing.window_start).getTime() + config.windowMs,
+        resetAt: new Date(new Date(existing.window_start).getTime() + config.windowMs),
         blockedUntil,
       };
     }

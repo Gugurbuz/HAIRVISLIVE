@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const { prompt, version } = getPrompt('hair_simulation');
+    const { prompt, version, promptId } = await getPrompt('hair_simulation');
 
     const contextText = `
 Patient Analysis:
@@ -145,6 +145,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
     const inputHash = createInputHash({ mainImage: mainImage.substring(0, 100), analysisResult });
 
     await logPromptUsage({
+      promptId,
       promptName: 'hair_simulation',
       promptVersion: version,
       executionTimeMs: executionTime,

@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-    const { prompt, version } = getPrompt('scalp_analysis');
+    const { prompt, version, promptId } = await getPrompt('scalp_analysis');
 
     const imageParts = [];
     if (images.front) {
@@ -153,6 +153,7 @@ Deno.serve(async (req: Request) => {
     const outputSize = measureOutputSize(validation.success ? validation.data : parsedData);
 
     usageLogId = await logPromptUsage({
+      promptId,
       promptName: 'scalp_analysis',
       promptVersion: version,
       executionTimeMs: executionTime,
