@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
 
     build: {
       target: 'es2015',
-      minify: 'terser',
+      minify: 'esbuild',
       sourcemap: false,
       rollupOptions: {
         output: {
@@ -43,12 +43,6 @@ export default defineConfig(({ mode }) => {
           chunkFileNames: 'assets/[name]-[hash].js',
           entryFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash].[ext]',
-        },
-      },
-      terserOptions: {
-        compress: {
-          drop_console: mode === 'production',
-          drop_debugger: mode === 'production',
         },
       },
       chunkSizeWarningLimit: 600,
