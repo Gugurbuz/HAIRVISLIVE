@@ -46,8 +46,16 @@ Deno.serve(async (req: Request) => {
   const startTime = Date.now();
 
   try {
-    const featureFlags = await getFeatureFlags();
-    const simulationEnabled = await isFeatureEnabled('enable_simulation');
+    console.log('Simulation request started');
+
+    // Skip feature flags check temporarily to avoid blocking
+    let simulationEnabled = true;
+    try {
+      simulationEnabled = await isFeatureEnabled('enable_simulation');
+      console.log('Feature flag check:', simulationEnabled);
+    } catch (flagError) {
+      console.error('Feature flag check failed, defaulting to enabled:', flagError);
+    }
 
     if (!simulationEnabled) {
       return new Response(
@@ -65,9 +73,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!GEMINI_API_KEY) {
+      console.error('GEMINI_API_KEY missing');
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
+    console.log('Parsing request body');
     const {
       mainImage,
       analysisResult,
@@ -140,23 +150,30 @@ Generate a realistic "after" simulation showing the expected results of hair res
       });
     }
 
+    console.log('Calling Gemini API');
     const result = await model.generateContent([fullPrompt, ...imageParts]);
     const response = await result.response;
     const imageUrl = response.text();
+    console.log('Gemini API response received');
 
     const executionTime = Date.now() - startTime;
     const inputHash = createInputHash({ mainImage: mainImage.substring(0, 100), analysisResult });
 
-    await logPromptUsage({
-      promptName: 'hair_simulation',
-      promptVersion: version,
-      executionTimeMs: executionTime,
-      model: 'gemini-1.5-flash',
-      success: true,
-      inputHash,
-      outputSizeBytes: imageUrl.length,
-    });
+    try {
+      await logPromptUsage({
+        promptName: 'hair_simulation',
+        promptVersion: version,
+        executionTimeMs: executionTime,
+        model: 'gemini-1.5-flash',
+        success: true,
+        inputHash,
+        outputSizeBytes: imageUrl.length,
+      });
+    } catch (logError) {
+      console.error('Failed to log usage (non-blocking):', logError);
+    }
 
+    console.log('Simulation completed successfully');
     return new Response(JSON.stringify({ imageUrl }), {
       headers: {
         ...corsHeaders,
@@ -165,17 +182,22 @@ Generate a realistic "after" simulation showing the expected results of hair res
     });
   } catch (error) {
     console.error('Simulation generation error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
 
     const executionTime = Date.now() - startTime;
-    await logPromptUsage({
-      promptName: 'hair_simulation',
-      promptVersion: 'v1.0.0',
-      executionTimeMs: executionTime,
-      model: 'gemini-1.5-flash',
-      success: false,
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      outputSizeBytes: 0,
-    });
+    try {
+      await logPromptUsage({
+        promptName: 'hair_simulation',
+        promptVersion: 'v1.0.0',
+        executionTimeMs: executionTime,
+        model: 'gemini-1.5-flash',
+        success: false,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        outputSizeBytes: 0,
+      });
+    } catch (logError) {
+      console.error('Failed to log error (non-blocking):', logError);
+    }
 
     return new Response(
       JSON.stringify({

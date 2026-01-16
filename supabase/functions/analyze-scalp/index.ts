@@ -36,9 +36,17 @@ Deno.serve(async (req: Request) => {
   let usageLogId: string | null = null;
 
   try {
-    const featureFlags = await getFeatureFlags();
-    const mockModeEnabled = await isFeatureEnabled('mock_mode');
-    const mockConfig = await getFeatureConfig('mock_mode');
+    console.log('Analysis request started');
+
+    let mockModeEnabled = false;
+    let mockConfig = {};
+    try {
+      mockModeEnabled = await isFeatureEnabled('mock_mode');
+      mockConfig = await getFeatureConfig('mock_mode');
+      console.log('Feature flags checked, mock mode:', mockModeEnabled);
+    } catch (flagError) {
+      console.error('Feature flag check failed (non-blocking):', flagError);
+    }
 
     if (mockModeEnabled) {
       const mockDelay = mockConfig.mock_delay_ms || 1000;
@@ -71,9 +79,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!GEMINI_API_KEY) {
+      console.error('GEMINI_API_KEY is missing');
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
+    console.log('Parsing request body');
     const { images }: { images: ScalpImages } = await req.json();
 
     if (!images || (!images.front && !images.top && !images.left && !images.right)) {
@@ -119,9 +129,11 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    console.log('Calling Gemini API for analysis');
     const result = await model.generateContent([prompt, ...imageParts]);
     const response = await result.response;
     const text = response.text();
+    console.log('Gemini API response received');
 
     const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     let parsedData;
@@ -139,27 +151,35 @@ Deno.serve(async (req: Request) => {
     const inputHash = createInputHash(images);
     const outputSize = measureOutputSize(validation.success ? validation.data : parsedData);
 
-    usageLogId = await logPromptUsage({
-      promptName: 'scalp_analysis',
-      promptVersion: version,
-      executionTimeMs: executionTime,
-      model: 'gemini-1.5-flash',
-      success: validation.success,
-      errorMessage: validation.success ? undefined : formatValidationErrors(validation.errors!),
-      inputHash,
-      outputSizeBytes: outputSize,
-    });
-
-    if (!validation.success) {
-      await logValidationError({
-        usageLogId: usageLogId || undefined,
+    try {
+      usageLogId = await logPromptUsage({
         promptName: 'scalp_analysis',
         promptVersion: version,
-        validationSchema: 'ScalpAnalysisSchema',
-        errors: validation.errors!,
-        rawResponse: cleanedText,
-        expectedFormat: 'JSON object with norwoodScale, hairLossPattern, severity, affectedAreas, estimatedGrafts, graftsRange, confidence, recommendations, analysis',
+        executionTimeMs: executionTime,
+        model: 'gemini-1.5-flash',
+        success: validation.success,
+        errorMessage: validation.success ? undefined : formatValidationErrors(validation.errors!),
+        inputHash,
+        outputSizeBytes: outputSize,
       });
+    } catch (logError) {
+      console.error('Failed to log usage (non-blocking):', logError);
+    }
+
+    if (!validation.success) {
+      try {
+        await logValidationError({
+          usageLogId: usageLogId || undefined,
+          promptName: 'scalp_analysis',
+          promptVersion: version,
+          validationSchema: 'ScalpAnalysisSchema',
+          errors: validation.errors!,
+          rawResponse: cleanedText,
+          expectedFormat: 'JSON object with norwoodScale, hairLossPattern, severity, affectedAreas, estimatedGrafts, graftsRange, confidence, recommendations, analysis',
+        });
+      } catch (logError) {
+        console.error('Failed to log validation error (non-blocking):', logError);
+      }
 
       return new Response(
         JSON.stringify({
@@ -176,6 +196,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log('Analysis completed successfully');
     return new Response(JSON.stringify(validation.data), {
       headers: {
         ...corsHeaders,
@@ -184,17 +205,22 @@ Deno.serve(async (req: Request) => {
     });
   } catch (error) {
     console.error('Scalp analysis error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
 
     const executionTime = Date.now() - startTime;
-    await logPromptUsage({
-      promptName: 'scalp_analysis',
-      promptVersion: 'v1.0.0',
-      executionTimeMs: executionTime,
-      model: 'gemini-1.5-flash',
-      success: false,
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      outputSizeBytes: 0,
-    });
+    try {
+      await logPromptUsage({
+        promptName: 'scalp_analysis',
+        promptVersion: 'v1.0.0',
+        executionTimeMs: executionTime,
+        model: 'gemini-1.5-flash',
+        success: false,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        outputSizeBytes: 0,
+      });
+    } catch (logError) {
+      console.error('Failed to log error (non-blocking):', logError);
+    }
 
     return new Response(
       JSON.stringify({

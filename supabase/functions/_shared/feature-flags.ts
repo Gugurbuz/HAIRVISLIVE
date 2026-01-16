@@ -28,7 +28,8 @@ export async function getFeatureFlags(): Promise<Record<string, FeatureFlag>> {
       return cachedFlags || {};
     }
 
-    cachedFlags = data || {};
+    const flags = (data as any) || {};
+    cachedFlags = flags;
     cacheExpiry = Date.now() + CACHE_TTL;
     return cachedFlags;
   } catch (error) {
