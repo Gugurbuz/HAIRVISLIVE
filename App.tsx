@@ -22,6 +22,8 @@ import { geminiService, ScalpImages } from './geminiService';
 import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { useSession } from './context/SessionContext';
 import { AppState } from './types';
+import { supabase } from './lib/supabase';
+import { secureStorage } from './lib/secureStorage';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('LANDING');
@@ -50,28 +52,60 @@ const App: React.FC = () => {
   }, [appState]);
 
   useEffect(() => {
-    const handleOAuthCallback = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      if (hashParams.has('access_token')) {
-        const savedState = localStorage.getItem('pendingAuthState');
-        if (savedState) {
-          try {
-            const parsed = JSON.parse(savedState);
-            setAnalysisResult(parsed.analysisResult);
-            setAfterImage(parsed.afterImage);
-            setPlanningImage(parsed.planningImage);
-            setCapturedPhotos(parsed.capturedPhotos);
-            setIntakeData(parsed.intakeData);
-            setAppState('AUTH_GATE');
-            localStorage.removeItem('pendingAuthState');
-          } catch (e) {
-            console.error('Failed to restore auth state:', e);
+    const resumePendingAuthFlow = async () => {
+      try {
+        const url = new URL(window.location.href);
+        const searchParams = url.searchParams;
+        const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
+
+        // Supabase bazı akışlarda URL fragment'i erken temizleyebiliyor.
+        // Bu yüzden asıl sinyalimiz: pendingAuthState var mı?
+        const savedState = await secureStorage.getItem<any>('pendingAuthState');
+
+        // Eğer bu bir PKCE dönüşüyse, code'u session'a çevir.
+        if (searchParams.has('code')) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
+          if (exchangeError) {
+            console.error('OAuth code exchange failed:', exchangeError);
           }
         }
-        window.history.replaceState({}, document.title, window.location.pathname);
+
+        // Analiz/intake context'i restore et ve Auth Gate'e dön.
+        if (savedState) {
+          const createdAt = typeof savedState.createdAt === 'number' ? savedState.createdAt : null;
+          const isFresh = createdAt ? Date.now() - createdAt < 30 * 60 * 1000 : true; // 30 dk
+
+          if (isFresh) {
+            setAnalysisResult(savedState.analysisResult);
+            setAfterImage(savedState.afterImage);
+            setPlanningImage(savedState.planningImage);
+            setCapturedPhotos(savedState.capturedPhotos);
+            setIntakeData(savedState.intakeData);
+            setAppState('AUTH_GATE');
+          }
+
+          // Döngüye girmemesi için her durumda temizle
+          secureStorage.removeItem('pendingAuthState');
+        }
+
+        // URL'den OAuth kalıntılarını temizle (code, token, error vs.)
+        const hasOAuthArtifacts =
+          searchParams.has('code') ||
+          searchParams.has('error') ||
+          searchParams.has('error_description') ||
+          searchParams.has('access_token') ||
+          hashParams.has('access_token') ||
+          hashParams.has('error');
+
+        if (hasOAuthArtifacts) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch (e) {
+        console.error('Failed to resume pending auth flow:', e);
       }
     };
-    handleOAuthCallback();
+
+    resumePendingAuthFlow();
   }, []);
 
   const isDev = import.meta.env.DEV;
@@ -136,13 +170,14 @@ const App: React.FC = () => {
   const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
 
-    localStorage.setItem('pendingAuthState', JSON.stringify({
+    secureStorage.setItem('pendingAuthState', {
       analysisResult,
       afterImage,
       planningImage,
       capturedPhotos,
       intakeData: data,
-    }));
+      createdAt: Date.now(),
+    });
 
     setAppState('AUTH_GATE');
   };
