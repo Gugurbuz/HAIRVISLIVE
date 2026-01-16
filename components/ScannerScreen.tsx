@@ -993,7 +993,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                     </div>
                     <div className="flex flex-col gap-3 w-full">
                         <div className="flex gap-4">
-                            <button onClick={retakePhoto} className="flex-1 py-4 rounded-2xl bg-white hover:bg-slate-5 border border-slate-200 text-[#0E1A2B] font-black uppercase text-xs tracking-widest transition-all">Improve</button>
+                            <button onClick={retakePhoto} className="flex-1 py-4 rounded-2xl bg-white hover:bg-slate-50 border border-slate-200 text-[#0E1A2B] font-black uppercase text-xs tracking-widest transition-all">Improve</button>
                             <button onClick={confirmPhoto} className="flex-1 py-4 rounded-2xl bg-[#0E1A2B] text-white hover:bg-teal-600 font-black uppercase text-xs tracking-widest transition-all shadow-xl">Confirm</button>
                         </div>
                     </div>
