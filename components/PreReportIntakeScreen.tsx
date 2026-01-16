@@ -33,6 +33,7 @@ const PreReportIntakeScreen: React.FC<PreReportIntakeProps> = ({ onComplete, lan
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
 
   // Refs
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const hasStartedRef = useRef(false);
   const msgIdRef = useRef(1);
@@ -52,9 +53,12 @@ const PreReportIntakeScreen: React.FC<PreReportIntakeProps> = ({ onComplete, lan
   const nextId = () => msgIdRef.current++;
 
   const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }, 80);
+    // Smooth scroll (kaydırmayı yumuşatır): yeni mesaj gelince en alta sabitler
+    requestAnimationFrame(() => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
   };
 
   useEffect(() => {
@@ -199,7 +203,7 @@ const PreReportIntakeScreen: React.FC<PreReportIntakeProps> = ({ onComplete, lan
 
   // --- RENDER ---
   return (
-    <div className="w-full max-w-2xl mx-auto h-[700px] flex flex-col font-sans relative">
+    <div className="w-full max-w-2xl mx-auto h-[85svh] md:h-[700px] flex flex-col font-sans relative">
       {/* Background */}
       <div className="absolute inset-0 bg-slate-50 rounded-[2.5rem] overflow-hidden border border-slate-200 shadow-2xl">
         <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-[100px]" />
@@ -239,10 +243,10 @@ const PreReportIntakeScreen: React.FC<PreReportIntakeProps> = ({ onComplete, lan
         </div>
 
         {/* MAIN */}
-        <div className="flex-1 flex flex-col relative overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-            <div className="flex flex-col justify-end min-h-full space-y-6 pb-40">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-6 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+            <div className="flex flex-col justify-end min-h-full space-y-6">
               {messages.map((msg, idx) => {
                 const isLast = idx === messages.length - 1;
                 return (
@@ -293,7 +297,8 @@ const PreReportIntakeScreen: React.FC<PreReportIntakeProps> = ({ onComplete, lan
           </div>
 
           {/* INPUT AREA */}
-          <div className="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white/95 to-transparent z-20">
+          <div className="shrink-0 relative p-6 bg-white/70 backdrop-blur-md border-t border-slate-100">
+            <div className="absolute inset-x-0 -top-10 h-10 bg-gradient-to-t from-white/70 via-white/40 to-transparent pointer-events-none" />
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
