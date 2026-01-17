@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3';
+import { GoogleGenAI } from 'npm:@google/genai';
 import { getPrompt } from '../_shared/prompts.ts';
 import { logPromptUsage, createInputHash } from '../_shared/logger.ts';
 import { getFeatureFlags, isFeatureEnabled } from '../_shared/feature-flags.ts';
@@ -96,8 +96,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('Analysis result is required');
     }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
+    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const model = 'models/gemini-3-pro-image-preview';
 
     const { prompt, version } = getPrompt('hair_simulation');
 
@@ -151,9 +151,18 @@ Generate a realistic "after" simulation showing the expected results of hair res
     }
 
     console.log('Calling Gemini API');
-    const result = await model.generateContent([fullPrompt, ...imageParts]);
-    const response = await result.response;
-    const imageUrl = response.text();
+    const result = await genAI.models.generateContent({
+      model,
+      contents: [
+        {
+          parts: [
+            { text: fullPrompt },
+            ...imageParts.map(img => ({ inlineData: img.inlineData }))
+          ]
+        }
+      ]
+    });
+    const imageUrl = result.text;
     console.log('Gemini API response received');
 
     const executionTime = Date.now() - startTime;

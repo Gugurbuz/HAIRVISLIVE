@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3';
+import { GoogleGenAI } from 'npm:@google/genai';
 import { getPrompt } from '../_shared/prompts.ts';
 import { validateScalpAnalysis, formatValidationErrors } from '../_shared/validation.ts';
 import { logPromptUsage, logValidationError, createInputHash, measureOutputSize } from '../_shared/logger.ts';
@@ -90,8 +90,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('At least one image is required');
     }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
+    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const model = 'models/gemini-3-pro-image-preview';
 
     const { prompt, version } = getPrompt('scalp_analysis');
 
@@ -130,9 +130,18 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('Calling Gemini API for analysis');
-    const result = await model.generateContent([prompt, ...imageParts]);
-    const response = await result.response;
-    const text = response.text();
+    const result = await genAI.models.generateContent({
+      model,
+      contents: [
+        {
+          parts: [
+            { text: prompt },
+            ...imageParts.map(img => ({ inlineData: img.inlineData }))
+          ]
+        }
+      ]
+    });
+    const text = result.text;
     console.log('Gemini API response received');
 
     const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
