@@ -363,42 +363,26 @@ const App: React.FC = () => {
     if (canUseMock) {
       setTimeout(() => {
         const mockResult = {
-          diagnosis: {
-            norwood_scale: 'NW3',
-            analysis_summary: 'Visual estimation indicates pattern consistent with typical NW3 recession.',
+          norwoodScale: 'NW3',
+          hairLossPattern: 'Androgenetic Alopecia',
+          severity: 'Moderate' as const,
+          affectedAreas: ['Frontal', 'Temporal'],
+          estimatedGrafts: 2750,
+          graftsRange: { min: 2500, max: 3000 },
+          confidence: 85,
+          recommendations: {
+            primary: 'Sapphire FUE',
+            alternative: ['FUT', 'Combined Approach'],
+            medicalTreatment: ['Finasteride', 'Minoxidil'],
+            lifestyle: ['Avoid harsh chemicals', 'Maintain healthy diet']
           },
-          detailed_analysis: {
-            current_condition_summary: 'Frontal recession visible.',
-            hair_quality_assessment: 'Medium caliber.',
-            projected_results_summary: 'High density expected.',
-          },
-          technical_metrics: {
-            graft_count_min: 2500,
-            graft_count_max: 3000,
-            graft_distribution: { zone_1: 1500, zone_2: 1000, zone_3: 500 },
-            estimated_session_time_hours: 6,
-            suggested_technique: 'Sapphire FUE',
-            technique_reasoning: 'Often selected for higher density in frontal zones.',
-          },
-          donor_assessment: {
-            density_rating: 'Good',
-            estimated_hairs_per_cm2: 70,
-            total_safe_capacity_grafts: 4000,
-            donor_condition_summary: 'Visual analysis suggests adequate donor density.',
-          },
-          phenotypic_features: {
-            apparent_age: 35,
-            skin_tone: 'Medium',
-            skin_undertone: 'Warm',
-            beard_presence: 'Stubble',
-            beard_texture: 'Wavy',
-            eyebrow_density: 'Medium',
-            eyebrow_color: 'Dark',
-          },
-          scalp_geometry: {
-            hairline_design_polygon: [{ x: 0, y: 0 }],
-            high_density_zone_polygon: [{ x: 0, y: 0 }],
-          },
+          analysis: {
+            hairDensity: 'Medium' as const,
+            scalpHealth: 'Good' as const,
+            donorAreaQuality: 'Good' as const,
+            candidacy: 'Excellent' as const,
+            notes: 'Visual estimation indicates pattern consistent with typical NW3 recession. Frontal recession visible. High density expected. Visual analysis suggests adequate donor density.'
+          }
         };
 
         setAnalysisResult(mockResult);
@@ -487,10 +471,26 @@ const App: React.FC = () => {
       }
 
       setAnalysisResult({
-        diagnosis: {
-          norwood_scale: 'NW?',
-          analysis_summary: lang === 'TR' ? 'Analiz şu an üretilemedi.' : 'Analysis currently unavailable.',
+        norwoodScale: 'NW?',
+        hairLossPattern: lang === 'TR' ? 'Belirlenemiyor' : 'Undetermined',
+        severity: 'Moderate',
+        affectedAreas: ['Unknown'],
+        estimatedGrafts: 0,
+        graftsRange: { min: 0, max: 0 },
+        confidence: 0,
+        recommendations: {
+          primary: lang === 'TR' ? 'Konsültasyon gerekli' : 'Consultation required',
+          alternative: [],
+          medicalTreatment: [],
+          lifestyle: []
         },
+        analysis: {
+          hairDensity: 'Medium',
+          scalpHealth: 'Fair',
+          donorAreaQuality: 'Fair',
+          candidacy: 'Fair',
+          notes: lang === 'TR' ? 'Analiz şu an üretilemedi.' : 'Analysis currently unavailable.'
+        }
       });
 
       setIsAnalyzing(false);
@@ -504,8 +504,8 @@ const App: React.FC = () => {
     const consent = mergedData?.consent === true;
     const kvkk = mergedData?.kvkk === true;
 
-    const hasNorwood = !!result?.diagnosis?.norwood_scale && String(result?.diagnosis?.norwood_scale).trim().length > 0;
-    const hasGrafts = typeof result?.technical_metrics?.graft_count_min === 'number' || !!result?.technical_metrics?.graft_count_min;
+    const hasNorwood = !!(result?.norwoodScale || result?.diagnosis?.norwood_scale) && String(result?.norwoodScale || result?.diagnosis?.norwood_scale || '').trim().length > 0;
+    const hasGrafts = typeof (result?.graftsRange?.min || result?.technical_metrics?.graft_count_min) === 'number';
 
     console.log('[App] Lead guards:', { verified, consent, kvkk, hasNorwood, hasGrafts });
 
@@ -542,8 +542,8 @@ const App: React.FC = () => {
         age: result.phenotypic_features?.apparent_age || 30,
         gender: mergedData.gender,
         concerns: mergedData.goal ? [mergedData.goal] : [],
-        norwood_scale: result.diagnosis?.norwood_scale || 'NW3',
-        estimated_grafts: `${result.technical_metrics?.graft_count_min || 2500}`,
+        norwood_scale: result.norwoodScale || result.diagnosis?.norwood_scale || 'NW3',
+        estimated_grafts: `${result.graftsRange?.min || result.technical_metrics?.graft_count_min || 2500}`,
         source: 'scanner',
         scan_data: {
           photoCount: capturedPhotos.length,
@@ -583,19 +583,19 @@ const App: React.FC = () => {
         console.log('[App] Photo upload result:', uploadResult);
       }
 
-      const donorRating = result.donor_assessment?.density_rating || 'Good';
+      const donorRating = result.analysis?.donorAreaQuality || result.donor_assessment?.density_rating || 'Good';
       let calculatedSuitability: 'suitable' | 'borderline' | 'not_recommended' = 'suitable';
 
-      if (donorRating === 'Poor') calculatedSuitability = 'not_recommended';
-      else if (donorRating === 'Moderate') calculatedSuitability = 'borderline';
+      if (donorRating === 'Poor' || donorRating === 'Limited') calculatedSuitability = 'not_recommended';
+      else if (donorRating === 'Fair') calculatedSuitability = 'borderline';
 
       const newLead: LeadData = {
         id: lead.id,
         countryCode: lang === 'EN' ? 'US' : lang,
         age: result.phenotypic_features?.apparent_age || 30,
         gender: (mergedData.gender as 'Male' | 'Female') || 'Male',
-        norwoodScale: result.diagnosis?.norwood_scale || 'NW3',
-        estimatedGrafts: `${result.technical_metrics?.graft_count_min || 2500}`,
+        norwoodScale: result.norwoodScale || result.diagnosis?.norwood_scale || 'NW3',
+        estimatedGrafts: `${result.graftsRange?.min || result.technical_metrics?.graft_count_min || 2500}`,
         registrationDate: 'Just Now',
         timestamp: Date.now(),
         thumbnailUrl: simImg || '',

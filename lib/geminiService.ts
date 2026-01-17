@@ -8,27 +8,29 @@ export interface ScalpImages {
 }
 
 export interface ScalpAnalysisResult {
-  diagnosis?: {
-    norwood_scale?: string;
-    pattern?: string;
-    severity?: string;
+  norwoodScale: string;
+  hairLossPattern: string;
+  severity: 'Minimal' | 'Mild' | 'Moderate' | 'Severe' | 'Advanced';
+  affectedAreas: string[];
+  estimatedGrafts: number;
+  graftsRange: {
+    min: number;
+    max: number;
   };
-  technical_metrics?: {
-    graft_count_min?: number;
-    graft_count_max?: number;
-    sessions?: number;
+  confidence: number;
+  recommendations: {
+    primary: string;
+    alternative: string[];
+    medicalTreatment: string[];
+    lifestyle: string[];
   };
-  phenotypic_features?: {
-    apparent_age?: number;
-    skin_type?: string;
-    hair_color?: string;
+  analysis: {
+    hairDensity: 'Very Low' | 'Low' | 'Medium' | 'High' | 'Very High';
+    scalpHealth: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+    donorAreaQuality: 'Excellent' | 'Good' | 'Fair' | 'Poor' | 'Limited';
+    candidacy: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+    notes: string;
   };
-  donor_assessment?: {
-    density_rating?: string;
-    quality?: string;
-  };
-  summary?: string;
-  recommendations?: string[];
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
