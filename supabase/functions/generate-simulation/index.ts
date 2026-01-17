@@ -35,6 +35,54 @@ interface ScalpAnalysisResult {
   analysis: any;
 }
 
+// Gemini model id – şu an senin zaten çalıştırdığın model
+const GEMINI_MODEL_ID = 'gemini-3-pro-image-preview';
+
+// Gemini response içinden image inlineData çıkarmak için helper
+type GeminiPart = {
+  text?: string;
+  inlineData?: {
+    mimeType?: string;
+    data?: string;
+  };
+};
+
+type GeminiCandidate = {
+  content?: {
+    parts?: GeminiPart[];
+  };
+};
+
+type GeminiResponse = {
+  candidates?: GeminiCandidate[];
+  [key: string]: unknown;
+};
+
+function extractImageBase64FromGemini(result: GeminiResponse): {
+  base64: string;
+  mimeType: string;
+} | null {
+  if (!result?.candidates) return null;
+
+  for (const c of result.candidates) {
+    const parts = c.content?.parts ?? [];
+    for (const p of parts) {
+      if (
+        p.inlineData?.data &&
+        p.inlineData.mimeType &&
+        p.inlineData.mimeType.startsWith('image/')
+      ) {
+        return {
+          base64: p.inlineData.data,
+          mimeType: p.inlineData.mimeType,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -48,7 +96,7 @@ Deno.serve(async (req: Request) => {
   try {
     console.log('Simulation request started');
 
-    // Skip feature flags check temporarily to avoid blocking
+    // Feature flag (kapanırsa 503 dön)
     let simulationEnabled = true;
     try {
       simulationEnabled = await isFeatureEnabled('enable_simulation');
@@ -97,7 +145,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const model = 'gemini-3-pro-image-preview';
 
     const { prompt, version } = getPrompt('hair_simulation');
 
@@ -126,14 +173,40 @@ Deno.serve(async (req: Request) => {
     };
 
     // Safely extract data from analysis result
-    const norwoodScale = analysisResult.norwoodScale || analysisResult.diagnosis?.norwood_scale || 'Unknown';
-    const hairLossPattern = analysisResult.hairLossPattern || analysisResult.diagnosis?.analysis_summary || 'General hair loss';
-    const severity = analysisResult.severity || 'Moderate';
-    const estimatedGrafts = analysisResult.estimatedGrafts || analysisResult.technical_metrics?.graft_count_min || 2500;
-    const graftsMin = analysisResult.graftsRange?.min || analysisResult.technical_metrics?.graft_count_min || estimatedGrafts;
-    const graftsMax = analysisResult.graftsRange?.max || analysisResult.technical_metrics?.graft_count_max || estimatedGrafts;
-    const affectedAreas = analysisResult.affectedAreas || ['Frontal'];
-    const primaryTreatment = analysisResult.recommendations?.primary || analysisResult.technical_metrics?.suggested_technique || 'Hair Transplant';
+    const norwoodScale =
+      (analysisResult as any).norwoodScale ||
+      (analysisResult as any).diagnosis?.norwood_scale ||
+      'Unknown';
+
+    const hairLossPattern =
+      (analysisResult as any).hairLossPattern ||
+      (analysisResult as any).diagnosis?.analysis_summary ||
+      'General hair loss';
+
+    const severity = (analysisResult as any).severity || 'Moderate';
+
+    const estimatedGrafts =
+      (analysisResult as any).estimatedGrafts ||
+      (analysisResult as any).technical_metrics?.graft_count_min ||
+      2500;
+
+    const graftsMin =
+      (analysisResult as any).graftsRange?.min ||
+      (analysisResult as any).technical_metrics?.graft_count_min ||
+      estimatedGrafts;
+
+    const graftsMax =
+      (analysisResult as any).graftsRange?.max ||
+      (analysisResult as any).technical_metrics?.graft_count_max ||
+      estimatedGrafts;
+
+    const affectedAreas =
+      (analysisResult as any).affectedAreas || ['Frontal'];
+
+    const primaryTreatment =
+      (analysisResult as any).recommendations?.primary ||
+      (analysisResult as any).technical_metrics?.suggested_technique ||
+      'Hair Transplant';
 
     const contextText = `
 Patient Analysis:
@@ -141,14 +214,16 @@ Patient Analysis:
 - Hair Loss Pattern: ${hairLossPattern}
 - Severity: ${severity}
 - Estimated Grafts: ${estimatedGrafts} (${graftsMin}-${graftsMax})
-- Affected Areas: ${Array.isArray(affectedAreas) ? affectedAreas.join(', ') : affectedAreas}
+- Affected Areas: ${
+      Array.isArray(affectedAreas) ? affectedAreas.join(', ') : affectedAreas
+    }
 - Primary Treatment: ${primaryTreatment}
 
 Generate a realistic "after" simulation showing the expected results of hair restoration based on this analysis.`;
 
     const fullPrompt = prompt + contextText;
 
-    const imageParts = [];
+    const imageParts: { inlineData: { data: string; mimeType: string } }[] = [];
 
     const mainImageParsed = parseImageData(mainImage);
     imageParts.push({ inlineData: mainImageParsed });
@@ -164,42 +239,49 @@ Generate a realistic "after" simulation showing the expected results of hair res
 
     console.log('Image parts prepared for simulation:', {
       count: imageParts.length,
-      mimeTypes: imageParts.map(p => p.inlineData.mimeType),
-      sizes: imageParts.map(p => p.inlineData.data.length),
+      mimeTypes: imageParts.map((p) => p.inlineData.mimeType),
+      sizes: imageParts.map((p) => p.inlineData.data.length),
     });
 
     console.log('Calling Gemini API');
-    const result = await genAI.models.generateContent({
-      model,
+    const result = (await genAI.models.generateContent({
+      model: GEMINI_MODEL_ID,
       contents: [
         {
           parts: [
             { text: fullPrompt },
-            ...imageParts.map(img => ({ inlineData: img.inlineData }))
-          ]
-        }
-      ]
-    });
+            ...imageParts.map((img) => ({ inlineData: img.inlineData })),
+          ],
+        },
+      ],
+    })) as unknown as GeminiResponse;
 
-    console.log('Gemini API response received, extracting text');
-    const imageUrl = result.candidates?.[0]?.content?.parts?.[0]?.text || result.text || '';
+    console.log('Gemini API response received, extracting image');
 
-    if (!imageUrl) {
-      console.error('No text in response:', JSON.stringify(result, null, 2));
-      throw new Error('No text content in Gemini response');
+    const imageData = extractImageBase64FromGemini(result);
+
+    if (!imageData) {
+      console.error('No image inlineData in Gemini response:', JSON.stringify(result, null, 2));
+      throw new Error('No image data in Gemini response');
     }
 
-    console.log('Image URL extracted, length:', imageUrl.length);
+    // Image'i data URL'e çevir
+    const imageUrl = `data:${imageData.mimeType};base64,${imageData.base64}`;
+
+    console.log('Image data extracted, base64 length:', imageData.base64.length);
 
     const executionTime = Date.now() - startTime;
-    const inputHash = createInputHash({ mainImage: mainImage.substring(0, 100), analysisResult });
+    const inputHash = createInputHash({
+      mainImage: mainImage.substring(0, 100),
+      analysisResult,
+    });
 
     try {
       await logPromptUsage({
         promptName: 'hair_simulation',
         promptVersion: version,
         executionTimeMs: executionTime,
-        model: 'gemini-3-pro-image-preview',
+        model: GEMINI_MODEL_ID,
         success: true,
         inputHash,
         outputSizeBytes: imageUrl.length,
@@ -225,7 +307,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
         promptName: 'hair_simulation',
         promptVersion: 'v1.0.0',
         executionTimeMs: executionTime,
-        model: 'gemini-3-pro-image-preview',
+        model: GEMINI_MODEL_ID,
         success: false,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         outputSizeBytes: 0,
