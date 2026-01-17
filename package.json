@@ -10,6 +10,7 @@
     "postinstall": "mkdir -p public/mediapipe/face_mesh && cp -r node_modules/@mediapipe/face_mesh/* public/mediapipe/face_mesh/"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@mediapipe/camera_utils": "^0.3.1675466862",
     "@mediapipe/face_mesh": "^0.4.1633559619",
     "@supabase/supabase-js": "^2.89.0",
