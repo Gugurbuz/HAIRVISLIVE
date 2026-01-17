@@ -103,20 +103,12 @@ const BeforeAfterSlider = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // OPTIMIZATION 2: Mobilde animasyon framerate'ini düşür veya basitleştir.
-  // Burada React State update'i yerine doğrudan DOM manipülasyonu bile yapılabilir ama
-  // şimdilik lojiği koruyup sadece görünürlük kontrolü ekliyoruz.
   useEffect(() => {
-    // Mobilde otomatik kaydırma bazen kullanıcıyı yorar ve CPU harcar.
-    // İstersen mobilde 'autoPeriodMs' değerini null yapabilirsin. 
-    // Şimdilik performansı artırmak için sadece görünürken çalışmasını garantiye alıyoruz.
-    
     let startTime: number | null = null;
 
     const tick = (ts: number) => {
       if (!startTime) startTime = ts;
-      
-      // Ekranda değilse hesaplama yapma
+
       if (document.visibilityState !== 'visible') {
         rafRef.current = requestAnimationFrame(tick);
         return;
@@ -126,7 +118,7 @@ const BeforeAfterSlider = ({
       const s = Math.sin(t * Math.PI * 2);
       const eased = Math.sign(s) * Math.pow(Math.abs(s), 2.5);
       const next = 50 + eased * 50;
-      
+
       setSliderPos(Math.max(0, Math.min(100, next)));
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -152,7 +144,6 @@ const BeforeAfterSlider = ({
       style={{ 
         WebkitMaskImage: edgeFadeMask,
         maskImage: edgeFadeMask,
-        // Mobilde box-shadow performans düşürebilir, gerekirse azaltılabilir
         boxShadow: 'inset 0 0 80px rgba(14, 26, 43, 0.08)'
       }}
     >
@@ -162,7 +153,7 @@ const BeforeAfterSlider = ({
           alt="After"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
-          loading="eager" // Hero image olduğu için eager
+          loading="eager"
         />
       </div>
 
@@ -171,7 +162,7 @@ const BeforeAfterSlider = ({
         style={{
           WebkitMaskImage: sliderMaskStyle,
           maskImage: sliderMaskStyle,
-          willChange: 'mask-image, -webkit-mask-image', // Tarayıcıya ipucu
+          willChange: 'mask-image, -webkit-mask-image',
         }}
       >
         <img
@@ -190,7 +181,7 @@ const BeforeAfterSlider = ({
           left: isRTL ? 'auto' : '0',
           right: isRTL ? '0' : 'auto',
           width: '100%',
-          willChange: 'transform' // GPU acceleration
+          willChange: 'transform'
         }}
       >
         <div className="absolute top-0 bottom-0 left-0 w-[2px] -ml-[1px]">
@@ -257,10 +248,8 @@ const TopClinics = ({
         );
   }, [activeCat, clinics]);
 
-  // OPTIMIZATION 3: Mobilde Auto-Scroll'u iptal et.
-  // Mobilde auto-scroll hem performansı düşürür hem de UX açısından kötüdür.
   useEffect(() => {
-    if (isMobile) return; // Mobilde isen kodu çalıştırma, çık.
+    if (isMobile) return;
 
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
@@ -327,24 +316,22 @@ const TopClinics = ({
         onTouchStart={() => (isPaused.current = true)}
         onTouchEnd={() => setTimeout(() => (isPaused.current = false), 2000)}
       >
-        <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#F7F8FA] to-transparent z-10 pointer-events-none" />
-        <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#F7F8FA] to-transparent z-10 pointer-events-none" />
+        {/* Kenarlardaki blur efektleri kaldırıldı */}
 
         <div
           ref={scrollRef}
-          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar scroll-smooth" // scroll-smooth eklendi
+          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory"
           style={{ 
             scrollbarWidth: 'none', 
             msOverflowStyle: 'none',
-            // Mobilde native touch scrolling'i etkinleştirmek için:
-            WebkitOverflowScrolling: 'touch' 
+            WebkitOverflowScrolling: 'touch',
+            touchAction: 'pan-x'
           }}
         >
           {filteredClinics.map((clinic, idx) => (
             <div
-              key={`${clinic.id}-${idx}`}
+              key={`${clinic.id}-${idx}`]
               onClick={onViewDetail}
-              // transform-gpu eklendi
               className="group relative w-[360px] md:w-[400px] shrink-0 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-teal-900/10 transition-all duration-500 cursor-pointer flex flex-col snap-center transform-gpu"
             >
               <div className="aspect-[4/3] relative overflow-hidden">
@@ -480,8 +467,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
   };
 
   useEffect(() => {
-    // Scroll eventini debounce yapmak daha iyidir ama şimdilik basit tutuyoruz.
-    // Passive: true performans için kritiktir.
     const handleScroll = () => {
       if (window.scrollY > 500) setShowStickyCTA(true);
       else setShowStickyCTA(false);
@@ -511,7 +496,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
         {/* HERO SECTION */}
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
-          {/* Text Content - ORDER 1 ON MOBILE (Your requested fix) */}
           <div className="text-left space-y-8 order-1 lg:order-1">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
@@ -556,9 +540,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
             </motion.div>
           </div>
 
-          {/* Slider Content - ORDER 2 ON MOBILE */}
           <div className="order-2 lg:order-2 relative">
-            {/* Reduced Blur for Performance */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[40px] md:blur-[80px] rounded-full pointer-events-none" />
 
             <motion.div
@@ -607,7 +589,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 
         <div className="max-w-7xl mx-auto mb-32">
           <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl transform-gpu">
-            {/* Reduced Blur */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[60px] md:blur-[120px] pointer-events-none" />
 
             <div className="grid lg:grid-cols-2 gap-16 items-center relative z-10">
