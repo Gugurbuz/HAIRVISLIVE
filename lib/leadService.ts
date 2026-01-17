@@ -126,14 +126,14 @@ export const leadService = {
   async uploadLeadImage(
     leadId: string,
     file: File,
-    imageType: 'scalp' | 'simulation' | 'original' | 'analysis'
+    imageType: string
   ): Promise<{ data: { path: string; url: string } | null; error: any }> {
     const timestamp = Date.now();
     const fileName = `${imageType}_${timestamp}_${file.name}`;
-    const filePath = `${leadId}/${imageType}/${fileName}`;
+    const filePath = `${leadId}/${fileName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('lead-images')
+      .from('scalp-images')
       .upload(filePath, file, {
         cacheControl: '3600',
         upsert: false,
@@ -144,7 +144,7 @@ export const leadService = {
     }
 
     const { data: { publicUrl } } = supabase.storage
-      .from('lead-images')
+      .from('scalp-images')
       .getPublicUrl(filePath);
 
     const { error: dbError } = await supabase
@@ -153,10 +153,11 @@ export const leadService = {
         lead_id: leadId,
         storage_path: filePath,
         image_type: imageType,
+        mime_type: file.type,
+        file_size_bytes: file.size,
         metadata: {
           original_name: file.name,
-          size: file.size,
-          type: file.type,
+          uploaded_at: new Date().toISOString(),
         },
       });
 
@@ -177,14 +178,14 @@ export const leadService = {
     leadId: string,
     blob: Blob,
     fileName: string,
-    imageType: 'scalp' | 'simulation' | 'original' | 'analysis'
+    imageType: string
   ): Promise<{ data: { path: string; url: string } | null; error: any }> {
     const timestamp = Date.now();
     const fullFileName = `${imageType}_${timestamp}_${fileName}`;
-    const filePath = `${leadId}/${imageType}/${fullFileName}`;
+    const filePath = `${leadId}/${fullFileName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('lead-images')
+      .from('scalp-images')
       .upload(filePath, blob, {
         cacheControl: '3600',
         upsert: false,
@@ -195,7 +196,7 @@ export const leadService = {
     }
 
     const { data: { publicUrl } } = supabase.storage
-      .from('lead-images')
+      .from('scalp-images')
       .getPublicUrl(filePath);
 
     const { error: dbError } = await supabase
@@ -204,10 +205,11 @@ export const leadService = {
         lead_id: leadId,
         storage_path: filePath,
         image_type: imageType,
+        mime_type: blob.type,
+        file_size_bytes: blob.size,
         metadata: {
           original_name: fileName,
-          size: blob.size,
-          type: blob.type,
+          uploaded_at: new Date().toISOString(),
         },
       });
 
@@ -222,6 +224,39 @@ export const leadService = {
       },
       error: null,
     };
+  },
+
+  async uploadScalpPhotosFromDataUrls(
+    leadId: string,
+    photos: Array<{ id: string; preview: string; label?: string }>
+  ): Promise<{ success: number; errors: Array<{ id: string; error: any }> }> {
+    let success = 0;
+    const errors: Array<{ id: string; error: any }> = [];
+
+    for (const photo of photos) {
+      if (!photo.preview || typeof photo.preview !== 'string') {
+        errors.push({ id: photo.id, error: 'Invalid preview data' });
+        continue;
+      }
+
+      try {
+        const res = await fetch(photo.preview);
+        const blob = await res.blob();
+        const file = new File([blob], `${photo.id}.jpg`, { type: blob.type || 'image/jpeg' });
+
+        const result = await this.uploadLeadImage(leadId, file, photo.id);
+
+        if (result.error) {
+          errors.push({ id: photo.id, error: result.error });
+        } else {
+          success++;
+        }
+      } catch (err) {
+        errors.push({ id: photo.id, error: err });
+      }
+    }
+
+    return { success, errors };
   },
 
   async getLeadImages(leadId: string): Promise<{ data: LeadImage[] | null; error: any }> {
@@ -246,7 +281,7 @@ export const leadService = {
     }
 
     const { error: storageError } = await supabase.storage
-      .from('lead-images')
+      .from('scalp-images')
       .remove([image.storage_path]);
 
     if (storageError) {

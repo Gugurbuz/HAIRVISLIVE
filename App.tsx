@@ -23,6 +23,7 @@ import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { useSession } from './context/SessionContext';
 import { AppState } from './types';
 import { supabase } from './lib/supabase';
+import { leadService } from './lib/leadService';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('LANDING');
@@ -496,10 +497,9 @@ const App: React.FC = () => {
     }
   };
 
-  const finalizeLeadCreation = (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
+  const finalizeLeadCreation = async (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
     console.log('[App] Finalizing lead creation...');
 
-    // (3) LEAD GUARD'LARI — zorunlu kriterler
     const verified = mergedData?.verified === true;
     const consent = mergedData?.consent === true;
     const kvkk = mergedData?.kvkk === true;
@@ -512,7 +512,7 @@ const App: React.FC = () => {
     if (!verified) {
       console.log('[App] Failed: Not verified');
       setError(lang === 'TR' ? 'Doğrulama tamamlanmadan kayıt oluşturulamaz.' : 'Verification is required to create a lead.');
-      setAppState('RESULT'); // yine sonuç ekranına gider ama lead yazmaz
+      setAppState('RESULT');
       return;
     }
 
@@ -534,63 +534,120 @@ const App: React.FC = () => {
       return;
     }
 
-    // Lead oluşturma
-    const donorRating = result.donor_assessment?.density_rating || 'Good';
-    let calculatedSuitability: 'suitable' | 'borderline' | 'not_recommended' = 'suitable';
-
-    if (donorRating === 'Poor') calculatedSuitability = 'not_recommended';
-    else if (donorRating === 'Moderate') calculatedSuitability = 'borderline';
-
-    const newLead: LeadData = {
-      id: `L-${Math.floor(Math.random() * 10000)}`,
-      countryCode: lang === 'EN' ? 'US' : lang,
-      age: result.phenotypic_features?.apparent_age || 30,
-      gender: (mergedData.gender as 'Male' | 'Female') || 'Male',
-      norwoodScale: result.diagnosis?.norwood_scale || 'NW3',
-      estimatedGrafts: `${result.technical_metrics?.graft_count_min || 2500}`,
-      registrationDate: 'Just Now',
-      timestamp: Date.now(),
-      thumbnailUrl: simImg || '',
-      status: 'AVAILABLE' as const,
-      price: 65,
-      proposalPrice: 12,
-      isUnlocked: false,
-      isNegotiable: true,
-      patientDetails: {
-        fullName: mergedData.userName || 'Verified Patient',
-        phone: '',
+    try {
+      const { data: lead, error: leadError } = await leadService.createLead({
+        name: mergedData.userName || 'Verified Patient',
         email: mergedData.contactValue || '',
-        consent: true,
-        kvkk: true,
+        phone: mergedData.phone || '',
+        age: result.phenotypic_features?.apparent_age || 30,
         gender: mergedData.gender,
-        previousTransplant: mergedData.history,
-      },
-      intake: mergedData,
-      analysisData: {
-        ...result,
-        surgical_plan_image: planImg,
-        simulation_image: simImg,
-      },
-      name: mergedData.userName || 'Verified Patient',
-      email: mergedData.contactValue || '',
-      phone: '',
-      concerns: mergedData.goal ? [mergedData.goal] : [],
-      source: 'scanner',
-      scanData: {
-        photoCount: capturedPhotos.length,
-        photoLabels: capturedPhotos.map((p: any) => p.label || p.id),
-        hasSimulation: !!simImg,
-        hasPlanningImage: !!planImg,
-      },
-      metadata: {
-        lang,
-        intake: mergedData,
-      },
-    };
+        concerns: mergedData.goal ? [mergedData.goal] : [],
+        norwood_scale: result.diagnosis?.norwood_scale || 'NW3',
+        estimated_grafts: `${result.technical_metrics?.graft_count_min || 2500}`,
+        source: 'scanner',
+        scan_data: {
+          photoCount: capturedPhotos.length,
+          photoLabels: capturedPhotos.map((p: any) => p.label || p.id),
+          hasSimulation: !!simImg,
+          hasPlanningImage: !!planImg,
+        },
+        analysis_data: {
+          ...result,
+          surgical_plan_image: planImg,
+          simulation_image: simImg,
+        },
+        patient_details: {
+          consent: true,
+          kvkk: true,
+          previousTransplant: mergedData.history,
+        },
+        metadata: {
+          lang,
+          intake: mergedData,
+        },
+      });
 
-    console.log('[App] Adding lead and navigating to RESULT');
-    addLead(newLead);
-    setAppState('RESULT');
+      if (leadError) {
+        throw leadError;
+      }
+
+      if (!lead) {
+        throw new Error('Lead creation returned no data');
+      }
+
+      console.log('[App] Lead created in Supabase:', lead.id);
+
+      if (capturedPhotos.length > 0) {
+        console.log('[App] Uploading scalp photos...');
+        const uploadResult = await leadService.uploadScalpPhotosFromDataUrls(lead.id, capturedPhotos);
+        console.log('[App] Photo upload result:', uploadResult);
+      }
+
+      const donorRating = result.donor_assessment?.density_rating || 'Good';
+      let calculatedSuitability: 'suitable' | 'borderline' | 'not_recommended' = 'suitable';
+
+      if (donorRating === 'Poor') calculatedSuitability = 'not_recommended';
+      else if (donorRating === 'Moderate') calculatedSuitability = 'borderline';
+
+      const newLead: LeadData = {
+        id: lead.id,
+        countryCode: lang === 'EN' ? 'US' : lang,
+        age: result.phenotypic_features?.apparent_age || 30,
+        gender: (mergedData.gender as 'Male' | 'Female') || 'Male',
+        norwoodScale: result.diagnosis?.norwood_scale || 'NW3',
+        estimatedGrafts: `${result.technical_metrics?.graft_count_min || 2500}`,
+        registrationDate: 'Just Now',
+        timestamp: Date.now(),
+        thumbnailUrl: simImg || '',
+        status: 'AVAILABLE' as const,
+        price: 65,
+        proposalPrice: 12,
+        isUnlocked: false,
+        isNegotiable: true,
+        patientDetails: {
+          fullName: mergedData.userName || 'Verified Patient',
+          phone: '',
+          email: mergedData.contactValue || '',
+          consent: true,
+          kvkk: true,
+          gender: mergedData.gender,
+          previousTransplant: mergedData.history,
+        },
+        intake: mergedData,
+        analysisData: {
+          ...result,
+          surgical_plan_image: planImg,
+          simulation_image: simImg,
+        },
+        name: mergedData.userName || 'Verified Patient',
+        email: mergedData.contactValue || '',
+        phone: '',
+        concerns: mergedData.goal ? [mergedData.goal] : [],
+        source: 'scanner',
+        scanData: {
+          photoCount: capturedPhotos.length,
+          photoLabels: capturedPhotos.map((p: any) => p.label || p.id),
+          hasSimulation: !!simImg,
+          hasPlanningImage: !!planImg,
+        },
+        metadata: {
+          lang,
+          intake: mergedData,
+        },
+      };
+
+      console.log('[App] Adding lead to context and navigating to RESULT');
+      addLead(newLead);
+      setAppState('RESULT');
+    } catch (err: any) {
+      console.error('[App] Lead creation error:', err);
+      setError(
+        lang === 'TR'
+          ? 'Kayıt oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.'
+          : 'An error occurred while creating the lead. Please try again.'
+      );
+      setAppState('RESULT');
+    }
   };
 
   const showFooter = ['LANDING', 'DIRECTORY', 'CLINIC_DETAILS', 'RESULT', 'CLINIC_LANDING', 'BLOG'].includes(appState);
