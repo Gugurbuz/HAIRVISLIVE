@@ -244,7 +244,7 @@ Deno.serve(async (req: Request) => {
         promptName: 'scalp_analysis',
         promptVersion: 'v1.0.0',
         executionTimeMs: executionTime,
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-pro-image-preview',
         success: false,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         outputSizeBytes: 0,
