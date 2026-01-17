@@ -320,10 +320,24 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
             target: { yaw: 0, pitch: 0, roll: 0, yawTolerance: 0, pitchTolerance: 0 },
             guideType: 'none',
             speakText: t.donorSpeak,
-            useAI: false,
+            useAI: false, 
             isTimerDriven: false,
             checkTexture: true,
             forceCamera: 'environment'
+        },
+        {
+            id: 'hairline_macro',
+            label: t.macroLabel,
+            instruction: t.macroInstruction,
+            subInstruction: 'Using Digital Zoom',
+            target: { yaw: 0, pitch: 0, roll: 0, yawTolerance: 0, pitchTolerance: 0 },
+            guideType: 'circle',
+            speakText: t.macroSpeak,
+            useAI: false,
+            useFlash: false,
+            checkTexture: true,
+            forceCamera: 'environment',
+            zoom: 2.0 
         }
       ];
   }, [lang]);
@@ -478,19 +492,30 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
         ctx.drawImage(video, 0, 0, analyzeWidth, analyzeHeight);
 
-        const stats = analyzeImageContent(ctx, analyzeWidth, analyzeHeight);
+        let region = undefined;
+        if (step.id === 'hairline_macro') {
+            const size = Math.min(analyzeWidth, analyzeHeight) * 0.4; 
+            region = {
+                x: (analyzeWidth - size) / 2,
+                y: (analyzeHeight - size) / 2,
+                w: size,
+                h: size
+            };
+        }
+
+        const stats = analyzeImageContent(ctx, analyzeWidth, analyzeHeight, region);
 
         if (step.id === 'donor') {
-            const minSharpness = 25;
-            if (isCountingDown) return;
+            const minSharpness = 25; 
+            if (isCountingDown) return; 
 
             if (stats.sharpness > minSharpness && stats.brightness > 40) {
                 if (statusRef.current !== 'holding') {
                     setStatus('holding');
-                    playSound('focus');
+                    playSound('focus'); 
                 }
-
-                focusLockTime += 500;
+                
+                focusLockTime += 500; 
 
                 if (focusLockTime > 1000) {
                     isCountingDown = true;
@@ -504,6 +529,48 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
                 }
             }
             return;
+        }
+
+        if (step.id === 'hairline_macro') {
+            const minSharpness = 22;
+            const goodSharpness = 45;
+            let newGuidanceText = '';
+            
+            if (stats.sharpness < minSharpness) {
+                if (statusRef.current !== 'searching') {
+                    setStatus('searching');
+                    setHoldProgress(0);
+                }
+                newGuidanceText = t.moveBack;
+            } else if (stats.sharpness >= minSharpness && stats.sharpness < goodSharpness) {
+                if (statusRef.current !== 'aligning') {
+                    setStatus('aligning');
+                    playSound('focus');
+                }
+                newGuidanceText = t.hold;
+                setHoldProgress(prev => Math.min(prev + 10, 30)); 
+
+            } else {
+                if (statusRef.current !== 'holding') {
+                    setStatus('holding');
+                    playSound('lock');
+                }
+                newGuidanceText = t.perfect;
+                
+                setHoldProgress(prev => {
+                    const next = Math.max(30, prev + 25); 
+                    if (next >= 100) {
+                        handleCapture();
+                        return 100;
+                    }
+                    return next;
+                });
+            }
+
+            if (newGuidanceText && newGuidanceText !== lastGuidanceTextRef.current) {
+                setGuidance({ text: newGuidanceText, type: newGuidanceText === t.moveBack ? 'down' : null });
+                lastGuidanceTextRef.current = newGuidanceText;
+            }
         }
 
     }, 500); 
@@ -606,9 +673,46 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
 
     setStatus('capturing');
     statusRef.current = 'capturing';
-    vibrate([50, 100, 50]);
+    vibrate([50, 100, 50]); 
     speak(translations[lang].scannerSteps.captured, audioEnabled, lang);
 
+    if (lastLandmarksRef.current && currentStep.useAI && facingMode === 'user') {
+       try {
+           const landmarks = lastLandmarksRef.current;
+           const mapX = (val: number) => {
+               const pixelX = val * sourceW;
+               const relX = pixelX - cropX;
+               return facingMode === 'user' ? cropW - relX : relX;
+           };
+           const mapY = (val: number) => (val * sourceH) - cropY;
+           
+           const eyeY = mapY((landmarks[33].y + landmarks[263].y) / 2);
+           const faceHeight = Math.abs(mapY(landmarks[152].y) - mapY(landmarks[10].y));
+           const blurHeight = faceHeight * 0.28;
+           const rawMinX = landmarks[234].x;
+           const rawMaxX = landmarks[454].x;
+           const x1 = mapX(rawMinX);
+           const x2 = mapX(rawMaxX);
+           
+           const barStartX = Math.min(x1, x2);
+           const barWidth = Math.abs(x1 - x2);
+           const padding = barWidth * 0.15;
+           const blurRadius = Math.max(40, cropW * 0.05);
+
+           ctx.save();
+           ctx.filter = `blur(${blurRadius}px)`;
+           ctx.beginPath();
+           ctx.rect(barStartX - padding, eyeY - (blurHeight * 0.6), barWidth + (padding*2), blurHeight);
+           ctx.clip();
+           ctx.drawImage(canvas, 0, 0);
+           ctx.fillStyle = 'rgba(0,0,0,0.2)';
+           ctx.fill();
+           ctx.restore();
+       } catch (e) {
+           console.warn("Blur effect failed", e);
+       }
+    }
+    
     const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
     setCurrentQualityScore(finalQualityScore);
     
@@ -957,7 +1061,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
       )}
 
       <div className="absolute inset-0 z-20 flex flex-col justify-between pointer-events-none">
-        <div className="p-6 bg-gradient-to-b from-white/30 via-white/10 to-transparent flex justify-between items-start pointer-events-auto">
+        <div className="p-6 bg-gradient-to-b from-white/95 via-white/50 to-transparent flex justify-between items-start pointer-events-auto">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
                <span className="bg-white/50 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black tracking-widest border border-slate-200 uppercase text-slate-500">
@@ -1008,7 +1112,7 @@ const ScannerScreen: React.FC<ScannerScreenProps> = ({ onComplete, onExit, lang 
           </div>
         )}
 
-        <div className="p-8 pb-12 bg-gradient-to-t from-white/30 via-white/10 to-transparent flex flex-col items-center pointer-events-auto">
+        <div className="p-8 pb-12 bg-gradient-to-t from-white/95 via-white/50 to-transparent flex flex-col items-center pointer-events-auto">
           <div className="mb-10 text-center bg-white/80 backdrop-blur-3xl px-8 py-5 rounded-[2.5rem] border border-slate-200 shadow-2xl max-w-sm w-full transition-all duration-300">
             <h3 className="text-base font-bold leading-tight uppercase tracking-tight text-[#0E1A2B]">
                 {status === 'holding' ? translations[lang].scannerSteps.guidance.perfect : status === 'out-of-bounds' ? translations[lang].scannerSteps.guidance.moveBack : status === 'aligning' && guidance.text ? guidance.text : currentStep.instruction}
