@@ -1,9 +1,40 @@
-import type { ScalpAnalysisResult, ScalpImages } from '../geminiService';
+export interface ScalpImages {
+  front?: string;
+  left?: string;
+  right?: string;
+  top?: string;
+  donor?: string;
+  hairline_macro?: string;
+}
+
+export interface ScalpAnalysisResult {
+  diagnosis?: {
+    norwood_scale?: string;
+    pattern?: string;
+    severity?: string;
+  };
+  technical_metrics?: {
+    graft_count_min?: number;
+    graft_count_max?: number;
+    sessions?: number;
+  };
+  phenotypic_features?: {
+    apparent_age?: number;
+    skin_type?: string;
+    hair_color?: string;
+  };
+  donor_assessment?: {
+    density_rating?: string;
+    quality?: string;
+  };
+  summary?: string;
+  recommendations?: string[];
+}
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const secureGeminiService = {
+export const geminiService = {
   async analyzeScalp(images: ScalpImages): Promise<ScalpAnalysisResult> {
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-scalp`, {
@@ -64,6 +95,13 @@ export const secureGeminiService = {
   },
 
   async generateMedicalTimelineImage(
+    mainImage: string,
+    analysisResult: ScalpAnalysisResult
+  ): Promise<string> {
+    return this.generateSimulation(mainImage, analysisResult);
+  },
+
+  async generateSurgicalPlanImage(
     mainImage: string,
     analysisResult: ScalpAnalysisResult
   ): Promise<string> {
