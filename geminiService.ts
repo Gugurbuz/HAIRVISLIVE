@@ -29,8 +29,11 @@ export const geminiService = {
     return data;
   },
 
-  async generateSurgicalPlanImage(mainPhotoBase64: string, analysisResult: ScalpAnalysisResult): Promise<string> {
-    return `data:image/jpeg;base64,${mainPhotoBase64}`;
+  async generateSurgicalPlanImage(mainPhotoData: string, analysisResult: ScalpAnalysisResult): Promise<string> {
+    if (typeof mainPhotoData === 'string' && mainPhotoData.startsWith('data:')) {
+      return mainPhotoData;
+    }
+    return `data:image/jpeg;base64,${mainPhotoData}`;
   },
 
   async generateSimulation(mainPhotoBase64: string, planningImage: string, analysisResult: ScalpAnalysisResult): Promise<string> {

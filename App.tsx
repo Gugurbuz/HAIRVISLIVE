@@ -357,7 +357,6 @@ const App: React.FC = () => {
     const analysisStartTime = Date.now();
     await updateActivity();
 
-    // (1) Skip/mock SADECE DEV'de ve forceReal değilse
     const canUseMock = isDev && skip && !forceReal;
 
     if (canUseMock) {
@@ -410,13 +409,19 @@ const App: React.FC = () => {
       return;
     }
 
-    try {
-      const getPhoto = (id: string) =>
-        photos.find((p) => p.id === id)?.preview.split(',')[1] ||
-        photos[0]?.preview.split(',')[1] ||
-        '';
+    let viewImages: ScalpImages | null = null;
 
-      const viewImages: ScalpImages = {
+    try {
+      const getPhoto = (id: string): string => {
+        const found = photos.find((p) => p.id === id);
+        if (found?.preview && typeof found.preview === 'string') {
+          return found.preview;
+        }
+        const fallback = photos[0]?.preview;
+        return typeof fallback === 'string' ? fallback : '';
+      };
+
+      viewImages = {
         front: getPhoto('front'),
         left: getPhoto('left'),
         right: getPhoto('right'),
@@ -425,9 +430,12 @@ const App: React.FC = () => {
         macro: getPhoto('hairline_macro'),
       };
 
-      const mainPhoto = viewImages.front;
+      const mainPhoto = viewImages.front || viewImages.crown || getPhoto('front');
 
-      // STEP 1: Geometric Analysis (Metrics & Text)
+      if (!mainPhoto || mainPhoto.length < 1000) {
+        throw new Error('Missing or invalid main photo');
+      }
+
       const result = await geminiService.analyzeScalp(viewImages);
       setAnalysisResult(result);
 
@@ -441,15 +449,11 @@ const App: React.FC = () => {
         durationMs: Date.now() - analysisStartTime,
       });
 
-      // STEP 2: Surgical Plan Generation (Doctor Drawing)
-      // (geminiService içinde şimdilik stub var; akış bozulmasın)
       const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, result);
       setPlanningImage(planImage);
 
-      // Store plan image in result for later reference
       (result as any).surgical_plan_image = planImage || undefined;
 
-      // STEP 3: Targeted Simulation
       const simImage = await geminiService.generateSimulation(mainPhoto, planImage, result);
       setAfterImage(simImage);
 
@@ -467,18 +471,20 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error('Workflow Error:', err);
 
-      // (2) Kullanıcıya anlaşılır hata
       const userMsg = classifyUserError(err);
       setError(userMsg);
 
-      await logAnalysis({
-        operationType: 'scalp_analysis',
-        inputData: { viewTypes: Object.keys(viewImages || {}) },
-        error: err.message || String(err),
-        durationMs: Date.now() - analysisStartTime,
-      });
+      try {
+        await logAnalysis({
+          operationType: 'scalp_analysis',
+          inputData: { viewTypes: Object.keys(viewImages || {}) },
+          error: err?.message || String(err),
+          durationMs: Date.now() - analysisStartTime,
+        });
+      } catch (logErr) {
+        console.error('Failed to log analysis error (non-blocking):', logErr);
+      }
 
-      // Fallback - ama lead yaratma guard'ları bunu engelleyecek
       setAnalysisResult({
         diagnosis: {
           norwood_scale: 'NW?',
