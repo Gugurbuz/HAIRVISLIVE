@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
 
     const { prompt, version } = getPrompt('hair_simulation');
 
@@ -190,7 +190,7 @@ Generate a realistic "after" simulation showing the expected results of hair res
         promptName: 'hair_simulation',
         promptVersion: 'v1.0.0',
         executionTimeMs: executionTime,
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-pro-image-preview',
         success: false,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         outputSizeBytes: 0,
