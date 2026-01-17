@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { GoogleGenAI } from 'npm:@google/genai';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.24.1';
 import { getPrompt } from '../_shared/prompts.ts';
 import { validateScalpAnalysis, formatValidationErrors } from '../_shared/validation.ts';
 import { logPromptUsage, logValidationError, createInputHash, measureOutputSize } from '../_shared/logger.ts';
@@ -90,8 +90,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('At least one image is required');
     }
 
-    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const model = 'gemini-3-pro-image-preview';
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
     const { prompt, version } = getPrompt('scalp_analysis');
 
@@ -144,20 +144,19 @@ Deno.serve(async (req: Request) => {
     });
 
     console.log('Calling Gemini API for analysis');
-    const result = await genAI.models.generateContent({
-      model,
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            ...imageParts.map(img => ({ inlineData: img.inlineData }))
-          ]
+    const result = await model.generateContent([
+      prompt,
+      ...imageParts.map(img => ({
+        inlineData: {
+          mimeType: img.inlineData.mimeType,
+          data: img.inlineData.data
         }
-      ]
-    });
+      }))
+    ]);
 
     console.log('Gemini API response received, extracting text');
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || result.text || '';
+    const response = await result.response;
+    const text = response.text();
 
     if (!text) {
       console.error('No text in response:', JSON.stringify(result, null, 2));
