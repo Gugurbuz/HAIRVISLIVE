@@ -1,42 +1,9 @@
-export interface ScalpImages {
-  front?: string;
-  left?: string;
-  right?: string;
-  top?: string;
-  donor?: string;
-  hairline_macro?: string;
-}
-
-export interface ScalpAnalysisResult {
-  norwoodScale: string;
-  hairLossPattern: string;
-  severity: 'Minimal' | 'Mild' | 'Moderate' | 'Severe' | 'Advanced';
-  affectedAreas: string[];
-  estimatedGrafts: number;
-  graftsRange: {
-    min: number;
-    max: number;
-  };
-  confidence: number;
-  recommendations: {
-    primary: string;
-    alternative: string[];
-    medicalTreatment: string[];
-    lifestyle: string[];
-  };
-  analysis: {
-    hairDensity: 'Very Low' | 'Low' | 'Medium' | 'High' | 'Very High';
-    scalpHealth: 'Excellent' | 'Good' | 'Fair' | 'Poor';
-    donorAreaQuality: 'Excellent' | 'Good' | 'Fair' | 'Poor' | 'Limited';
-    candidacy: 'Excellent' | 'Good' | 'Fair' | 'Poor';
-    notes: string;
-  };
-}
+import type { ScalpAnalysisResult, ScalpImages } from '../geminiService';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export const geminiService = {
+export const secureGeminiService = {
   async analyzeScalp(images: ScalpImages): Promise<ScalpAnalysisResult> {
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-scalp`, {
@@ -49,20 +16,8 @@ export const geminiService = {
       });
 
       if (!response.ok) {
-        let errorBody: any = null;
-        try {
-          errorBody = await response.json();
-        } catch {
-          // response body is empty or not JSON
-        }
-
-        console.error('Scalp analysis failed:', errorBody || response.statusText);
-
-        const message =
-          (errorBody && (errorBody.error || errorBody.details)) ||
-          `Analysis failed (status ${response.status})`;
-
-        throw new Error(message);
+        const error = await response.json();
+        throw new Error(error.error || 'Analysis failed');
       }
 
       const data = await response.json();
@@ -93,20 +48,8 @@ export const geminiService = {
       });
 
       if (!response.ok) {
-        let errorBody: any = null;
-        try {
-          errorBody = await response.json();
-        } catch {
-          // response body is empty or not JSON
-        }
-
-        console.error('Simulation generation failed:', errorBody || response.statusText);
-
-        const message =
-          (errorBody && (errorBody.error || errorBody.details)) ||
-          `Generation failed (status ${response.status})`;
-
-        throw new Error(message);
+        const error = await response.json();
+        throw new Error(error.error || 'Generation failed');
       }
 
       const data = await response.json();
@@ -121,13 +64,6 @@ export const geminiService = {
   },
 
   async generateMedicalTimelineImage(
-    mainImage: string,
-    analysisResult: ScalpAnalysisResult
-  ): Promise<string> {
-    return this.generateSimulation(mainImage, analysisResult);
-  },
-
-  async generateSurgicalPlanImage(
     mainImage: string,
     analysisResult: ScalpAnalysisResult
   ): Promise<string> {

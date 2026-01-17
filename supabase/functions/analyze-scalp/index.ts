@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.24.1';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.1.3';
 import { getPrompt } from '../_shared/prompts.ts';
 import { validateScalpAnalysis, formatValidationErrors } from '../_shared/validation.ts';
 import { logPromptUsage, logValidationError, createInputHash, measureOutputSize } from '../_shared/logger.ts';
@@ -91,79 +91,49 @@ Deno.serve(async (req: Request) => {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
 
     const { prompt, version } = getPrompt('scalp_analysis');
 
-    const parseImageData = (imageData: string) => {
-      let rawBase64 = imageData.trim();
-      let mimeType = 'image/jpeg';
-
-      const dataUrlMatch = rawBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
-
-      if (dataUrlMatch) {
-        mimeType = dataUrlMatch[1];
-        rawBase64 = dataUrlMatch[2];
-      } else if (rawBase64.includes(',')) {
-        rawBase64 = rawBase64.split(',')[1];
-      }
-
-      if (rawBase64.length < 1000) {
-        console.warn('Image base64 too short', {
-          length: rawBase64.length,
-          sample: rawBase64.slice(0, 50),
-        });
-        throw new Error('Image data too short or invalid');
-      }
-
-      return { data: rawBase64, mimeType };
-    };
-
     const imageParts = [];
     if (images.front) {
-      const parsed = parseImageData(images.front);
-      imageParts.push({ inlineData: parsed });
+      imageParts.push({
+        inlineData: {
+          data: images.front.split(',')[1],
+          mimeType: 'image/jpeg',
+        },
+      });
     }
     if (images.top) {
-      const parsed = parseImageData(images.top);
-      imageParts.push({ inlineData: parsed });
+      imageParts.push({
+        inlineData: {
+          data: images.top.split(',')[1],
+          mimeType: 'image/jpeg',
+        },
+      });
     }
     if (images.left) {
-      const parsed = parseImageData(images.left);
-      imageParts.push({ inlineData: parsed });
+      imageParts.push({
+        inlineData: {
+          data: images.left.split(',')[1],
+          mimeType: 'image/jpeg',
+        },
+      });
     }
     if (images.right) {
-      const parsed = parseImageData(images.right);
-      imageParts.push({ inlineData: parsed });
+      imageParts.push({
+        inlineData: {
+          data: images.right.split(',')[1],
+          mimeType: 'image/jpeg',
+        },
+      });
     }
-
-    console.log('Image parts prepared:', {
-      count: imageParts.length,
-      mimeTypes: imageParts.map(p => p.inlineData.mimeType),
-      sizes: imageParts.map(p => p.inlineData.data.length),
-    });
 
     console.log('Calling Gemini API for analysis');
-    const result = await model.generateContent([
-      prompt,
-      ...imageParts.map(img => ({
-        inlineData: {
-          mimeType: img.inlineData.mimeType,
-          data: img.inlineData.data
-        }
-      }))
-    ]);
-
-    console.log('Gemini API response received, extracting text');
+    const result = await model.generateContent([prompt, ...imageParts]);
     const response = await result.response;
     const text = response.text();
-
-    if (!text) {
-      console.error('No text in response:', JSON.stringify(result, null, 2));
-      throw new Error('No text content in Gemini response');
-    }
-
-    console.log('Text extracted, length:', text.length);
+    console.log('Gemini API response received');
 
     const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     let parsedData;
@@ -177,25 +147,16 @@ Deno.serve(async (req: Request) => {
 
     const validation = validateScalpAnalysis(parsedData);
 
-    const resultData = validation.success ? validation.data : parsedData;
-
-    if (!validation.success) {
-      console.warn(
-        'ScalpAnalysis validation failed, falling back to parsedData:',
-        formatValidationErrors(validation.errors!)
-      );
-    }
-
     const executionTime = Date.now() - startTime;
     const inputHash = createInputHash(images);
-    const outputSize = measureOutputSize(resultData);
+    const outputSize = measureOutputSize(validation.success ? validation.data : parsedData);
 
     try {
       usageLogId = await logPromptUsage({
         promptName: 'scalp_analysis',
         promptVersion: version,
         executionTimeMs: executionTime,
-        model: 'gemini-1.5-pro',
+        model: 'gemini-3-pro-image-preview',
         success: validation.success,
         errorMessage: validation.success ? undefined : formatValidationErrors(validation.errors!),
         inputHash,
@@ -219,10 +180,24 @@ Deno.serve(async (req: Request) => {
       } catch (logError) {
         console.error('Failed to log validation error (non-blocking):', logError);
       }
+
+      return new Response(
+        JSON.stringify({
+          error: 'AI response validation failed',
+          details: formatValidationErrors(validation.errors!),
+        }),
+        {
+          status: 422,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
     console.log('Analysis completed successfully');
-    return new Response(JSON.stringify(resultData), {
+    return new Response(JSON.stringify(validation.data), {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',
@@ -238,7 +213,7 @@ Deno.serve(async (req: Request) => {
         promptName: 'scalp_analysis',
         promptVersion: 'v1.0.0',
         executionTimeMs: executionTime,
-        model: 'gemini-3-pro-image-preview',
+        model: 'gemini-1.5-flash',
         success: false,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         outputSizeBytes: 0,

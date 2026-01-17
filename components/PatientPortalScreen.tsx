@@ -138,37 +138,17 @@ const PatientPortalScreen: React.FC<PatientPortalProps> = ({ lang, onExit }) => 
 
        <div className="max-w-7xl mx-auto px-6">
           {activeLead ? (
-              <DashboardScreen
+              <DashboardScreen 
                 lang={lang}
+                // Fallback analysis structure if not present (should be present for valid leads)
                 analysis={activeLead.analysisData || {
-                    norwoodScale: activeLead.norwoodScale || 'NW3',
-                    hairLossPattern: 'Pattern Hair Loss',
-                    severity: 'Moderate' as const,
-                    affectedAreas: ['Frontal', 'Crown'],
-                    estimatedGrafts: activeLead.estimatedGrafts || 2000,
-                    graftsRange: {
-                      min: activeLead.estimatedGrafts || 2000,
-                      max: activeLead.estimatedGrafts || 2000
-                    },
-                    confidence: 85,
-                    recommendations: {
-                      primary: 'Hair Transplant',
-                      alternative: [],
-                      medicalTreatment: [],
-                      lifestyle: []
-                    },
-                    analysis: {
-                      hairDensity: 'Medium' as const,
-                      scalpHealth: 'Good' as const,
-                      donorAreaQuality: 'Good' as const,
-                      candidacy: 'Good' as const,
-                      notes: 'Assessment based on profile data'
-                    }
+                    diagnosis: { norwood_scale: activeLead.norwoodScale },
+                    technical_metrics: { graft_count_min: activeLead.estimatedGrafts, graft_count_max: activeLead.estimatedGrafts }
                 }}
-                capturedPhotos={[]}
-                planningImage=""
+                capturedPhotos={[]} // Pass empty, Dashboard uses leadData thumbnail fallback
+                planningImage="" // Will likely be empty unless saved in context, but Dashboard handles this safely
                 afterImage=""
-                leadData={activeLead}
+                leadData={activeLead} 
               />
           ) : (
               <div className="text-center py-20 text-slate-400">Loading profile data...</div>

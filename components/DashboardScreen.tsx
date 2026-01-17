@@ -104,23 +104,18 @@ const DashboardScreen: React.FC<DashboardProps> = ({
   // Data Extraction with Safe Fallbacks
   const patientId = leadData?.id || "Unknown";
   const patientName = leadData?.patientDetails?.fullName || "Guest User";
-  const nwScale = safeStr(analysis?.norwoodScale || analysis?.diagnosis?.norwood_scale, "NW3");
-  const graftMin = analysis?.graftsRange?.min || analysis?.technical_metrics?.graft_count_min || 2000;
-  const graftMax = analysis?.graftsRange?.max || analysis?.technical_metrics?.graft_count_max || 2500;
-  const donorRating = safeStr(analysis?.analysis?.donorAreaQuality || analysis?.donor_assessment?.density_rating, "Good");
-
-  // Graft Zones (estimated distribution based on total grafts)
-  const totalGrafts = analysis?.estimatedGrafts || Math.round((graftMin + graftMax) / 2);
-  const zones = analysis?.technical_metrics?.graft_distribution || {
-    zone_1: Math.round(totalGrafts * 0.5),
-    zone_2: Math.round(totalGrafts * 0.35),
-    zone_3: Math.round(totalGrafts * 0.15)
-  };
-
-  // Phenotype (not in new format, use defaults)
+  const nwScale = safeStr(analysis?.diagnosis?.norwood_scale, "NW3");
+  const graftMin = analysis?.technical_metrics?.graft_count_min || 2000;
+  const graftMax = analysis?.technical_metrics?.graft_count_max || 2500;
+  const donorRating = safeStr(analysis?.donor_assessment?.density_rating, "Good");
+  
+  // Graft Zones
+  const zones = analysis?.technical_metrics?.graft_distribution || { zone_1: 1200, zone_2: 800, zone_3: 0 };
+  
+  // Phenotype
   const phenotype = analysis?.phenotypic_features || {};
 
-  const summaryText = analysis?.analysis?.notes || analysis?.diagnosis?.analysis_summary || "Visual patterns indicate recession consistent with typical pattern thinning. Donor density appears sufficient for coverage.";
+  const summaryText = analysis?.diagnosis?.analysis_summary || "Visual patterns indicate recession consistent with typical pattern thinning. Donor density appears sufficient for coverage.";
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] pb-24 font-sans text-slate-800">

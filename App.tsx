@@ -23,7 +23,6 @@ import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { useSession } from './context/SessionContext';
 import { AppState } from './types';
 import { supabase } from './lib/supabase';
-import { leadService } from './lib/leadService';
 
 const App: React.FC = () => {
   const [appState, setAppState] = useState<AppState>('LANDING');
@@ -358,31 +357,48 @@ const App: React.FC = () => {
     const analysisStartTime = Date.now();
     await updateActivity();
 
+    // (1) Skip/mock SADECE DEV'de ve forceReal değilse
     const canUseMock = isDev && skip && !forceReal;
 
     if (canUseMock) {
       setTimeout(() => {
         const mockResult = {
-          norwoodScale: 'NW3',
-          hairLossPattern: 'Androgenetic Alopecia',
-          severity: 'Moderate' as const,
-          affectedAreas: ['Frontal', 'Temporal'],
-          estimatedGrafts: 2750,
-          graftsRange: { min: 2500, max: 3000 },
-          confidence: 85,
-          recommendations: {
-            primary: 'Sapphire FUE',
-            alternative: ['FUT', 'Combined Approach'],
-            medicalTreatment: ['Finasteride', 'Minoxidil'],
-            lifestyle: ['Avoid harsh chemicals', 'Maintain healthy diet']
+          diagnosis: {
+            norwood_scale: 'NW3',
+            analysis_summary: 'Visual estimation indicates pattern consistent with typical NW3 recession.',
           },
-          analysis: {
-            hairDensity: 'Medium' as const,
-            scalpHealth: 'Good' as const,
-            donorAreaQuality: 'Good' as const,
-            candidacy: 'Excellent' as const,
-            notes: 'Visual estimation indicates pattern consistent with typical NW3 recession. Frontal recession visible. High density expected. Visual analysis suggests adequate donor density.'
-          }
+          detailed_analysis: {
+            current_condition_summary: 'Frontal recession visible.',
+            hair_quality_assessment: 'Medium caliber.',
+            projected_results_summary: 'High density expected.',
+          },
+          technical_metrics: {
+            graft_count_min: 2500,
+            graft_count_max: 3000,
+            graft_distribution: { zone_1: 1500, zone_2: 1000, zone_3: 500 },
+            estimated_session_time_hours: 6,
+            suggested_technique: 'Sapphire FUE',
+            technique_reasoning: 'Often selected for higher density in frontal zones.',
+          },
+          donor_assessment: {
+            density_rating: 'Good',
+            estimated_hairs_per_cm2: 70,
+            total_safe_capacity_grafts: 4000,
+            donor_condition_summary: 'Visual analysis suggests adequate donor density.',
+          },
+          phenotypic_features: {
+            apparent_age: 35,
+            skin_tone: 'Medium',
+            skin_undertone: 'Warm',
+            beard_presence: 'Stubble',
+            beard_texture: 'Wavy',
+            eyebrow_density: 'Medium',
+            eyebrow_color: 'Dark',
+          },
+          scalp_geometry: {
+            hairline_design_polygon: [{ x: 0, y: 0 }],
+            high_density_zone_polygon: [{ x: 0, y: 0 }],
+          },
         };
 
         setAnalysisResult(mockResult);
@@ -394,19 +410,13 @@ const App: React.FC = () => {
       return;
     }
 
-    let viewImages: ScalpImages | null = null;
-
     try {
-      const getPhoto = (id: string): string => {
-        const found = photos.find((p) => p.id === id);
-        if (found?.preview && typeof found.preview === 'string') {
-          return found.preview;
-        }
-        const fallback = photos[0]?.preview;
-        return typeof fallback === 'string' ? fallback : '';
-      };
+      const getPhoto = (id: string) =>
+        photos.find((p) => p.id === id)?.preview.split(',')[1] ||
+        photos[0]?.preview.split(',')[1] ||
+        '';
 
-      viewImages = {
+      const viewImages: ScalpImages = {
         front: getPhoto('front'),
         left: getPhoto('left'),
         right: getPhoto('right'),
@@ -415,12 +425,9 @@ const App: React.FC = () => {
         macro: getPhoto('hairline_macro'),
       };
 
-      const mainPhoto = viewImages.front || viewImages.crown || getPhoto('front');
+      const mainPhoto = viewImages.front;
 
-      if (!mainPhoto || mainPhoto.length < 1000) {
-        throw new Error('Missing or invalid main photo');
-      }
-
+      // STEP 1: Geometric Analysis (Metrics & Text)
       const result = await geminiService.analyzeScalp(viewImages);
       setAnalysisResult(result);
 
@@ -434,11 +441,15 @@ const App: React.FC = () => {
         durationMs: Date.now() - analysisStartTime,
       });
 
+      // STEP 2: Surgical Plan Generation (Doctor Drawing)
+      // (geminiService içinde şimdilik stub var; akış bozulmasın)
       const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, result);
       setPlanningImage(planImage);
 
+      // Store plan image in result for later reference
       (result as any).surgical_plan_image = planImage || undefined;
 
+      // STEP 3: Targeted Simulation
       const simImage = await geminiService.generateSimulation(mainPhoto, planImage, result);
       setAfterImage(simImage);
 
@@ -456,63 +467,46 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error('Workflow Error:', err);
 
+      // (2) Kullanıcıya anlaşılır hata
       const userMsg = classifyUserError(err);
       setError(userMsg);
 
-      try {
-        await logAnalysis({
-          operationType: 'scalp_analysis',
-          inputData: { viewTypes: Object.keys(viewImages || {}) },
-          error: err?.message || String(err),
-          durationMs: Date.now() - analysisStartTime,
-        });
-      } catch (logErr) {
-        console.error('Failed to log analysis error (non-blocking):', logErr);
-      }
+      await logAnalysis({
+        operationType: 'scalp_analysis',
+        inputData: { viewTypes: Object.keys(viewImages || {}) },
+        error: err.message || String(err),
+        durationMs: Date.now() - analysisStartTime,
+      });
 
+      // Fallback - ama lead yaratma guard'ları bunu engelleyecek
       setAnalysisResult({
-        norwoodScale: 'NW?',
-        hairLossPattern: lang === 'TR' ? 'Belirlenemiyor' : 'Undetermined',
-        severity: 'Moderate',
-        affectedAreas: ['Unknown'],
-        estimatedGrafts: 0,
-        graftsRange: { min: 0, max: 0 },
-        confidence: 0,
-        recommendations: {
-          primary: lang === 'TR' ? 'Konsültasyon gerekli' : 'Consultation required',
-          alternative: [],
-          medicalTreatment: [],
-          lifestyle: []
+        diagnosis: {
+          norwood_scale: 'NW?',
+          analysis_summary: lang === 'TR' ? 'Analiz şu an üretilemedi.' : 'Analysis currently unavailable.',
         },
-        analysis: {
-          hairDensity: 'Medium',
-          scalpHealth: 'Fair',
-          donorAreaQuality: 'Fair',
-          candidacy: 'Fair',
-          notes: lang === 'TR' ? 'Analiz şu an üretilemedi.' : 'Analysis currently unavailable.'
-        }
       });
 
       setIsAnalyzing(false);
     }
   };
 
-  const finalizeLeadCreation = async (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
+  const finalizeLeadCreation = (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
     console.log('[App] Finalizing lead creation...');
 
+    // (3) LEAD GUARD'LARI — zorunlu kriterler
     const verified = mergedData?.verified === true;
     const consent = mergedData?.consent === true;
     const kvkk = mergedData?.kvkk === true;
 
-    const hasNorwood = !!(result?.norwoodScale || result?.diagnosis?.norwood_scale) && String(result?.norwoodScale || result?.diagnosis?.norwood_scale || '').trim().length > 0;
-    const hasGrafts = typeof (result?.graftsRange?.min || result?.technical_metrics?.graft_count_min) === 'number';
+    const hasNorwood = !!result?.diagnosis?.norwood_scale && String(result?.diagnosis?.norwood_scale).trim().length > 0;
+    const hasGrafts = typeof result?.technical_metrics?.graft_count_min === 'number' || !!result?.technical_metrics?.graft_count_min;
 
     console.log('[App] Lead guards:', { verified, consent, kvkk, hasNorwood, hasGrafts });
 
     if (!verified) {
       console.log('[App] Failed: Not verified');
       setError(lang === 'TR' ? 'Doğrulama tamamlanmadan kayıt oluşturulamaz.' : 'Verification is required to create a lead.');
-      setAppState('RESULT');
+      setAppState('RESULT'); // yine sonuç ekranına gider ama lead yazmaz
       return;
     }
 
@@ -534,120 +528,63 @@ const App: React.FC = () => {
       return;
     }
 
-    try {
-      const { data: lead, error: leadError } = await leadService.createLead({
-        name: mergedData.userName || 'Verified Patient',
-        email: mergedData.contactValue || '',
-        phone: mergedData.phone || '',
-        age: result.phenotypic_features?.apparent_age || 30,
-        gender: mergedData.gender,
-        concerns: mergedData.goal ? [mergedData.goal] : [],
-        norwood_scale: result.norwoodScale || result.diagnosis?.norwood_scale || 'NW3',
-        estimated_grafts: `${result.graftsRange?.min || result.technical_metrics?.graft_count_min || 2500}`,
-        source: 'scanner',
-        scan_data: {
-          photoCount: capturedPhotos.length,
-          photoLabels: capturedPhotos.map((p: any) => p.label || p.id),
-          hasSimulation: !!simImg,
-          hasPlanningImage: !!planImg,
-        },
-        analysis_data: {
-          ...result,
-          surgical_plan_image: planImg,
-          simulation_image: simImg,
-        },
-        patient_details: {
-          consent: true,
-          kvkk: true,
-          previousTransplant: mergedData.history,
-        },
-        metadata: {
-          lang,
-          intake: mergedData,
-        },
-      });
+    // Lead oluşturma
+    const donorRating = result.donor_assessment?.density_rating || 'Good';
+    let calculatedSuitability: 'suitable' | 'borderline' | 'not_recommended' = 'suitable';
 
-      if (leadError) {
-        throw leadError;
-      }
+    if (donorRating === 'Poor') calculatedSuitability = 'not_recommended';
+    else if (donorRating === 'Moderate') calculatedSuitability = 'borderline';
 
-      if (!lead) {
-        throw new Error('Lead creation returned no data');
-      }
-
-      console.log('[App] Lead created in Supabase:', lead.id);
-
-      if (capturedPhotos.length > 0) {
-        console.log('[App] Uploading scalp photos...');
-        const uploadResult = await leadService.uploadScalpPhotosFromDataUrls(lead.id, capturedPhotos);
-        console.log('[App] Photo upload result:', uploadResult);
-      }
-
-      const donorRating = result.analysis?.donorAreaQuality || result.donor_assessment?.density_rating || 'Good';
-      let calculatedSuitability: 'suitable' | 'borderline' | 'not_recommended' = 'suitable';
-
-      if (donorRating === 'Poor' || donorRating === 'Limited') calculatedSuitability = 'not_recommended';
-      else if (donorRating === 'Fair') calculatedSuitability = 'borderline';
-
-      const newLead: LeadData = {
-        id: lead.id,
-        countryCode: lang === 'EN' ? 'US' : lang,
-        age: result.phenotypic_features?.apparent_age || 30,
-        gender: (mergedData.gender as 'Male' | 'Female') || 'Male',
-        norwoodScale: result.norwoodScale || result.diagnosis?.norwood_scale || 'NW3',
-        estimatedGrafts: `${result.graftsRange?.min || result.technical_metrics?.graft_count_min || 2500}`,
-        registrationDate: 'Just Now',
-        timestamp: Date.now(),
-        thumbnailUrl: simImg || '',
-        status: 'AVAILABLE' as const,
-        price: 65,
-        proposalPrice: 12,
-        isUnlocked: false,
-        isNegotiable: true,
-        patientDetails: {
-          fullName: mergedData.userName || 'Verified Patient',
-          phone: '',
-          email: mergedData.contactValue || '',
-          consent: true,
-          kvkk: true,
-          gender: mergedData.gender,
-          previousTransplant: mergedData.history,
-        },
-        intake: mergedData,
-        analysisData: {
-          ...result,
-          surgical_plan_image: planImg,
-          simulation_image: simImg,
-        },
-        name: mergedData.userName || 'Verified Patient',
-        email: mergedData.contactValue || '',
+    const newLead: LeadData = {
+      id: `L-${Math.floor(Math.random() * 10000)}`,
+      countryCode: lang === 'EN' ? 'US' : lang,
+      age: result.phenotypic_features?.apparent_age || 30,
+      gender: (mergedData.gender as 'Male' | 'Female') || 'Male',
+      norwoodScale: result.diagnosis?.norwood_scale || 'NW3',
+      estimatedGrafts: `${result.technical_metrics?.graft_count_min || 2500}`,
+      registrationDate: 'Just Now',
+      timestamp: Date.now(),
+      thumbnailUrl: simImg || '',
+      status: 'AVAILABLE' as const,
+      price: 65,
+      proposalPrice: 12,
+      isUnlocked: false,
+      isNegotiable: true,
+      patientDetails: {
+        fullName: mergedData.userName || 'Verified Patient',
         phone: '',
-        concerns: mergedData.goal ? [mergedData.goal] : [],
-        source: 'scanner',
-        scanData: {
-          photoCount: capturedPhotos.length,
-          photoLabels: capturedPhotos.map((p: any) => p.label || p.id),
-          hasSimulation: !!simImg,
-          hasPlanningImage: !!planImg,
-        },
-        metadata: {
-          lang,
-          intake: mergedData,
-        },
-      };
+        email: mergedData.contactValue || '',
+        consent: true,
+        kvkk: true,
+        gender: mergedData.gender,
+        previousTransplant: mergedData.history,
+      },
+      intake: mergedData,
+      analysisData: {
+        ...result,
+        surgical_plan_image: planImg,
+        simulation_image: simImg,
+      },
+      name: mergedData.userName || 'Verified Patient',
+      email: mergedData.contactValue || '',
+      phone: '',
+      concerns: mergedData.goal ? [mergedData.goal] : [],
+      source: 'scanner',
+      scanData: {
+        photoCount: capturedPhotos.length,
+        photoLabels: capturedPhotos.map((p: any) => p.label || p.id),
+        hasSimulation: !!simImg,
+        hasPlanningImage: !!planImg,
+      },
+      metadata: {
+        lang,
+        intake: mergedData,
+      },
+    };
 
-      console.log('[App] Adding lead to context and navigating to RESULT');
-      addLead(newLead);
-      setAppState('RESULT');
-    } catch (err: any) {
-      console.error('[App] Lead creation error:', err);
-      setError(
-        lang === 'TR'
-          ? 'Kayıt oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.'
-          : 'An error occurred while creating the lead. Please try again.'
-      );
-      setAppState('RESULT');
-    }
+    console.log('[App] Adding lead and navigating to RESULT');
+    addLead(newLead);
+    setAppState('RESULT');
   };
 
   const showFooter = ['LANDING', 'DIRECTORY', 'CLINIC_DETAILS', 'RESULT', 'CLINIC_LANDING', 'BLOG'].includes(appState);
