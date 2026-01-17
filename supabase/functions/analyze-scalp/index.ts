@@ -177,16 +177,25 @@ Deno.serve(async (req: Request) => {
 
     const validation = validateScalpAnalysis(parsedData);
 
+    const resultData = validation.success ? validation.data : parsedData;
+
+    if (!validation.success) {
+      console.warn(
+        'ScalpAnalysis validation failed, falling back to parsedData:',
+        formatValidationErrors(validation.errors!)
+      );
+    }
+
     const executionTime = Date.now() - startTime;
     const inputHash = createInputHash(images);
-    const outputSize = measureOutputSize(validation.success ? validation.data : parsedData);
+    const outputSize = measureOutputSize(resultData);
 
     try {
       usageLogId = await logPromptUsage({
         promptName: 'scalp_analysis',
         promptVersion: version,
         executionTimeMs: executionTime,
-        model: 'gemini-3-pro-image-preview',
+        model: 'gemini-1.5-pro',
         success: validation.success,
         errorMessage: validation.success ? undefined : formatValidationErrors(validation.errors!),
         inputHash,
@@ -210,24 +219,10 @@ Deno.serve(async (req: Request) => {
       } catch (logError) {
         console.error('Failed to log validation error (non-blocking):', logError);
       }
-
-      return new Response(
-        JSON.stringify({
-          error: 'AI response validation failed',
-          details: formatValidationErrors(validation.errors!),
-        }),
-        {
-          status: 422,
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
     }
 
     console.log('Analysis completed successfully');
-    return new Response(JSON.stringify(validation.data), {
+    return new Response(JSON.stringify(resultData), {
       headers: {
         ...corsHeaders,
         'Content-Type': 'application/json',

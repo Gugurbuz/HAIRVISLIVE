@@ -49,8 +49,20 @@ export const geminiService = {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Analysis failed');
+        let errorBody: any = null;
+        try {
+          errorBody = await response.json();
+        } catch {
+          // response body is empty or not JSON
+        }
+
+        console.error('Scalp analysis failed:', errorBody || response.statusText);
+
+        const message =
+          (errorBody && (errorBody.error || errorBody.details)) ||
+          `Analysis failed (status ${response.status})`;
+
+        throw new Error(message);
       }
 
       const data = await response.json();
@@ -81,8 +93,20 @@ export const geminiService = {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Generation failed');
+        let errorBody: any = null;
+        try {
+          errorBody = await response.json();
+        } catch {
+          // response body is empty or not JSON
+        }
+
+        console.error('Simulation generation failed:', errorBody || response.statusText);
+
+        const message =
+          (errorBody && (errorBody.error || errorBody.details)) ||
+          `Generation failed (status ${response.status})`;
+
+        throw new Error(message);
       }
 
       const data = await response.json();

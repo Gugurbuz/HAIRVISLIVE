@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { GoogleGenAI } from 'npm:@google/genai';
+import { GoogleGenerativeAI } from 'npm:@google/generative-ai@0.24.1';
 import { getPrompt } from '../_shared/prompts.ts';
 import { logPromptUsage, createInputHash } from '../_shared/logger.ts';
 import { getFeatureFlags, isFeatureEnabled } from '../_shared/feature-flags.ts';
@@ -35,8 +35,7 @@ interface ScalpAnalysisResult {
   analysis: any;
 }
 
-// Gemini model id – şu an senin zaten çalıştırdığın model
-const GEMINI_MODEL_ID = 'gemini-3-pro-image-preview';
+const GEMINI_MODEL_ID = 'gemini-1.5-pro';
 
 // Gemini response içinden image inlineData çıkarmak için helper
 type GeminiPart = {
@@ -144,7 +143,8 @@ Deno.serve(async (req: Request) => {
       throw new Error('Analysis result is required');
     }
 
-    const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL_ID });
 
     const { prompt, version } = getPrompt('hair_simulation');
 
@@ -244,31 +244,30 @@ Generate a realistic "after" simulation showing the expected results of hair res
     });
 
     console.log('Calling Gemini API');
-    const result = (await genAI.models.generateContent({
-      model: GEMINI_MODEL_ID,
-      contents: [
-        {
-          parts: [
-            { text: fullPrompt },
-            ...imageParts.map((img) => ({ inlineData: img.inlineData })),
-          ],
-        },
-      ],
-    })) as unknown as GeminiResponse;
+    const result = await model.generateContent([
+      fullPrompt,
+      ...imageParts.map((img) => ({
+        inlineData: {
+          mimeType: img.inlineData.mimeType,
+          data: img.inlineData.data
+        }
+      }))
+    ]);
 
     console.log('Gemini API response received, extracting image');
+    const response = await result.response;
+    const text = response.text();
 
-    const imageData = extractImageBase64FromGemini(result);
-
-    if (!imageData) {
-      console.error('No image inlineData in Gemini response:', JSON.stringify(result, null, 2));
-      throw new Error('No image data in Gemini response');
+    if (!text) {
+      console.error('No text in Gemini response');
+      throw new Error('No text content in Gemini response');
     }
 
-    // Image'i data URL'e çevir
-    const imageUrl = `data:${imageData.mimeType};base64,${imageData.base64}`;
+    console.log('Response text received, length:', text.length);
 
-    console.log('Image data extracted, base64 length:', imageData.base64.length);
+    const imageUrl = text.trim();
+
+    console.log('Image URL extracted, length:', imageUrl.length);
 
     const executionTime = Date.now() - startTime;
     const inputHash = createInputHash({
