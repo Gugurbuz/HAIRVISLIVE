@@ -1,51 +1,72 @@
-import { supabase } from './lib/supabase';
-import type { ScalpAnalysisResult as ValidationScalpAnalysisResult } from './lib/schemas/validation';
+import type { ScalpAnalysisResult, ScalpImages } from '../geminiService';
 
-export type ScalpImages = {
-  front?: string;
-  top?: string;
-  left?: string;
-  right?: string;
-  crown?: string;
-  donor?: string;
-  macro?: string;
-};
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-export type ScalpAnalysisResult = ValidationScalpAnalysisResult;
-
-// Edge function isimlerin: analyze-scalp, generate-simulation
-// App.tsx ayrıca generateSurgicalPlanImage çağırıyor -> sende edge'de yok.
-// Şimdilik stub (plan image) olarak mainPhoto döndüreceğiz ki akış kırılmasın.
-// Sonra Sprint 2’de bunu ayrı edge function yaparız.
-
-export const geminiService = {
+export const secureGeminiService = {
   async analyzeScalp(images: ScalpImages): Promise<ScalpAnalysisResult> {
-    const { data, error } = await supabase.functions.invoke<ScalpAnalysisResult>('analyze-scalp', {
-      body: { images },
-    });
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/analyze-scalp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({ images }),
+      });
 
-    if (error) throw new Error(error.message || 'analyze-scalp failed');
-    if (!data) throw new Error('No data returned from analyze-scalp');
-    return data;
-  },
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Analysis failed');
+      }
 
-  async generateSurgicalPlanImage(mainPhotoData: string, analysisResult: ScalpAnalysisResult): Promise<string> {
-    if (typeof mainPhotoData === 'string' && mainPhotoData.startsWith('data:')) {
-      return mainPhotoData;
+      const data = await response.json();
+      return data as ScalpAnalysisResult;
+    } catch (error) {
+      console.error('Scalp analysis error:', error);
+      throw error;
     }
-    return `data:image/jpeg;base64,${mainPhotoData}`;
   },
 
-  async generateSimulation(mainPhotoBase64: string, planningImage: string, analysisResult: ScalpAnalysisResult): Promise<string> {
-    const { data, error } = await supabase.functions.invoke<{ imageUrl: string }>('generate-simulation', {
-      body: {
-        mainImage: mainPhotoBase64,
-        analysisResult,
-      },
-    });
+  async generateSimulation(
+    mainImage: string,
+    analysisResult: ScalpAnalysisResult,
+    contextImages?: Partial<ScalpImages>
+  ): Promise<string> {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-simulation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          mainImage,
+          analysisResult,
+          contextImages,
+        }),
+      });
 
-    if (error) throw new Error(error.message || 'generate-simulation failed');
-    if (!data?.imageUrl) throw new Error('No imageUrl returned from generate-simulation');
-    return data.imageUrl;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Generation failed');
+      }
+
+      const data = await response.json();
+      if (!data.imageUrl) {
+        throw new Error('No image URL returned');
+      }
+      return data.imageUrl;
+    } catch (error) {
+      console.error('Simulation generation error:', error);
+      throw error;
+    }
+  },
+
+  async generateMedicalTimelineImage(
+    mainImage: string,
+    analysisResult: ScalpAnalysisResult
+  ): Promise<string> {
+    return this.generateSimulation(mainImage, analysisResult);
   },
 };
