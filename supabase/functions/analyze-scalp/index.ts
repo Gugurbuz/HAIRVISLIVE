@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const genAI = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const model = 'gemini-1.5-flash';
+    const model = 'gemini-3-pro-image-preview';
 
     const { prompt, version } = getPrompt('scalp_analysis');
 
