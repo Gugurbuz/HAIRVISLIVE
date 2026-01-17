@@ -101,6 +101,30 @@ Deno.serve(async (req: Request) => {
 
     const { prompt, version } = getPrompt('hair_simulation');
 
+    const parseImageData = (imageData: string) => {
+      let rawBase64 = imageData.trim();
+      let mimeType = 'image/jpeg';
+
+      const dataUrlMatch = rawBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/);
+
+      if (dataUrlMatch) {
+        mimeType = dataUrlMatch[1];
+        rawBase64 = dataUrlMatch[2];
+      } else if (rawBase64.includes(',')) {
+        rawBase64 = rawBase64.split(',')[1];
+      }
+
+      if (rawBase64.length < 1000) {
+        console.warn('Image base64 too short', {
+          length: rawBase64.length,
+          sample: rawBase64.slice(0, 50),
+        });
+        throw new Error('Image data too short or invalid');
+      }
+
+      return { data: rawBase64, mimeType };
+    };
+
     // Safely extract data from analysis result
     const norwoodScale = analysisResult.norwoodScale || analysisResult.diagnosis?.norwood_scale || 'Unknown';
     const hairLossPattern = analysisResult.hairLossPattern || analysisResult.diagnosis?.analysis_summary || 'General hair loss';
@@ -124,31 +148,25 @@ Generate a realistic "after" simulation showing the expected results of hair res
 
     const fullPrompt = prompt + contextText;
 
-    const imageParts = [
-      {
-        inlineData: {
-          data: mainImage.split(',')[1],
-          mimeType: 'image/jpeg',
-        },
-      },
-    ];
+    const imageParts = [];
+
+    const mainImageParsed = parseImageData(mainImage);
+    imageParts.push({ inlineData: mainImageParsed });
 
     if (contextImages?.front) {
-      imageParts.push({
-        inlineData: {
-          data: contextImages.front.split(',')[1],
-          mimeType: 'image/jpeg',
-        },
-      });
+      const parsed = parseImageData(contextImages.front);
+      imageParts.push({ inlineData: parsed });
     }
     if (contextImages?.top) {
-      imageParts.push({
-        inlineData: {
-          data: contextImages.top.split(',')[1],
-          mimeType: 'image/jpeg',
-        },
-      });
+      const parsed = parseImageData(contextImages.top);
+      imageParts.push({ inlineData: parsed });
     }
+
+    console.log('Image parts prepared for simulation:', {
+      count: imageParts.length,
+      mimeTypes: imageParts.map(p => p.inlineData.mimeType),
+      sizes: imageParts.map(p => p.inlineData.data.length),
+    });
 
     console.log('Calling Gemini API');
     const result = await genAI.models.generateContent({
