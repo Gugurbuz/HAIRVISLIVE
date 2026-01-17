@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
 
     const { prompt, version } = getPrompt('scalp_analysis');
 
@@ -156,7 +156,7 @@ Deno.serve(async (req: Request) => {
         promptName: 'scalp_analysis',
         promptVersion: version,
         executionTimeMs: executionTime,
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-pro-image-preview',
         success: validation.success,
         errorMessage: validation.success ? undefined : formatValidationErrors(validation.errors!),
         inputHash,
