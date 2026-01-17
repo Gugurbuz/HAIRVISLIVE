@@ -180,8 +180,16 @@ Generate a realistic "after" simulation showing the expected results of hair res
         }
       ]
     });
-    const imageUrl = result.text;
-    console.log('Gemini API response received');
+
+    console.log('Gemini API response received, extracting text');
+    const imageUrl = result.candidates?.[0]?.content?.parts?.[0]?.text || result.text || '';
+
+    if (!imageUrl) {
+      console.error('No text in response:', JSON.stringify(result, null, 2));
+      throw new Error('No text content in Gemini response');
+    }
+
+    console.log('Image URL extracted, length:', imageUrl.length);
 
     const executionTime = Date.now() - startTime;
     const inputHash = createInputHash({ mainImage: mainImage.substring(0, 100), analysisResult });

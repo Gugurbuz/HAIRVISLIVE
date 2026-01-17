@@ -155,8 +155,16 @@ Deno.serve(async (req: Request) => {
         }
       ]
     });
-    const text = result.text;
-    console.log('Gemini API response received');
+
+    console.log('Gemini API response received, extracting text');
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || result.text || '';
+
+    if (!text) {
+      console.error('No text in response:', JSON.stringify(result, null, 2));
+      throw new Error('No text content in Gemini response');
+    }
+
+    console.log('Text extracted, length:', text.length);
 
     const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     let parsedData;
