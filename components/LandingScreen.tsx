@@ -26,7 +26,6 @@ import type { Database } from '../lib/database.types';
 type Clinic = Database['public']['Tables']['clinics']['Row'];
 
 // --- PERFORMANCE HELPERS ---
-// Mobilde olup olmadığını anlamak için basit kontrol
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -45,8 +44,7 @@ interface LandingScreenProps {
   lang: LanguageCode;
 }
 
-// OPTIMIZATION 1: LivingBackground artık CSS animation kullanıyor ve blur mobilde daha düşük.
-// Framer-motion yerine saf CSS classları kullanıldı.
+// OPTIMIZATION 1: LivingBackground uses CSS animation (lighter than framer).
 const LivingBackground = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden select-none z-0 bg-[#F7F8FA] transform-gpu">
     {/* Grid Background - Static */}
@@ -64,7 +62,6 @@ const LivingBackground = () => (
       style={{ willChange: 'transform, opacity' }}
     />
 
-    {/* CSS Styles for Blobs (Inline style to ensure it works without external CSS file) */}
     <style>{`
       @keyframes blob {
         0% { transform: translate(0px, 0px) scale(1); }
@@ -72,12 +69,8 @@ const LivingBackground = () => (
         66% { transform: translate(-20px, 20px) scale(0.9); }
         100% { transform: translate(0px, 0px) scale(1); }
       }
-      .animate-blob {
-        animation: blob 10s infinite;
-      }
-      .animation-delay-2000 {
-        animation-delay: 2s;
-      }
+      .animate-blob { animation: blob 10s infinite; }
+      .animation-delay-2000 { animation-delay: 2s; }
     `}</style>
   </div>
 );
@@ -109,7 +102,6 @@ const BeforeAfterSlider = ({
     const tick = (ts: number) => {
       if (!startTime) startTime = ts;
 
-      // Ekranda değilse hesaplama yapma
       if (document.visibilityState !== 'visible') {
         rafRef.current = requestAnimationFrame(tick);
         return;
@@ -480,8 +472,7 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
         },
         {
           title: 'Uygun kliniklerle otomatik paylaşım',
-          desc:
-            'Raporun, ihtiyaçlarına ve durumuna göre uygun bulunan kliniklere aynı anda gönderilir.',
+          desc: 'Raporun, ihtiyaçlarına ve durumuna göre uygun bulunan kliniklere aynı anda gönderilir.',
         },
         {
           title: 'Ham foto değil, standart rapor',
@@ -490,8 +481,7 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
         },
         {
           title: 'Karşılaştırılabilir teklifler',
-          desc:
-            'Tüm klinikler aynı raporu gördüğü için gelen teklifler net, hızlı ve karşılaştırılabilirdir.',
+          desc: 'Tüm klinikler aynı raporu gördüğü için gelen teklifler net, hızlı ve karşılaştırılabilirdir.',
         },
       ],
       cta: 'Taramayı başlat',
@@ -510,18 +500,15 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
         },
         {
           title: 'Auto-sharing with best-fit clinics',
-          desc:
-            'Your report is automatically shared with clinics that best match your situation and needs.',
+          desc: 'Your report is automatically shared with clinics that best match your situation and needs.',
         },
         {
           title: 'Standardized report, not raw photos',
-          desc:
-            'Clinics receive a structured report with measurements, zones, graft ranges and simulation.',
+          desc: 'Clinics receive a structured report with measurements, zones, graft ranges and simulation.',
         },
         {
           title: 'Comparable offers',
-          desc:
-            'Because every clinic reviews the same report, offers are clear, fast and easy to compare.',
+          desc: 'Because every clinic reviews the same report, offers are clear, fast and easy to compare.',
         },
       ],
       cta: 'Start scanning',
@@ -571,9 +558,7 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
             <p className="mt-2 text-sm text-slate-500 leading-relaxed font-light">{it.desc}</p>
 
             <div className="mt-6 pt-5 border-t border-slate-100">
-              <div className="text-[10px] font-black uppercase tracking-widest text-teal-600">
-                Smart matching
-              </div>
+              <div className="text-[10px] font-black uppercase tracking-widest text-teal-600">Smart matching</div>
             </div>
           </div>
         ))}
@@ -616,6 +601,62 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
     return data.publicUrl;
   }, []);
 
+  // Copy for the “Action Plan” block (TR/EN only; AR falls back to EN for now)
+  const actionCopy = useMemo(() => {
+    const TR = {
+      badge: 'Rapor + Klinik Eşleştirme',
+      title1: 'Sadece bir rapor değil.',
+      title2: 'Tam bir aksiyon planı.',
+      desc:
+        'Tarama sonrası raporun oluşur ve durumuna uygun bulunan kliniklerle paylaşılır. Böylece teklifler aynı rapora göre gelir ve kolayca karşılaştırırsın.',
+      bullets: [
+        'Norwood Sınıflandırması + Bölge Haritalama',
+        'Tahmini Greft Aralığı (Min - Max)',
+        'Donör Alan Yoğunluğu Değerlendirmesi',
+        '12 Aylık Simülasyon + Zaman Çizelgesi',
+      ],
+      cta: 'Raporumu oluştur',
+      card: {
+        label: 'Analiz ID',
+        status: 'Tamamlandı',
+        scale: 'Skala',
+        grafts: 'Greft',
+        cost: 'Tahmini Maliyet (TR)',
+        matched: 'Uygun Klinik',
+        offers: 'Teklif',
+        preview: 'Simülasyon hazır',
+      },
+    };
+
+    const EN = {
+      badge: 'Report + Clinic Matching',
+      title1: 'Not just a report.',
+      title2: 'A Full Action Plan.',
+      desc:
+        'After your scan, we generate a structured report and share it with best-fit clinics. Offers come in based on the same report, so you can compare fast.',
+      bullets: [
+        'Norwood classification & zone mapping',
+        'Precise graft estimate range (min–max)',
+        'Donor area density assessment',
+        '12-month simulation + timeline',
+      ],
+      cta: 'Generate my report',
+      card: {
+        label: 'Analysis ID',
+        status: 'Completed',
+        scale: 'Scale',
+        grafts: 'Grafts',
+        cost: 'Est. cost (Turkey)',
+        matched: 'Best-fit clinics',
+        offers: 'Offers',
+        preview: 'Preview ready',
+      },
+    };
+
+    const map: Record<string, any> = { TR, EN };
+    return map[lang] || EN;
+  }, [lang]);
+
   return (
     <div className={`relative w-full min-h-screen ${isRTL ? 'text-right' : 'text-left'}`}>
       <LivingBackground />
@@ -623,7 +664,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
         {/* HERO SECTION */}
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
-          {/* Text Content - ORDER 1 ON MOBILE */}
+          {/* Text Content */}
           <div className="text-left space-y-8 order-1 lg:order-1">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
@@ -668,7 +709,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
             </motion.div>
           </div>
 
-          {/* Slider Content - ORDER 2 ON MOBILE */}
+          {/* Slider Content */}
           <div className="order-2 lg:order-2 relative">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[40px] md:blur-[80px] rounded-full pointer-events-none" />
 
@@ -720,7 +761,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
         {/* WHY USERS CHOOSE US */}
         <WhyChooseSection lang={lang} onStart={onStart} />
 
-        {/* ACTION PLAN BLOCK */}
+        {/* ACTION PLAN BLOCK (UPDATED COPY) */}
         <div className="max-w-7xl mx-auto mb-32">
           <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl transform-gpu">
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[60px] md:blur-[120px] pointer-events-none" />
@@ -729,25 +770,20 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
               <div className="space-y-8">
                 <div>
                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-teal-500/20 rounded-full text-teal-400 text-[10px] font-black uppercase tracking-widest border border-teal-500/20 mb-4">
-                    <FileText size={14} /> Comprehensive Output
+                    <FileText size={14} /> {actionCopy.badge}
                   </div>
+
                   <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-[1.1]">
-                    Not just a photo.
+                    {actionCopy.title1}
                     <br />
-                    <span className="text-teal-400">A Full Action Plan.</span>
+                    <span className="text-teal-400">{actionCopy.title2}</span>
                   </h2>
-                  <p className="text-slate-400 text-lg font-light leading-relaxed mt-4">
-                    Your free analysis unlocks a medical-grade dashboard used by top surgeons to plan procedures.
-                  </p>
+
+                  <p className="text-slate-400 text-lg font-light leading-relaxed mt-4">{actionCopy.desc}</p>
                 </div>
 
                 <div className="space-y-4">
-                  {[
-                    'Norwood Scale Classification & Zone Mapping',
-                    'Precise Graft Estimate Range (Min - Max)',
-                    'Donor Area Density Assessment',
-                    'Personalized 12-Month Simulation',
-                  ].map((item, i) => (
+                  {actionCopy.bullets.map((item: string, i: number) => (
                     <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10">
                       <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center shrink-0">
                         <CheckCircle2 size={16} className="text-[#0E1A2B]" />
@@ -761,10 +797,11 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
                   onClick={onStart}
                   className="w-full sm:w-auto px-8 py-4 bg-white text-[#0E1A2B] rounded-xl font-black uppercase tracking-widest text-xs hover:bg-teal-500 transition-all flex items-center justify-center gap-2 mt-4"
                 >
-                  Get My Report Now <ArrowRight size={14} />
+                  {actionCopy.cta} <ArrowRight size={14} />
                 </button>
               </div>
 
+              {/* Right Card */}
               <div className="relative group perspective-1000">
                 <div className="relative bg-white rounded-[2rem] p-6 shadow-2xl transform transition-transform group-hover:rotate-y-2 duration-500 will-change-transform">
                   <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
@@ -773,30 +810,44 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
                         <Activity size={20} className="text-[#0E1A2B]" />
                       </div>
                       <div>
-                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Analysis ID</div>
+                        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          {actionCopy.card.label}
+                        </div>
                         <div className="font-mono font-bold text-[#0E1A2B]">#8392-X</div>
                       </div>
                     </div>
                     <div className="px-3 py-1 bg-green-50 text-green-600 rounded-lg text-[10px] font-black uppercase tracking-widest">
-                      Completed
+                      {actionCopy.card.status}
                     </div>
                   </div>
 
                   <div className="space-y-4">
                     <div className="flex gap-4">
                       <div className="flex-1 bg-slate-50 p-4 rounded-xl">
-                        <div className="text-[10px] font-black text-slate-400 uppercase">Scale</div>
+                        <div className="text-[10px] font-black text-slate-400 uppercase">{actionCopy.card.scale}</div>
                         <div className="text-xl font-black text-[#0E1A2B]">NW 3V</div>
                       </div>
                       <div className="flex-1 bg-slate-50 p-4 rounded-xl">
-                        <div className="text-[10px] font-black text-slate-400 uppercase">Grafts</div>
+                        <div className="text-[10px] font-black text-slate-400 uppercase">{actionCopy.card.grafts}</div>
                         <div className="text-xl font-black text-[#0E1A2B]">2,800+</div>
+                      </div>
+                    </div>
+
+                    {/* Matching + Offers row */}
+                    <div className="flex gap-4">
+                      <div className="flex-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div className="text-[10px] font-black text-slate-400 uppercase">{actionCopy.card.matched}</div>
+                        <div className="text-xl font-black text-[#0E1A2B]">6</div>
+                      </div>
+                      <div className="flex-1 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div className="text-[10px] font-black text-slate-400 uppercase">{actionCopy.card.offers}</div>
+                        <div className="text-xl font-black text-[#0E1A2B]">3</div>
                       </div>
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                       <div className="flex justify-between items-center mb-2">
-                        <span className="text-[10px] font-black text-slate-400 uppercase">Est. Cost (Turkey)</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase">{actionCopy.card.cost}</span>
                         <span className="text-lg font-black text-teal-600">€2,200</span>
                       </div>
                       <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
@@ -807,12 +858,13 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
                     <div className="aspect-[16/9] bg-slate-800 rounded-xl relative overflow-hidden flex items-center justify-center">
                       <Sparkles className="text-teal-500 animate-pulse" />
                       <span className="absolute bottom-2 left-2 text-[9px] font-bold text-white/50 uppercase tracking-widest">
-                        AI Preview Generated
+                        {actionCopy.card.preview}
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
+              {/* End right card */}
             </div>
           </div>
         </div>
