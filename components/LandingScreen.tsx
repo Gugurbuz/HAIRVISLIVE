@@ -1,4 +1,3 @@
-```tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ChevronRight,
@@ -850,4 +849,3 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 };
 
 export default LandingScreen;
-
