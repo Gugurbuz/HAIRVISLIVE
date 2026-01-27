@@ -1,3 +1,4 @@
+```tsx
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   ChevronRight,
@@ -103,9 +104,6 @@ const BeforeAfterSlider = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // OPTIMIZATION 2: Mobilde animasyon framerate'ini düşür veya basitleştir.
-  // Burada React State update'i yerine doğrudan DOM manipülasyonu bile yapılabilir ama
-  // şimdilik lojiği koruyup sadece görünürlük kontrolü ekliyoruz.
   useEffect(() => {
     let startTime: number | null = null;
 
@@ -148,7 +146,6 @@ const BeforeAfterSlider = ({
       style={{
         WebkitMaskImage: edgeFadeMask,
         maskImage: edgeFadeMask,
-        // Mobilde box-shadow performans düşürebilir, gerekirse azaltılabilir
         boxShadow: 'inset 0 0 80px rgba(14, 26, 43, 0.08)',
       }}
     >
@@ -158,7 +155,7 @@ const BeforeAfterSlider = ({
           alt="After"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
-          loading="eager" // Hero image olduğu için eager
+          loading="eager"
         />
       </div>
 
@@ -167,7 +164,7 @@ const BeforeAfterSlider = ({
         style={{
           WebkitMaskImage: sliderMaskStyle,
           maskImage: sliderMaskStyle,
-          willChange: 'mask-image, -webkit-mask-image', // Tarayıcıya ipucu
+          willChange: 'mask-image, -webkit-mask-image',
         }}
       >
         <img
@@ -186,7 +183,7 @@ const BeforeAfterSlider = ({
           left: isRTL ? 'auto' : '0',
           right: isRTL ? '0' : 'auto',
           width: '100%',
-          willChange: 'transform', // GPU acceleration
+          willChange: 'transform',
         }}
       >
         <div className="absolute top-0 bottom-0 left-0 w-[2px] -ml-[1px]">
@@ -255,10 +252,8 @@ const TopClinics = ({
         );
   }, [activeCat, clinics]);
 
-  // OPTIMIZATION 3: Mobilde Auto-Scroll'u iptal et.
-  // Mobilde auto-scroll hem performansı düşürür hem de UX açısından kötüdür.
   useEffect(() => {
-    if (isMobile) return; // Mobilde isen kodu çalıştırma, çık.
+    if (isMobile) return;
 
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
@@ -330,11 +325,10 @@ const TopClinics = ({
 
         <div
           ref={scrollRef}
-          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar scroll-smooth" // scroll-smooth eklendi
+          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar scroll-smooth"
           style={{
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
-            // Mobilde native touch scrolling'i etkinleştirmek için:
             WebkitOverflowScrolling: 'touch',
           }}
         >
@@ -342,7 +336,6 @@ const TopClinics = ({
             <div
               key={`${clinic.id}-${idx}`}
               onClick={onViewDetail}
-              // transform-gpu eklendi
               className="group relative w-[360px] md:w-[400px] shrink-0 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-teal-900/10 transition-all duration-500 cursor-pointer flex flex-col snap-center transform-gpu"
             >
               <div className="aspect-[4/3] relative overflow-hidden">
@@ -476,58 +469,60 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
 
   const copy = useMemo(() => {
     const TR = {
-      badge: 'Tek sefer tarama · Standart rapor',
+      badge: 'Tek sefer tarama · Akıllı eşleştirme',
       title1: 'Kullanıcılar',
       title2: 'neden HairVis’i seçer?',
       desc:
-        'Fotoğraf gönderme trafiğini ortadan kaldırıyoruz. Tek sefer tarama ile oluşturulan rapor, seçili kliniklerle aynı anda paylaşılır.',
+        'Tek sefer tarama ile raporun oluşur. Sonra raporun, “senin için uygun bulunan” kliniklerle otomatik paylaşılır; teklifler karşılaştırılabilir şekilde gelir.',
       items: [
         {
           title: 'Tek sefer tarama',
           desc: 'Her kliniğe ayrı ayrı foto göndermek yok. Kamera ile tek sefer tarama yapılır.',
         },
         {
-          title: 'Otomatik rapor paylaşımı',
-          desc: 'Tarama sonrası oluşan standart rapor, seçtiğin kliniklerle doğrudan paylaşılır.',
+          title: 'Uygun kliniklerle otomatik paylaşım',
+          desc:
+            'Raporun, ihtiyaçlarına ve durumuna göre uygun bulunan kliniklere aynı anda gönderilir.',
         },
         {
-          title: 'Ham foto değil, rapor paketi',
+          title: 'Ham foto değil, standart rapor',
           desc:
             'Klinikler dağınık fotoğraflar değil; ölçümler, bölgeler, greft aralığı ve simülasyon içeren raporu görür.',
         },
         {
           title: 'Karşılaştırılabilir teklifler',
           desc:
-            'Tüm klinikler aynı raporu gördüğü için gelen teklifler net ve karşılaştırılabilirdir.',
+            'Tüm klinikler aynı raporu gördüğü için gelen teklifler net, hızlı ve karşılaştırılabilirdir.',
         },
       ],
       cta: 'Taramayı başlat',
     };
 
     const EN = {
-      badge: 'Single scan · Standardized report',
+      badge: 'Single scan · Smart matching',
       title1: 'Why users',
       title2: 'choose HairVis',
       desc:
-        'We eliminate photo back-and-forth. A single scan generates a report that is shared with selected clinics instantly.',
+        'A single scan generates your report. Then we automatically share it with clinics that best match your case—so offers arrive in a comparable format.',
       items: [
         {
           title: 'One scan',
-          desc: 'No sending photos to clinics one by one. A single camera scan is enough.',
+          desc: 'No sending photos clinic by clinic. A single camera scan is enough.',
         },
         {
-          title: 'Automatic report sharing',
-          desc: 'Once the scan is complete, the report is shared with selected clinics automatically.',
+          title: 'Auto-sharing with best-fit clinics',
+          desc:
+            'Your report is automatically shared with clinics that best match your situation and needs.',
         },
         {
-          title: 'Report package, not raw photos',
+          title: 'Standardized report, not raw photos',
           desc:
             'Clinics receive a structured report with measurements, zones, graft ranges and simulation.',
         },
         {
           title: 'Comparable offers',
           desc:
-            'All clinics review the same report, making offers clear and easy to compare.',
+            'Because every clinic reviews the same report, offers are clear, fast and easy to compare.',
         },
       ],
       cta: 'Start scanning',
@@ -578,7 +573,7 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
 
             <div className="mt-6 pt-5 border-t border-slate-100">
               <div className="text-[10px] font-black uppercase tracking-widest text-teal-600">
-                Standardized flow
+                Smart matching
               </div>
             </div>
           </div>
@@ -600,8 +595,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
   };
 
   useEffect(() => {
-    // Scroll eventini debounce yapmak daha iyidir ama şimdilik basit tutuyoruz.
-    // Passive: true performans için kritiktir.
     const handleScroll = () => {
       if (window.scrollY > 500) setShowStickyCTA(true);
       else setShowStickyCTA(false);
@@ -631,7 +624,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
         {/* HERO SECTION */}
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
-          {/* Text Content - ORDER 1 ON MOBILE (Your requested fix) */}
+          {/* Text Content - ORDER 1 ON MOBILE */}
           <div className="text-left space-y-8 order-1 lg:order-1">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
@@ -678,7 +671,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 
           {/* Slider Content - ORDER 2 ON MOBILE */}
           <div className="order-2 lg:order-2 relative">
-            {/* Reduced Blur for Performance */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[40px] md:blur-[80px] rounded-full pointer-events-none" />
 
             <motion.div
@@ -726,13 +718,12 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           />
         </div>
 
-        {/* ✅ WHY USERS CHOOSE US (En doğru yer: Showcase'ten sonra, Action Plan'dan önce) */}
+        {/* WHY USERS CHOOSE US */}
         <WhyChooseSection lang={lang} onStart={onStart} />
 
         {/* ACTION PLAN BLOCK */}
         <div className="max-w-7xl mx-auto mb-32">
           <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl transform-gpu">
-            {/* Reduced Blur */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[60px] md:blur-[120px] pointer-events-none" />
 
             <div className="grid lg:grid-cols-2 gap-16 items-center relative z-10">
@@ -859,3 +850,4 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 };
 
 export default LandingScreen;
+```
