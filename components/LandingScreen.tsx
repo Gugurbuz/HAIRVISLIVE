@@ -15,6 +15,11 @@ import {
   Activity,
   FileText,
   CheckCircle2,
+  ShieldCheck,
+  Image as ImageIcon,
+  PhoneOff,
+  EyeOff,
+  UserRoundCheck,
 } from 'lucide-react';
 import { translations, LanguageCode } from '../translations';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -53,17 +58,17 @@ const LivingBackground = () => (
     <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
 
     {/* Blob 1 - Teal */}
-    <div 
-      className="absolute left-0 right-0 top-[-10%] m-auto h-[300px] w-[300px] md:h-[400px] md:w-[400px] rounded-full bg-teal-500/20 blur-[50px] md:blur-[100px] animate-blob mix-blend-multiply" 
+    <div
+      className="absolute left-0 right-0 top-[-10%] m-auto h-[300px] w-[300px] md:h-[400px] md:w-[400px] rounded-full bg-teal-500/20 blur-[50px] md:blur-[100px] animate-blob mix-blend-multiply"
       style={{ willChange: 'transform, opacity' }}
     />
 
     {/* Blob 2 - Indigo */}
-    <div 
+    <div
       className="absolute right-[-10%] bottom-0 h-[350px] w-[350px] md:h-[500px] md:w-[500px] rounded-full bg-indigo-500/20 blur-[60px] md:blur-[120px] animate-blob animation-delay-2000 mix-blend-multiply"
       style={{ willChange: 'transform, opacity' }}
     />
-    
+
     {/* CSS Styles for Blobs (Inline style to ensure it works without external CSS file) */}
     <style>{`
       @keyframes blob {
@@ -72,12 +77,8 @@ const LivingBackground = () => (
         66% { transform: translate(-20px, 20px) scale(0.9); }
         100% { transform: translate(0px, 0px) scale(1); }
       }
-      .animate-blob {
-        animation: blob 10s infinite;
-      }
-      .animation-delay-2000 {
-        animation-delay: 2s;
-      }
+      .animate-blob { animation: blob 10s infinite; }
+      .animation-delay-2000 { animation-delay: 2s; }
     `}</style>
   </div>
 );
@@ -103,20 +104,12 @@ const BeforeAfterSlider = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  // OPTIMIZATION 2: Mobilde animasyon framerate'ini düşür veya basitleştir.
-  // Burada React State update'i yerine doğrudan DOM manipülasyonu bile yapılabilir ama
-  // şimdilik lojiği koruyup sadece görünürlük kontrolü ekliyoruz.
   useEffect(() => {
-    // Mobilde otomatik kaydırma bazen kullanıcıyı yorar ve CPU harcar.
-    // İstersen mobilde 'autoPeriodMs' değerini null yapabilirsin. 
-    // Şimdilik performansı artırmak için sadece görünürken çalışmasını garantiye alıyoruz.
-    
     let startTime: number | null = null;
 
     const tick = (ts: number) => {
       if (!startTime) startTime = ts;
-      
-      // Ekranda değilse hesaplama yapma
+
       if (document.visibilityState !== 'visible') {
         rafRef.current = requestAnimationFrame(tick);
         return;
@@ -126,7 +119,7 @@ const BeforeAfterSlider = ({
       const s = Math.sin(t * Math.PI * 2);
       const eased = Math.sign(s) * Math.pow(Math.abs(s), 2.5);
       const next = 50 + eased * 50;
-      
+
       setSliderPos(Math.max(0, Math.min(100, next)));
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -137,9 +130,10 @@ const BeforeAfterSlider = ({
     };
   }, [autoPeriodMs]);
 
-  const sliderMaskStyle = isRTL
-    ? `linear-gradient(to left, black calc(${sliderPos}% - 1%), transparent calc(${sliderPos}% + 1%))`
-    : `linear-gradient(to right, black calc(${sliderPos}% - 1%), transparent calc(${sliderPos}% + 1%))`;
+  const sliderMaskStyle =
+    lang === 'AR'
+      ? `linear-gradient(to left, black calc(${sliderPos}% - 1%), transparent calc(${sliderPos}% + 1%))`
+      : `linear-gradient(to right, black calc(${sliderPos}% - 1%), transparent calc(${sliderPos}% + 1%))`;
 
   const edgeFadeMask = `radial-gradient(ellipse at center, black 60%, transparent 100%)`;
 
@@ -149,11 +143,10 @@ const BeforeAfterSlider = ({
       className={`relative w-full overflow-hidden select-none transform-gpu ${
         className || 'aspect-[16/9] rounded-[2.5rem] md:rounded-[4rem]'
       }`}
-      style={{ 
+      style={{
         WebkitMaskImage: edgeFadeMask,
         maskImage: edgeFadeMask,
-        // Mobilde box-shadow performans düşürebilir, gerekirse azaltılabilir
-        boxShadow: 'inset 0 0 80px rgba(14, 26, 43, 0.08)'
+        boxShadow: 'inset 0 0 80px rgba(14, 26, 43, 0.08)',
       }}
     >
       <div className="absolute inset-0 z-0">
@@ -162,7 +155,7 @@ const BeforeAfterSlider = ({
           alt="After"
           className="w-full h-full object-cover"
           style={{ objectPosition: '50% 25%' }}
-          loading="eager" // Hero image olduğu için eager
+          loading="eager"
         />
       </div>
 
@@ -171,7 +164,7 @@ const BeforeAfterSlider = ({
         style={{
           WebkitMaskImage: sliderMaskStyle,
           maskImage: sliderMaskStyle,
-          willChange: 'mask-image, -webkit-mask-image', // Tarayıcıya ipucu
+          willChange: 'mask-image, -webkit-mask-image',
         }}
       >
         <img
@@ -183,14 +176,14 @@ const BeforeAfterSlider = ({
         />
       </div>
 
-      <div 
+      <div
         className="absolute inset-0 z-20 pointer-events-none"
-        style={{ 
-          transform: `translate3d(${isRTL ? -sliderPos : sliderPos}%, 0, 0)`,
-          left: isRTL ? 'auto' : '0',
-          right: isRTL ? '0' : 'auto',
+        style={{
+          transform: `translate3d(${lang === 'AR' ? -sliderPos : sliderPos}%, 0, 0)`,
+          left: lang === 'AR' ? 'auto' : '0',
+          right: lang === 'AR' ? '0' : 'auto',
           width: '100%',
-          willChange: 'transform' // GPU acceleration
+          willChange: 'transform',
         }}
       >
         <div className="absolute top-0 bottom-0 left-0 w-[2px] -ml-[1px]">
@@ -222,7 +215,7 @@ const TopClinics = ({
       try {
         const { data, error } = await clinicService.getAllClinics({ status: 'ACTIVE', limit: 10 });
         if (data && !error) {
-          const transformed = data.map(dbClinic => {
+          const transformed = data.map((dbClinic) => {
             const metadata = (dbClinic.metadata as any) || {};
             const specialties = metadata.specialties || [];
             return {
@@ -232,10 +225,12 @@ const TopClinics = ({
               rating: (4.7 + Math.random() * 0.3).toFixed(1),
               reviews: Math.floor(Math.random() * 3000) + 500,
               price: '€2,200',
-              img: dbClinic.logo_url || 'https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=600',
+              img:
+                dbClinic.logo_url ||
+                'https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=600',
               tags: specialties.slice(0, 2),
               waitTime: '2-4 Weeks',
-              features: specialties.slice(0, 2)
+              features: specialties.slice(0, 2),
             };
           });
           setClinics(transformed);
@@ -257,10 +252,8 @@ const TopClinics = ({
         );
   }, [activeCat, clinics]);
 
-  // OPTIMIZATION 3: Mobilde Auto-Scroll'u iptal et.
-  // Mobilde auto-scroll hem performansı düşürür hem de UX açısından kötüdür.
   useEffect(() => {
-    if (isMobile) return; // Mobilde isen kodu çalıştırma, çık.
+    if (isMobile) return;
 
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
@@ -332,19 +325,17 @@ const TopClinics = ({
 
         <div
           ref={scrollRef}
-          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar scroll-smooth" // scroll-smooth eklendi
-          style={{ 
-            scrollbarWidth: 'none', 
+          className="flex gap-8 pl-8 overflow-x-auto no-scrollbar scroll-smooth"
+          style={{
+            scrollbarWidth: 'none',
             msOverflowStyle: 'none',
-            // Mobilde native touch scrolling'i etkinleştirmek için:
-            WebkitOverflowScrolling: 'touch' 
+            WebkitOverflowScrolling: 'touch',
           }}
         >
           {filteredClinics.map((clinic, idx) => (
             <div
               key={`${clinic.id}-${idx}`}
               onClick={onViewDetail}
-              // transform-gpu eklendi
               className="group relative w-[360px] md:w-[400px] shrink-0 bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden hover:shadow-2xl hover:shadow-teal-900/10 transition-all duration-500 cursor-pointer flex flex-col snap-center transform-gpu"
             >
               <div className="aspect-[4/3] relative overflow-hidden">
@@ -468,6 +459,196 @@ const ShowcaseCard = ({ step, title, description, icon, image, proof }: Showcase
   </div>
 );
 
+type WhyChooseProps = {
+  lang: LanguageCode;
+  onStart: () => void;
+};
+
+const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
+  const isRTL = lang === 'AR';
+
+  const copy = useMemo(() => {
+    const EN = {
+      badge: 'Privacy-first decision layer',
+      title1: 'Why users',
+      title2: 'choose HairVis',
+      desc:
+        'Stop sending your photos to multiple clinics. Get a private, controlled analysis first—then share only if you want.',
+      items: [
+        {
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'No more “send photos to every clinic”',
+          desc: 'Upload once. Generate your report. Share with clinics only when you decide.',
+        },
+        {
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'Your photos won’t circulate online',
+          desc: 'No “before/after” marketing reuse. No public indexing. No uncontrolled redistribution.',
+        },
+        {
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'No constant sales calls',
+          desc: 'You control communication. Clinics reach you only if you open the door.',
+        },
+        {
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'Share anonymously if you want',
+          desc: 'You can hide personal identifiers and still get feedback and pricing signals.',
+        },
+      ],
+      cta: 'Get my private report',
+    };
+
+    const TR = {
+      badge: 'Önce gizlilik, sonra karar',
+      title1: 'Kullanıcılar',
+      title2: 'neden HairVis’i seçer?',
+      desc:
+        'Fotoğraflarınızı tek tek kliniklere göndermeyin. Önce kontrollü, gizli bir analiz alın; sonra sadece isterseniz paylaşın.',
+      items: [
+        {
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'Her kliniğe ayrı ayrı foto göndermek yok',
+          desc: 'Tek sefer yükle. Raporunu al. Kiminle paylaşacağına sen karar ver.',
+        },
+        {
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'Fotoğraflar “internete düşmez”',
+          desc: 'İzinsiz paylaşım, reklam amaçlı kullanım ve kontrolsüz yayılımı engellemek için tasarlandı.',
+        },
+        {
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'Sürekli aranmazsın',
+          desc: 'İletişim sende. Klinikler ancak sen istersen devreye girer.',
+        },
+        {
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'İstersen anonim paylaşım',
+          desc: 'Kimlik bilgilerini gizleyip yine de teklif ve değerlendirme alabilirsin.',
+        },
+      ],
+      cta: 'Gizli raporumu al',
+    };
+
+    const DE = {
+      badge: 'Datenschutz zuerst',
+      title1: 'Warum Nutzer',
+      title2: 'HairVis wählen',
+      desc:
+        'Keine Fotos an zig Kliniken senden. Erst ein privater Report—danach teilen Sie nur, wenn Sie möchten.',
+      items: [
+        {
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'Nicht mehr an jede Klinik Fotos schicken',
+          desc: 'Einmal hochladen. Report erhalten. Teilen nur auf Wunsch.',
+        },
+        {
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'Fotos zirkulieren nicht online',
+          desc: 'Keine unkontrollierte Weitergabe oder Marketing-Wiederverwendung.',
+        },
+        {
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'Keine ständigen Anrufe',
+          desc: 'Sie kontrollieren die Kommunikation.',
+        },
+        {
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'Optional anonym teilen',
+          desc: 'Identifizierende Details ausblenden und trotzdem Feedback bekommen.',
+        },
+      ],
+      cta: 'Meinen privaten Report holen',
+    };
+
+    const AR = {
+      badge: 'الخصوصية أولاً',
+      title1: 'لماذا',
+      title2: 'يختار المستخدمون HairVis؟',
+      desc:
+        'لا ترسل صورك إلى عدة عيادات. احصل أولاً على تقرير خاص ومتحكّم به—ثم شارك فقط إذا أردت.',
+      items: [
+        {
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'لا حاجة لإرسال الصور لكل عيادة',
+          desc: 'حمّل مرة واحدة. احصل على التقرير. شارك عند رغبتك فقط.',
+        },
+        {
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'صورك لا تنتشر على الإنترنت',
+          desc: 'بدون استخدام تسويقي غير مصرح وبدون إعادة نشر غير متحكم بها.',
+        },
+        {
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'لا مكالمات مبيعات مستمرة',
+          desc: 'أنت تتحكم بالتواصل.',
+        },
+        {
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'مشاركة مجهولة إذا رغبت',
+          desc: 'إخفاء البيانات التعريفية مع الحصول على تقييمات.',
+        },
+      ],
+      cta: 'احصل على تقريري الخاص',
+    };
+
+    const map: Record<string, any> = { EN, TR, DE, AR };
+    return map[lang] || EN;
+  }, [lang]);
+
+  return (
+    <div className={`max-w-7xl mx-auto mb-32 ${isRTL ? 'text-right' : 'text-left'}`}>
+      <div className="px-2">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/70 backdrop-blur-md rounded-full border border-slate-200 text-[#0E1A2B] text-[10px] font-black uppercase tracking-widest shadow-lg">
+          <UserRoundCheck className="w-4 h-4 text-teal-600" /> {copy.badge}
+        </div>
+      </div>
+
+      <div className="mt-6 grid lg:grid-cols-2 gap-10 items-end px-2">
+        <div className="space-y-5">
+          <h2 className="text-5xl md:text-6xl font-black text-[#0E1A2B] tracking-tighter leading-[0.95]">
+            {copy.title1} <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">
+              {copy.title2}
+            </span>
+          </h2>
+          <p className="max-w-2xl text-slate-500 text-lg font-light leading-relaxed">{copy.desc}</p>
+        </div>
+
+        <div className="flex lg:justify-end">
+          <button
+            onClick={onStart}
+            className="w-full lg:w-auto px-10 py-5 bg-[#0E1A2B] text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-teal-500 transition-all shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-3 group"
+          >
+            {copy.cta} <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
+        {copy.items.map((it: any, idx: number) => (
+          <div
+            key={idx}
+            className="bg-white/80 backdrop-blur-md border border-slate-200 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-teal-900/10 transition-all transform-gpu"
+          >
+            <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-[#0E1A2B]">
+              {it.icon}
+            </div>
+            <h3 className="mt-5 text-lg font-black text-[#0E1A2B] leading-tight">{it.title}</h3>
+            <p className="mt-2 text-sm text-slate-500 leading-relaxed font-light">{it.desc}</p>
+
+            <div className="mt-6 pt-5 border-t border-slate-100">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-teal-600">
+                <CheckCircle2 size={12} className="fill-teal-100" /> User-controlled
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, onBrowseDirectory, lang }) => {
   const t = translations[lang];
   const isRTL = lang === 'AR';
@@ -480,8 +661,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
   };
 
   useEffect(() => {
-    // Scroll eventini debounce yapmak daha iyidir ama şimdilik basit tutuyoruz.
-    // Passive: true performans için kritiktir.
     const handleScroll = () => {
       if (window.scrollY > 500) setShowStickyCTA(true);
       else setShowStickyCTA(false);
@@ -511,7 +690,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
       <div className="relative pt-32 md:pt-40 pb-20 px-6 max-w-full overflow-x-hidden">
         {/* HERO SECTION */}
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-12 lg:gap-24 items-center mb-32 relative z-10">
-          {/* Text Content - ORDER 1 ON MOBILE (Your requested fix) */}
+          {/* Text Content - ORDER 1 ON MOBILE */}
           <div className="text-left space-y-8 order-1 lg:order-1">
             <motion.h1
               initial={{ opacity: 0, x: -20 }}
@@ -558,7 +737,6 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 
           {/* Slider Content - ORDER 2 ON MOBILE */}
           <div className="order-2 lg:order-2 relative">
-            {/* Reduced Blur for Performance */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-teal-500/10 blur-[40px] md:blur-[80px] rounded-full pointer-events-none" />
 
             <motion.div
@@ -578,6 +756,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           </div>
         </div>
 
+        {/* SHOWCASE (How it works) */}
         <div ref={showcaseRef} className="max-w-7xl mx-auto grid md:grid-cols-3 gap-8 scroll-mt-32 mb-32">
           <ShowcaseCard
             step="01"
@@ -605,9 +784,12 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           />
         </div>
 
+        {/* ✅ EN DOĞRU YERLEŞİM: ShowCase'ten hemen sonra, "Full Action Plan" bloğundan önce */}
+        <WhyChooseSection lang={lang} onStart={onStart} />
+
+        {/* ACTION PLAN BLOCK */}
         <div className="max-w-7xl mx-auto mb-32">
           <div className="bg-[#0E1A2B] rounded-[3rem] p-10 md:p-16 relative overflow-hidden shadow-2xl transform-gpu">
-            {/* Reduced Blur */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[60px] md:blur-[120px] pointer-events-none" />
 
             <div className="grid lg:grid-cols-2 gap-16 items-center relative z-10">
@@ -702,6 +884,7 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           </div>
         </div>
 
+        {/* TOP CLINICS */}
         <div className="mb-32">
           <TopClinics onViewDetail={onVisitClinic} onBrowseDirectory={onBrowseDirectory} />
         </div>
