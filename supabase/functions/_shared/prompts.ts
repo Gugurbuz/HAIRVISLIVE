@@ -26,9 +26,7 @@ OUTPUT REQUIRED (JSON format):
   "confidence": "number (0-100)",
   "recommendations": {
     "primary": "string (FUE, FUT, Combined, Medical Treatment, etc.)",
-    "alternative": ["array of alternative options"],
-    "medicalTreatment": ["array of recommended medications/treatments"],
-    "lifestyle": ["array of lifestyle recommendations"]
+    "supporting": ["array of supporting treatments"]
   },
   "analysis": {
     "hairDensity": "string (Very Low, Low, Medium, High, Very High)",

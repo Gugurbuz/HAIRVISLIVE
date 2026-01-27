@@ -9,9 +9,7 @@ export const GraftsRangeSchema = z.object({
 
 export const RecommendationsSchema = z.object({
   primary: z.string().min(1).max(200),
-  alternative: z.array(z.string().max(200)).default([]),
-  medicalTreatment: z.array(z.string().max(200)).default([]),
-  lifestyle: z.array(z.string().max(300)).default([]),
+  supporting: z.array(z.string().max(200)).default([]),
 });
 
 export const AnalysisDetailsSchema = z.object({

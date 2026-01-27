@@ -34,7 +34,7 @@ const TypeSelectionScreen: React.FC<TypeSelectionScreenProps> = ({ onSelect, onB
       label: t.eyebrow,
       icon: Eye,
       active: false,
-      image: "https://images.unsplash.com/photo-1506634572416-48cdfe530110?auto=format&fit=crop&q=80&w=600"
+      image: "https://images.unsplash.com/photo-1560011447-2e0fcaed1b1a?auto=format&fit=crop&q=80&w=600"
     }
   ];
 
