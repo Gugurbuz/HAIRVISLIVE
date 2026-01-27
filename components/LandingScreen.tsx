@@ -468,129 +468,129 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
   const isRTL = lang === 'AR';
 
   const copy = useMemo(() => {
-    const TR = {
-      badge: 'Tek sefer tarama · Standart rapor',
-      title1: 'Kullanıcılar',
-      title2: 'neden HairVis’i seçer?',
-      desc:
-        'Fotoğraf gönderme trafiğini ortadan kaldırıyoruz. Tek sefer tarama ile oluşturulan rapor, seçili kliniklerle aynı anda paylaşılır.',
-      items: [
-        {
-          title: 'Tek sefer tarama',
-          desc:
-            'Her kliniğe ayrı ayrı foto göndermek yok. Kamera ile tek sefer tarama yapılır.',
-        },
-        {
-          title: 'Otomatik rapor paylaşımı',
-          desc:
-            'Tarama sonrası oluşan standart rapor, seçtiğin kliniklerle doğrudan paylaşılır.',
-        },
-        {
-          title: 'Ham foto değil, rapor paketi',
-          desc:
-            'Klinikler dağınık fotoğraflar değil; ölçümler, bölgeler, greft aralığı ve simülasyon içeren raporu görür.',
-        },
-        {
-          title: 'Karşılaştırılabilir teklifler',
-          desc:
-            'Tüm klinikler aynı raporu gördüğü için gelen teklifler net ve karşılaştırılabilirdir.',
-        },
-      ],
-      cta: 'Taramayı başlat',
-    };
-
     const EN = {
-      badge: 'Single scan · Standardized report',
+      badge: 'Privacy-first decision layer',
       title1: 'Why users',
       title2: 'choose HairVis',
       desc:
-        'We eliminate photo back-and-forth. A single scan generates a report that is shared with selected clinics instantly.',
+        'Stop sending your photos to multiple clinics. Get a private, controlled analysis first—then share only if you want.',
       items: [
         {
-          title: 'One scan',
-          desc:
-            'No sending photos to clinics one by one. A single camera scan is enough.',
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'No more “send photos to every clinic”',
+          desc: 'Upload once. Generate your report. Share with clinics only when you decide.',
         },
         {
-          title: 'Automatic report sharing',
-          desc:
-            'Once the scan is complete, the report is shared with selected clinics automatically.',
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'Your photos won’t circulate online',
+          desc: 'No “before/after” marketing reuse. No public indexing. No uncontrolled redistribution.',
         },
         {
-          title: 'Report package, not raw photos',
-          desc:
-            'Clinics receive a structured report with measurements, zones, graft ranges and simulation.',
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'No constant sales calls',
+          desc: 'You control communication. Clinics reach you only if you open the door.',
         },
         {
-          title: 'Comparable offers',
-          desc:
-            'All clinics review the same report, making offers clear and easy to compare.',
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'Share anonymously if you want',
+          desc: 'You can hide personal identifiers and still get feedback and pricing signals.',
         },
       ],
-      cta: 'Start scanning',
+      cta: 'Get my private report',
     };
 
-    const map: Record<string, any> = { TR, EN };
-    return map[lang] || EN;
-  }, [lang]);
+    const TR = {
+      badge: 'Önce gizlilik, sonra karar',
+      title1: 'Kullanıcılar',
+      title2: 'neden HairVis’i seçer?',
+      desc:
+        'Fotoğraflarınızı tek tek kliniklere göndermeyin. Önce kontrollü, gizli bir analiz alın; sonra sadece isterseniz paylaşın.',
+      items: [
+        {
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'Her kliniğe ayrı ayrı foto göndermek yok',
+          desc: 'Tek sefer yükle. Raporunu al. Kiminle paylaşacağına sen karar ver.',
+        },
+        {
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'Fotoğraflar “internete düşmez”',
+          desc: 'İzinsiz paylaşım, reklam amaçlı kullanım ve kontrolsüz yayılımı engellemek için tasarlandı.',
+        },
+        {
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'Sürekli aranmazsın',
+          desc: 'İletişim sende. Klinikler ancak sen istersen devreye girer.',
+        },
+        {
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'İstersen anonim paylaşım',
+          desc: 'Kimlik bilgilerini gizleyip yine de teklif ve değerlendirme alabilirsin.',
+        },
+      ],
+      cta: 'Gizli raporumu al',
+    };
 
-  return (
-    <div className={`max-w-7xl mx-auto mb-32 ${isRTL ? 'text-right' : 'text-left'}`}>
-      <div className="px-2">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/70 backdrop-blur-md rounded-full border border-slate-200 text-[#0E1A2B] text-[10px] font-black uppercase tracking-widest shadow-lg">
-          {copy.badge}
-        </div>
-      </div>
+    const DE = {
+      badge: 'Datenschutz zuerst',
+      title1: 'Warum Nutzer',
+      title2: 'HairVis wählen',
+      desc:
+        'Keine Fotos an zig Kliniken senden. Erst ein privater Report—danach teilen Sie nur, wenn Sie möchten.',
+      items: [
+        {
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'Nicht mehr an jede Klinik Fotos schicken',
+          desc: 'Einmal hochladen. Report erhalten. Teilen nur auf Wunsch.',
+        },
+        {
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'Fotos zirkulieren nicht online',
+          desc: 'Keine unkontrollierte Weitergabe oder Marketing-Wiederverwendung.',
+        },
+        {
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'Keine ständigen Anrufe',
+          desc: 'Sie kontrollieren die Kommunikation.',
+        },
+        {
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'Optional anonym teilen',
+          desc: 'Identifizierende Details ausblenden und trotzdem Feedback bekommen.',
+        },
+      ],
+      cta: 'Meinen privaten Report holen',
+    };
 
-      <div className="mt-6 grid lg:grid-cols-2 gap-10 items-end px-2">
-        <div className="space-y-5">
-          <h2 className="text-5xl md:text-6xl font-black text-[#0E1A2B] tracking-tighter leading-[0.95]">
-            {copy.title1} <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">
-              {copy.title2}
-            </span>
-          </h2>
-          <p className="max-w-2xl text-slate-500 text-lg font-light leading-relaxed">
-            {copy.desc}
-          </p>
-        </div>
-
-        <div className="flex lg:justify-end">
-          <button
-            onClick={onStart}
-            className="w-full lg:w-auto px-10 py-5 bg-[#0E1A2B] text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-teal-500 transition-all shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-3 group"
-          >
-            {copy.cta}
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-      </div>
-
-      <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
-        {copy.items.map((it: any, idx: number) => (
-          <div
-            key={idx}
-            className="bg-white/80 backdrop-blur-md border border-slate-200 rounded-[2.5rem] p-7 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:shadow-teal-900/10 transition-all transform-gpu"
-          >
-            <h3 className="text-lg font-black text-[#0E1A2B] leading-tight">
-              {it.title}
-            </h3>
-            <p className="mt-2 text-sm text-slate-500 leading-relaxed font-light">
-              {it.desc}
-            </p>
-
-            <div className="mt-6 pt-5 border-t border-slate-100">
-              <div className="text-[10px] font-black uppercase tracking-widest text-teal-600">
-                Standardized flow
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
+    const AR = {
+      badge: 'الخصوصية أولاً',
+      title1: 'لماذا',
+      title2: 'يختار المستخدمون HairVis؟',
+      desc:
+        'لا ترسل صورك إلى عدة عيادات. احصل أولاً على تقرير خاص ومتحكّم به—ثم شارك فقط إذا أردت.',
+      items: [
+        {
+          icon: <ImageIcon className="w-5 h-5" />,
+          title: 'لا حاجة لإرسال الصور لكل عيادة',
+          desc: 'حمّل مرة واحدة. احصل على التقرير. شارك عند رغبتك فقط.',
+        },
+        {
+          icon: <ShieldCheck className="w-5 h-5" />,
+          title: 'صورك لا تنتشر على الإنترنت',
+          desc: 'بدون استخدام تسويقي غير مصرح وبدون إعادة نشر غير متحكم بها.',
+        },
+        {
+          icon: <PhoneOff className="w-5 h-5" />,
+          title: 'لا مكالمات مبيعات مستمرة',
+          desc: 'أنت تتحكم بالتواصل.',
+        },
+        {
+          icon: <EyeOff className="w-5 h-5" />,
+          title: 'مشاركة مجهولة إذا رغبت',
+          desc: 'إخفاء البيانات التعريفية مع الحصول على تقييمات.',
+        },
+      ],
+      cta: 'احصل على تقريري الخاص',
+    };
 
     const map: Record<string, any> = { EN, TR, DE, AR };
     return map[lang] || EN;
