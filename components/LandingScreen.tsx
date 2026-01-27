@@ -850,4 +850,4 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 };
 
 export default LandingScreen;
-```
+
