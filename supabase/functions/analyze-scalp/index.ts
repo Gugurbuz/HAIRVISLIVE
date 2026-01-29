@@ -24,33 +24,6 @@ interface ScalpImages {
   right?: string;
 }
 
-// Accept both formats:
-// 1) Full data URL: "data:image/jpeg;base64,...."
-// 2) Raw base64: "...."
-const extractBase64 = (input?: string): string | null => {
-  if (!input) return null;
-  const s = String(input).trim();
-  if (!s) return null;
-  const commaIdx = s.indexOf(',');
-  return commaIdx >= 0 ? s.slice(commaIdx + 1) : s;
-};
-
-const detectMimeType = (input?: string): string => {
-  if (!input) return 'image/jpeg';
-  const s = String(input);
-  const m = s.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,/);
-  return m?.[1] || 'image/jpeg';
-};
-
-// Gemini model names can change across API versions.
-// We try a short fallback list to avoid hard failures when Google renames models.
-const MODEL_FALLBACKS = [
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-latest',
-  'gemini-2.0-flash',
-  'gemini-2.0-flash-lite',
-];
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -66,7 +39,7 @@ Deno.serve(async (req: Request) => {
     console.log('Analysis request started');
 
     let mockModeEnabled = false;
-    let mockConfig: any = {};
+    let mockConfig = {};
     try {
       mockModeEnabled = await isFeatureEnabled('mock_mode');
       mockConfig = await getFeatureConfig('mock_mode');
@@ -77,60 +50,36 @@ Deno.serve(async (req: Request) => {
 
     if (mockModeEnabled) {
       const mockDelay = mockConfig.mock_delay_ms || 1000;
-      await new Promise((resolve) => setTimeout(resolve, mockDelay));
+      await new Promise(resolve => setTimeout(resolve, mockDelay));
 
       const mockResponse = {
-        diagnosis: {
-          norwood_scale: 'NW 3V',
-          analysis_summary: 'Mock analysis result for testing purposes.',
-          confidence: 0.85,
+        norwoodScale: 'NW3',
+        hairLossPattern: 'Receding hairline with frontal thinning',
+        severity: 'Moderate',
+        affectedAreas: ['Frontal', 'Temporal'],
+        estimatedGrafts: 2750,
+        graftsRange: { min: 2500, max: 3000 },
+        confidence: 85,
+        recommendations: {
+          primary: 'Sapphire FUE Hair Transplant',
+          supporting: ['PRP Therapy', 'Finasteride']
         },
-        technical_metrics: {
-          graft_count_min: 2500,
-          graft_count_max: 3200,
-          coverage_cm2: 45,
-          density_target_grafts_cm2: 55,
-          suggested_technique: 'Sapphire FUE',
-          success_probability: 0.9,
-        },
-        zone_plan: {
-          zones: [
-            { zone_id: 'frontal', area_cm2: 20, target_grafts: 1500, density_grafts_cm2: 75 },
-            { zone_id: 'midscalp', area_cm2: 25, target_grafts: 1200, density_grafts_cm2: 48 },
-          ],
-          total_grafts_planned: 2700,
-        },
-        donor_assessment: {
-          density_rating: 'Good',
-          estimated_hairs_per_cm2: 70,
-          total_safe_capacity_grafts: 4500,
-          donor_condition_summary: 'Adequate donor density for planned procedure.',
-        },
-        phenotypic_features: {
-          apparent_age: 35,
-          skin_tone: 'Medium',
-          skin_undertone: 'Warm',
-          beard_presence: 'Stubble',
-          beard_texture: 'Wavy',
-          eyebrow_density: 'Medium',
-          eyebrow_color: 'Dark',
-        },
-        scalp_geometry: {
-          hairline_design_polygon: [{ x: 0.2, y: 0.3 }, { x: 0.8, y: 0.3 }, { x: 0.7, y: 0.5 }, { x: 0.3, y: 0.5 }],
-          high_density_zone_polygon: [{ x: 0.3, y: 0.35 }, { x: 0.7, y: 0.35 }, { x: 0.65, y: 0.45 }, { x: 0.35, y: 0.45 }],
-        },
+        analysis: {
+          summary: 'Mock analysis response for testing'
+        }
       };
 
       return new Response(JSON.stringify(mockResponse), {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json',
+          'X-Mock-Mode': 'true',
         },
       });
     }
 
     if (!GEMINI_API_KEY) {
-      console.error('GEMINI_API_KEY missing');
+      console.error('GEMINI_API_KEY is missing');
       throw new Error('GEMINI_API_KEY is not configured');
     }
 
@@ -142,64 +91,52 @@ Deno.serve(async (req: Request) => {
     }
 
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
     const { prompt, version } = getPrompt('scalp_analysis');
 
-    const imageParts: any[] = [];
-
-    const pushImage = (img?: string) => {
-      const data = extractBase64(img);
-      if (!data) return;
+    const imageParts = [];
+    if (images.front) {
       imageParts.push({
         inlineData: {
-          data,
-          mimeType: detectMimeType(img),
+          data: images.front.split(',')[1],
+          mimeType: 'image/jpeg',
         },
       });
-    };
-
-    pushImage(images.front);
-    pushImage(images.top);
-    pushImage(images.left);
-    pushImage(images.right);
-
-    if (imageParts.length === 0) {
-      throw new Error('No valid images found in request (expected base64 or data URLs).');
+    }
+    if (images.top) {
+      imageParts.push({
+        inlineData: {
+          data: images.top.split(',')[1],
+          mimeType: 'image/jpeg',
+        },
+      });
+    }
+    if (images.left) {
+      imageParts.push({
+        inlineData: {
+          data: images.left.split(',')[1],
+          mimeType: 'image/jpeg',
+        },
+      });
+    }
+    if (images.right) {
+      imageParts.push({
+        inlineData: {
+          data: images.right.split(',')[1],
+          mimeType: 'image/jpeg',
+        },
+      });
     }
 
     console.log('Calling Gemini API for analysis');
-
-    let lastModelError: unknown = null;
-    let result: any = null;
-    let usedModel = MODEL_FALLBACKS[0];
-
-    for (const modelName of MODEL_FALLBACKS) {
-      try {
-        usedModel = modelName;
-        const model = genAI.getGenerativeModel({ model: modelName });
-        result = await model.generateContent([prompt, ...imageParts]);
-        lastModelError = null;
-        break;
-      } catch (e) {
-        lastModelError = e;
-        console.error(`Gemini model failed (${modelName}). Trying next...`, e);
-      }
-    }
-
-    if (!result) {
-      throw new Error(
-        `Gemini generateContent failed for all fallback models. Last error: ${
-          lastModelError instanceof Error ? lastModelError.message : String(lastModelError)
-        }`
-      );
-    }
-
+    const result = await model.generateContent([prompt, ...imageParts]);
     const response = await result.response;
     const text = response.text();
     console.log('Gemini API response received');
 
     const cleanedText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    let parsedData: any;
+    let parsedData;
     try {
       parsedData = JSON.parse(cleanedText);
     } catch (parseError) {
@@ -219,7 +156,7 @@ Deno.serve(async (req: Request) => {
         promptName: 'scalp_analysis',
         promptVersion: version,
         executionTimeMs: executionTime,
-        model: usedModel,
+        model: 'gemini-1.5-flash',
         success: validation.success,
         errorMessage: validation.success ? undefined : formatValidationErrors(validation.errors!),
         inputHash,
@@ -235,8 +172,10 @@ Deno.serve(async (req: Request) => {
           usageLogId: usageLogId || undefined,
           promptName: 'scalp_analysis',
           promptVersion: version,
-          validationErrors: formatValidationErrors(validation.errors!),
-          rawOutput: parsedData,
+          validationSchema: 'ScalpAnalysisSchema',
+          errors: validation.errors!,
+          rawResponse: cleanedText,
+          expectedFormat: 'JSON object with norwoodScale, hairLossPattern, severity, affectedAreas, estimatedGrafts, graftsRange, confidence, recommendations, analysis',
         });
       } catch (logError) {
         console.error('Failed to log validation error (non-blocking):', logError);
@@ -246,7 +185,6 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({
           error: 'AI response validation failed',
           details: formatValidationErrors(validation.errors!),
-          rawOutput: parsedData,
         }),
         {
           status: 422,
@@ -258,6 +196,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    console.log('Analysis completed successfully');
     return new Response(JSON.stringify(validation.data), {
       headers: {
         ...corsHeaders,
@@ -265,7 +204,7 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (error) {
-    console.error('Analysis error:', error);
+    console.error('Scalp analysis error:', error);
     console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
 
     const executionTime = Date.now() - startTime;
@@ -274,7 +213,7 @@ Deno.serve(async (req: Request) => {
         promptName: 'scalp_analysis',
         promptVersion: 'v1.0.0',
         executionTimeMs: executionTime,
-        model: 'unknown',
+        model: 'gemini-1.5-flash',
         success: false,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         outputSizeBytes: 0,

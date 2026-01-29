@@ -82,7 +82,7 @@ interface LeadContextType {
   leads: LeadData[];
   loading: boolean;
   error: string | null;
-  addLead: (lead: LeadData) => Promise<string | null>;
+  addLead: (lead: LeadData) => Promise<void>;
   unlockLead: (id: string) => Promise<void>;
   updateLeadStatus: (id: string, status: LeadData['status'], bid?: number, proposalDetails?: ProposalDetails) => Promise<void>;
   getLeadByIdOrEmail: (identifier: string) => LeadData | undefined;
@@ -181,9 +181,9 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  const addLead = async (lead: LeadData): Promise<string | null> => {
+  const addLead = async (lead: LeadData) => {
     try {
-      const { data, error: insertError } = await supabase
+      const { error: insertError } = await supabase
         .from('leads')
         .insert({
           country_code: lead.countryCode,
@@ -208,12 +208,9 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           clinic_id: lead.clinicId,
           scan_data: lead.scanData,
           metadata: lead.metadata,
-        })
-        .select('id')
-        .single();
+        });
 
       if (insertError) throw insertError;
-      return data?.id || null;
     } catch (err: any) {
       console.error('Error adding lead:', err);
       setError(err.message);
