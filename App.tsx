@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LandingScreen from './components/LandingScreen';
 import ScannerScreen from './components/ScannerScreen';
 import PreScanScreen from './components/PreScanScreen';
-import UserInfoModal from './components/UserInfoModal';
-import AuthOTPModal from './components/AuthOTPModal';
+import ChatAuthFlow from './components/ChatAuthFlow';
 import DashboardScreen from './components/DashboardScreen';
 import PartnerPortalScreen from './components/PartnerPortalScreen';
 import PartnerJoinScreen from './components/PartnerJoinScreen';
@@ -39,10 +38,6 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
   const [currentLeadData, setCurrentLeadData] = useState<LeadData | null>(null);
-
-  // Auth flow states
-  const [userInfo, setUserInfo] = useState<{ firstName: string; lastName: string; email: string; phone: string } | null>(null);
-  const [authStep, setAuthStep] = useState<'user_info' | 'phone_otp'>('user_info');
 
   // retry için son scan'i tut
   const lastScanRef = useRef<{ photos: any[]; skip: boolean } | null>(null);
@@ -386,40 +381,26 @@ const App: React.FC = () => {
     }
 
     // Go to auth first, then analyze
-    setAuthStep('user_info');
-    setUserInfo(null);
     setAppState('AUTH_GATE');
   };
 
   // handleIntakeComplete removed - intake flow skipped
 
-  // User Info Complete -> Show OTP
-  const handleUserInfoComplete = (info: { firstName: string; lastName: string; email: string; phone: string }) => {
-    console.log('[App] User info collected:', info);
-    setUserInfo(info);
-    setAuthStep('phone_otp');
-  };
+  // Chat Auth Complete -> Start Analysis
+  const handleChatAuthComplete = async (userData: { firstName: string; lastName: string; email: string; phone: string; userId: string }) => {
+    console.log('[App] Chat auth complete:', userData);
 
-  // OTP Verified -> Start Analysis
-  const handlePhoneOtpComplete = async (userId: string) => {
-    console.log('[App] Phone OTP verified, userId:', userId);
-
-    if (!userInfo) {
-      console.error('[App] No user info found');
-      return;
-    }
-
-    const fullName = `${userInfo.firstName} ${userInfo.lastName}`;
+    const fullName = `${userData.firstName} ${userData.lastName}`;
 
     // Upsert user profile
-    await upsertUserProfile(userId, userInfo.email, fullName);
+    await upsertUserProfile(userData.userId, userData.email, fullName);
 
     // Store auth data for later use
     const authData = {
-      email: userInfo.email,
+      email: userData.email,
       name: fullName,
-      userId,
-      phone: userInfo.phone,
+      userId: userData.userId,
+      phone: userData.phone,
     };
     sessionStorage.setItem('authData', JSON.stringify(authData));
 
@@ -857,22 +838,12 @@ const App: React.FC = () => {
 
         {/* AUTH GATE */}
         {appState === 'AUTH_GATE' && (
-          <div className="w-full min-h-screen relative flex items-center justify-center animate-in fade-in duration-700 bg-[#F7F8FA]">
-            <div className="relative z-20 px-6 w-full max-w-xl">
-              {authStep === 'user_info' && (
-                <UserInfoModal
-                  onComplete={handleUserInfoComplete}
-                  lang={lang}
-                />
-              )}
-              {authStep === 'phone_otp' && userInfo && (
-                <AuthOTPModal
-                  phone={userInfo.phone}
-                  onComplete={handlePhoneOtpComplete}
-                  onBack={() => setAuthStep('user_info')}
-                  lang={lang}
-                />
-              )}
+          <div className="w-full min-h-screen relative flex items-center justify-center animate-in fade-in duration-700 bg-[#F7F8FA] py-12">
+            <div className="relative z-20 px-6 w-full">
+              <ChatAuthFlow
+                onComplete={handleChatAuthComplete}
+                lang={lang}
+              />
             </div>
           </div>
         )}
