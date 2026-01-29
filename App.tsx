@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import LandingScreen from './components/LandingScreen';
 import ScannerScreen from './components/ScannerScreen';
 import PreScanScreen from './components/PreScanScreen';
-import ChatAuthFlow from './components/ChatAuthFlow';
+import SocialAuthModal from './components/SocialAuthModal';
 import DashboardScreen from './components/DashboardScreen';
 import PartnerPortalScreen from './components/PartnerPortalScreen';
 import PartnerJoinScreen from './components/PartnerJoinScreen';
@@ -10,7 +10,7 @@ import PatientPortalScreen from './components/PatientPortalScreen';
 import ClinicLandingScreen from './components/ClinicLandingScreen';
 import ClinicScreen from './components/ClinicScreen';
 import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
-// PreReportIntakeScreen removed - intake flow skipped
+import PreReportIntakeScreen from './components/PreReportIntakeScreen';
 import BlogScreen from './components/BlogScreen';
 import MonitoringDashboard from './components/MonitoringDashboard';
 import AdminDebugScreen from './components/AdminDebugScreen';
@@ -37,9 +37,8 @@ const App: React.FC = () => {
   const [planningImage, setPlanningImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
-  const [currentLeadData, setCurrentLeadData] = useState<LeadData | null>(null);
 
-  // retry için son scan'i tut
+  // retry için son scan’i tut
   const lastScanRef = useRef<{ photos: any[]; skip: boolean } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
@@ -47,116 +46,9 @@ const App: React.FC = () => {
   const { logAnalysis, updateActivity } = useSession();
   const t = translations[lang];
 
-  // Upsert user profile in database
-  const upsertUserProfile = async (userId: string, email: string, name?: string) => {
-    try {
-      console.log('[App] Upserting user profile:', { userId, email, name });
-
-      const { error } = await supabase.rpc('upsert_user_profile', {
-        p_user_id: userId,
-        p_email: email,
-        p_full_name: name || email.split('@')[0],
-        p_avatar_url: null,
-        p_phone: null,
-        p_metadata: {}
-      });
-
-      if (error) {
-        console.error('[App] Error upserting profile:', error);
-      } else {
-        console.log('[App] Profile upserted successfully');
-      }
-    } catch (err) {
-      console.error('[App] Failed to upsert profile:', err);
-    }
-  };
-
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [appState]);
-
-  // Load report from URL if present
-  useEffect(() => {
-    const loadReportFromUrl = async () => {
-      const path = window.location.pathname;
-      const reportMatch = path.match(/^\/report\/([a-f0-9-]+)$/i);
-
-      if (reportMatch && reportMatch[1]) {
-        const leadId = reportMatch[1];
-        console.log('[App] Loading report from URL:', leadId);
-
-        try {
-          const { data: lead, error } = await supabase
-            .from('leads')
-            .select('*')
-            .eq('id', leadId)
-            .maybeSingle();
-
-          if (error) {
-            console.error('[App] Error loading lead:', error);
-            setError(lang === 'TR' ? 'Rapor yüklenemedi.' : 'Failed to load report.');
-            setAppState('LANDING');
-            return;
-          }
-
-          if (!lead) {
-            console.error('[App] Lead not found');
-            setError(lang === 'TR' ? 'Rapor bulunamadı.' : 'Report not found.');
-            setAppState('LANDING');
-            return;
-          }
-
-          console.log('[App] Lead loaded:', lead.id);
-
-          // Map database lead to LeadData format
-          const mappedLead: LeadData = {
-            id: lead.id,
-            countryCode: lead.country_code || '',
-            age: lead.age,
-            gender: lead.gender,
-            norwoodScale: lead.norwood_scale || '',
-            estimatedGrafts: lead.estimated_grafts || '',
-            registrationDate: new Date(lead.created_at).toLocaleDateString(),
-            timestamp: new Date(lead.created_at).getTime(),
-            thumbnailUrl: lead.thumbnail_url || '',
-            status: lead.status,
-            price: lead.price || 0,
-            proposalPrice: lead.proposal_price || 0,
-            isUnlocked: lead.is_unlocked || false,
-            isNegotiable: lead.is_negotiable || false,
-            patientDetails: lead.patient_details,
-            analysisData: lead.analysis_data,
-            intake: lead.intake_data,
-            name: lead.name,
-            email: lead.email,
-            phone: lead.phone,
-            concerns: lead.concerns || [],
-            source: lead.source,
-            clinicId: lead.clinic_id,
-            scanData: lead.scan_data,
-            metadata: lead.metadata,
-          };
-
-          setCurrentLeadData(mappedLead);
-
-          // Restore state from lead data
-          if (lead.analysis_data) {
-            setAnalysisResult(lead.analysis_data);
-            setAfterImage(lead.analysis_data.simulation_image || null);
-            setPlanningImage(lead.analysis_data.surgical_plan_image || null);
-          }
-
-          setAppState('RESULT');
-        } catch (err) {
-          console.error('[App] Failed to load report:', err);
-          setError(lang === 'TR' ? 'Rapor yüklenirken hata oluştu.' : 'Error loading report.');
-          setAppState('LANDING');
-        }
-      }
-    };
-
-    loadReportFromUrl();
-  }, []);
 
   // Global Supabase auth listener
   useEffect(() => {
@@ -187,15 +79,6 @@ const App: React.FC = () => {
           hashParams.has('access_token') ||
           hashParams.has('error');
 
-        // If we have pending scan data, immediately show ANALYZING state
-        const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
-        if (hasOAuthArtifacts && pendingScanDataRaw) {
-          console.log('[OAuth] OAuth callback detected with pending scan data - showing ANALYZING state');
-          setAppState('ANALYZING');
-        }
-
-        let sessionUser = null;
-
         // Exchange PKCE code for session if present
         if (searchParams.has('code')) {
           console.log('[OAuth] Exchanging code for session...');
@@ -204,92 +87,55 @@ const App: React.FC = () => {
             console.error('[OAuth] Code exchange failed:', exchangeError);
           } else if (data?.session) {
             console.log('[OAuth] Session established:', data.session.user.email);
-            sessionUser = data.session.user;
-          }
-        }
 
-        // If we have error but no session yet, check if user is actually authenticated
-        // (error might be from trigger, but auth succeeded)
-        if (hasOAuthArtifacts && !sessionUser) {
-          console.log('[OAuth] Checking existing session...');
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            console.log('[OAuth] Existing session found:', session.user.email);
-            sessionUser = session.user;
-          }
-        }
+            // Check if we have pending scan data (user came from scan flow)
+            const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
+            if (pendingScanDataRaw) {
+              console.log('[OAuth] Pending scan data found, starting analysis...');
 
-        // Process pending scan data if we have a valid session
-        if (sessionUser && pendingScanDataRaw) {
-          console.log('[OAuth] Pending scan data found, starting analysis...');
+              const savedScanData = JSON.parse(pendingScanDataRaw);
+              const restoredPhotos: any[] = [];
 
-          const savedScanData = JSON.parse(pendingScanDataRaw);
-          const restoredPhotos: any[] = [];
-
-          savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
-            const preview = sessionStorage.getItem(`scan_photo_${idx}`);
-            if (preview) {
-              restoredPhotos.push({
-                ...placeholder,
-                preview,
+              savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
+                const preview = sessionStorage.getItem(`scan_photo_${idx}`);
+                if (preview) {
+                  restoredPhotos.push({
+                    ...placeholder,
+                    preview,
+                  });
+                }
               });
-            }
-          });
 
-          if (restoredPhotos.length > 0) {
-            // Upsert user profile
-            await upsertUserProfile(
-              sessionUser.id,
-              sessionUser.email || '',
-              sessionUser.user_metadata?.full_name
-            );
+              if (restoredPhotos.length > 0) {
+                // Store auth data
+                sessionStorage.setItem('authData', JSON.stringify({
+                  email: data.session.user.email || '',
+                  name: data.session.user.user_metadata?.full_name || data.session.user.email || 'User',
+                  userId: data.session.user.id,
+                }));
 
-            // Store auth data
-            sessionStorage.setItem('authData', JSON.stringify({
-              email: sessionUser.email || '',
-              name: sessionUser.user_metadata?.full_name || sessionUser.email || 'User',
-              userId: sessionUser.id,
-            }));
+                // Restore photos
+                setCapturedPhotos(restoredPhotos);
+                lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
 
-            // Restore photos
-            setCapturedPhotos(restoredPhotos);
-            lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
 
-            // Clean URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+                // Start analysis
+                setAppState('ANALYZING');
+                runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(() => {
+                  setAppState('INTAKE');
 
-            // Already in ANALYZING state, start analysis
-            runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(async () => {
-              // Skip INTAKE - create default intake data and finalize lead
-              const authDataRaw = sessionStorage.getItem('authData');
-              if (authDataRaw) {
-                const authData = JSON.parse(authDataRaw);
-                const defaultIntakeData: IntakeData = {
-                  consent: true,
-                  kvkk: true,
-                  gender: 'Male',
-                  history: 'none',
-                };
-                const mergedData: any = {
-                  ...defaultIntakeData,
-                  contactMethod: 'email',
-                  contactValue: authData.email,
-                  userName: authData.name,
-                  userId: authData.userId,
-                  verified: true,
-                };
-                await finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
-                sessionStorage.removeItem('authData');
+                  // Clean up scan data
+                  sessionStorage.removeItem('pendingScanData');
+                  savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
+                    sessionStorage.removeItem(`scan_photo_${idx}`);
+                  });
+                });
+
+                return;
               }
-
-              // Clean up scan data
-              sessionStorage.removeItem('pendingScanData');
-              savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
-                sessionStorage.removeItem(`scan_photo_${idx}`);
-              });
-            });
-
-            return;
+            }
           }
         }
 
@@ -384,24 +230,48 @@ const App: React.FC = () => {
     setAppState('AUTH_GATE');
   };
 
-  // handleIntakeComplete removed - intake flow skipped
+  // Intake Complete -> Finalize Lead Creation
+  const handleIntakeComplete = (data: IntakeData) => {
+    setIntakeData(data);
 
-  // Chat Auth Complete -> Start Analysis
-  const handleChatAuthComplete = async (userData: { firstName: string; lastName: string; email: string; phone: string; userId: string }) => {
-    console.log('[App] Chat auth complete:', userData);
+    // Get auth data from sessionStorage
+    try {
+      const authDataRaw = sessionStorage.getItem('authData');
+      if (!authDataRaw) {
+        console.error('[App] No auth data found after intake');
+        setError(lang === 'TR' ? 'Oturum verisi bulunamadı.' : 'Session data not found.');
+        setAppState('LANDING');
+        return;
+      }
 
-    const fullName = `${userData.firstName} ${userData.lastName}`;
+      const authData = JSON.parse(authDataRaw);
 
-    // Upsert user profile
-    await upsertUserProfile(userData.userId, userData.email, fullName);
+      // Combine Intake Data + Auth Data
+      const mergedData: any = {
+        ...data,
+        contactMethod: 'email',
+        contactValue: authData.email,
+        userName: authData.name,
+        userId: authData.userId,
+        verified: true,
+      };
+
+      console.log('[App] Creating lead with merged data');
+      finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+
+      // Clean up
+      sessionStorage.removeItem('authData');
+    } catch (e) {
+      console.error('[App] Failed to finalize lead:', e);
+      setError(lang === 'TR' ? 'Kayıt oluşturulamadı.' : 'Failed to create lead.');
+    }
+  };
+
+  // Auth Complete -> Start Analysis -> Go to Intake
+  const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
+    console.log('[App] Auth complete called:', authData.email);
 
     // Store auth data for later use
-    const authData = {
-      email: userData.email,
-      name: fullName,
-      userId: userData.userId,
-      phone: userData.phone,
-    };
     sessionStorage.setItem('authData', JSON.stringify(authData));
 
     // Restore scan data from sessionStorage
@@ -442,23 +312,8 @@ const App: React.FC = () => {
       setAppState('ANALYZING');
       await runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false);
 
-      // Skip INTAKE - create default intake data and finalize lead
-      const defaultIntakeData: IntakeData = {
-        consent: true,
-        kvkk: true,
-        gender: 'Male',
-        history: 'none',
-      };
-      const mergedData: any = {
-        ...defaultIntakeData,
-        contactMethod: 'email',
-        contactValue: authData.email,
-        userName: authData.name,
-        userId: authData.userId,
-        verified: true,
-      };
-      await finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
-      sessionStorage.removeItem('authData');
+      // After analysis completes, go to intake
+      setAppState('INTAKE');
 
       // Clean up scan data
       sessionStorage.removeItem('pendingScanData');
@@ -635,7 +490,7 @@ const App: React.FC = () => {
     }
   };
 
-  const finalizeLeadCreation = async (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
+  const finalizeLeadCreation = (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
     console.log('[App] Finalizing lead creation...');
 
     // (3) LEAD GUARD'LARI — zorunlu kriterler
@@ -728,22 +583,7 @@ const App: React.FC = () => {
     };
 
     console.log('[App] Adding lead and navigating to RESULT');
-    try {
-      const leadId = await addLead(newLead);
-      if (leadId) {
-        console.log('[App] Lead created with ID:', leadId);
-        // Update lead with real ID
-        newLead.id = leadId;
-        setCurrentLeadData(newLead);
-        // Update URL to include lead ID
-        window.history.pushState({}, '', `/report/${leadId}`);
-      } else {
-        setCurrentLeadData(newLead);
-      }
-    } catch (err) {
-      console.error('[App] Failed to create lead:', err);
-      setCurrentLeadData(newLead);
-    }
+    addLead(newLead);
     setAppState('RESULT');
   };
 
@@ -836,12 +676,12 @@ const App: React.FC = () => {
         )}
 
 
-        {/* AUTH GATE */}
+        {/* OAUTH GATE */}
         {appState === 'AUTH_GATE' && (
-          <div className="w-full min-h-screen relative flex items-center justify-center animate-in fade-in duration-700 bg-[#F7F8FA] py-12">
-            <div className="relative z-20 px-6 w-full">
-              <ChatAuthFlow
-                onComplete={handleChatAuthComplete}
+          <div className="w-full min-h-screen relative flex items-center justify-center animate-in fade-in duration-700 bg-[#F7F8FA]">
+            <div className="relative z-20 px-6 w-full max-w-xl">
+              <SocialAuthModal
+                onComplete={handleAuthComplete}
                 lang={lang}
               />
             </div>
@@ -867,7 +707,28 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* INTAKE PHASE REMOVED - Flow goes directly from ANALYZING to RESULT */}
+        {/* INTAKE PHASE (After Analysis) */}
+        {appState === 'INTAKE' && (
+          <div className="w-full min-h-screen bg-[#F7F8FA] px-6 pt-28 pb-10">
+            <div className="max-w-2xl mx-auto">
+              {error && (
+                <div className="mb-4 rounded-2xl border border-red-200 bg-white p-4 shadow-sm">
+                  <div className="text-sm font-semibold text-red-600">
+                    {lang === 'TR' ? 'Bir sorun oldu' : 'Something went wrong'}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-700">{error}</div>
+                </div>
+              )}
+
+              <div className="rounded-2xl bg-white shadow-sm border border-slate-200">
+                <PreReportIntakeScreen
+                  lang={lang}
+                  onComplete={handleIntakeComplete}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {appState === 'RESULT' && (
           <div className="w-full max-w-7xl mx-auto py-32 px-6">
@@ -878,7 +739,7 @@ const App: React.FC = () => {
               planningImage={planningImage || ''}
               afterImage={afterImage || ''}
               error={error}
-              leadData={currentLeadData || useLeads().leads[0]}
+              leadData={useLeads().leads[0]}
             />
           </div>
         )}
