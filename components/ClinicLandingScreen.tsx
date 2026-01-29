@@ -80,7 +80,7 @@ const ClinicLandingScreen: React.FC<ClinicLandingProps> = ({
       </div>
 
       {/* --- NAVBAR --- */}
-      <nav className="sticky top-0 z-50 border-b border-white/5 bg-[#050B14]/80 backdrop-blur-md w-full">
+      <nav className="sticky top-0 z-[150] border-b border-white/5 bg-[#050B14]/95 backdrop-blur-xl w-full">
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 md:h-20 flex justify-between items-center">
             <div className="flex items-center gap-3 cursor-pointer group" onClick={onBack}>
                 {/* UNIFIED LOGO */}
