@@ -194,6 +194,8 @@ const App: React.FC = () => {
           setAppState('ANALYZING');
         }
 
+        let sessionUser = null;
+
         // Exchange PKCE code for session if present
         if (searchParams.has('code')) {
           console.log('[OAuth] Exchanging code for session...');
@@ -202,80 +204,92 @@ const App: React.FC = () => {
             console.error('[OAuth] Code exchange failed:', exchangeError);
           } else if (data?.session) {
             console.log('[OAuth] Session established:', data.session.user.email);
+            sessionUser = data.session.user;
+          }
+        }
 
-            // Check if we have pending scan data (user came from scan flow)
-            if (pendingScanDataRaw) {
-              console.log('[OAuth] Pending scan data found, starting analysis...');
+        // If we have error but no session yet, check if user is actually authenticated
+        // (error might be from trigger, but auth succeeded)
+        if (hasOAuthArtifacts && !sessionUser) {
+          console.log('[OAuth] Checking existing session...');
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            console.log('[OAuth] Existing session found:', session.user.email);
+            sessionUser = session.user;
+          }
+        }
 
-              const savedScanData = JSON.parse(pendingScanDataRaw);
-              const restoredPhotos: any[] = [];
+        // Process pending scan data if we have a valid session
+        if (sessionUser && pendingScanDataRaw) {
+          console.log('[OAuth] Pending scan data found, starting analysis...');
 
-              savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
-                const preview = sessionStorage.getItem(`scan_photo_${idx}`);
-                if (preview) {
-                  restoredPhotos.push({
-                    ...placeholder,
-                    preview,
-                  });
-                }
+          const savedScanData = JSON.parse(pendingScanDataRaw);
+          const restoredPhotos: any[] = [];
+
+          savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
+            const preview = sessionStorage.getItem(`scan_photo_${idx}`);
+            if (preview) {
+              restoredPhotos.push({
+                ...placeholder,
+                preview,
               });
-
-              if (restoredPhotos.length > 0) {
-                // Upsert user profile
-                await upsertUserProfile(
-                  data.session.user.id,
-                  data.session.user.email || '',
-                  data.session.user.user_metadata?.full_name
-                );
-
-                // Store auth data
-                sessionStorage.setItem('authData', JSON.stringify({
-                  email: data.session.user.email || '',
-                  name: data.session.user.user_metadata?.full_name || data.session.user.email || 'User',
-                  userId: data.session.user.id,
-                }));
-
-                // Restore photos
-                setCapturedPhotos(restoredPhotos);
-                lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
-
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-
-                // Already in ANALYZING state, start analysis
-                runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(async () => {
-                  // Skip INTAKE - create default intake data and finalize lead
-                  const authDataRaw = sessionStorage.getItem('authData');
-                  if (authDataRaw) {
-                    const authData = JSON.parse(authDataRaw);
-                    const defaultIntakeData: IntakeData = {
-                      consent: true,
-                      kvkk: true,
-                      gender: 'Male',
-                      history: 'none',
-                    };
-                    const mergedData: any = {
-                      ...defaultIntakeData,
-                      contactMethod: 'email',
-                      contactValue: authData.email,
-                      userName: authData.name,
-                      userId: authData.userId,
-                      verified: true,
-                    };
-                    await finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
-                    sessionStorage.removeItem('authData');
-                  }
-
-                  // Clean up scan data
-                  sessionStorage.removeItem('pendingScanData');
-                  savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
-                    sessionStorage.removeItem(`scan_photo_${idx}`);
-                  });
-                });
-
-                return;
-              }
             }
+          });
+
+          if (restoredPhotos.length > 0) {
+            // Upsert user profile
+            await upsertUserProfile(
+              sessionUser.id,
+              sessionUser.email || '',
+              sessionUser.user_metadata?.full_name
+            );
+
+            // Store auth data
+            sessionStorage.setItem('authData', JSON.stringify({
+              email: sessionUser.email || '',
+              name: sessionUser.user_metadata?.full_name || sessionUser.email || 'User',
+              userId: sessionUser.id,
+            }));
+
+            // Restore photos
+            setCapturedPhotos(restoredPhotos);
+            lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
+
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
+
+            // Already in ANALYZING state, start analysis
+            runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(async () => {
+              // Skip INTAKE - create default intake data and finalize lead
+              const authDataRaw = sessionStorage.getItem('authData');
+              if (authDataRaw) {
+                const authData = JSON.parse(authDataRaw);
+                const defaultIntakeData: IntakeData = {
+                  consent: true,
+                  kvkk: true,
+                  gender: 'Male',
+                  history: 'none',
+                };
+                const mergedData: any = {
+                  ...defaultIntakeData,
+                  contactMethod: 'email',
+                  contactValue: authData.email,
+                  userName: authData.name,
+                  userId: authData.userId,
+                  verified: true,
+                };
+                await finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+                sessionStorage.removeItem('authData');
+              }
+
+              // Clean up scan data
+              sessionStorage.removeItem('pendingScanData');
+              savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
+                sessionStorage.removeItem(`scan_photo_${idx}`);
+              });
+            });
+
+            return;
           }
         }
 
