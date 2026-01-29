@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import LandingScreen from './components/LandingScreen';
 import ScannerScreen from './components/ScannerScreen';
 import PreScanScreen from './components/PreScanScreen';
-import SocialAuthModal from './components/SocialAuthModal';
+import UserInfoModal from './components/UserInfoModal';
+import AuthOTPModal from './components/AuthOTPModal';
 import DashboardScreen from './components/DashboardScreen';
 import PartnerPortalScreen from './components/PartnerPortalScreen';
 import PartnerJoinScreen from './components/PartnerJoinScreen';
@@ -39,7 +40,11 @@ const App: React.FC = () => {
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
   const [currentLeadData, setCurrentLeadData] = useState<LeadData | null>(null);
 
-  // retry için son scan’i tut
+  // Auth flow states
+  const [userInfo, setUserInfo] = useState<{ firstName: string; lastName: string; email: string; phone: string } | null>(null);
+  const [authStep, setAuthStep] = useState<'user_info' | 'phone_otp'>('user_info');
+
+  // retry için son scan'i tut
   const lastScanRef = useRef<{ photos: any[]; skip: boolean } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
@@ -381,19 +386,41 @@ const App: React.FC = () => {
     }
 
     // Go to auth first, then analyze
+    setAuthStep('user_info');
+    setUserInfo(null);
     setAppState('AUTH_GATE');
   };
 
   // handleIntakeComplete removed - intake flow skipped
 
-  // Auth Complete -> Start Analysis -> Go to Intake
-  const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
-    console.log('[App] Auth complete called:', authData.email);
+  // User Info Complete -> Show OTP
+  const handleUserInfoComplete = (info: { firstName: string; lastName: string; email: string; phone: string }) => {
+    console.log('[App] User info collected:', info);
+    setUserInfo(info);
+    setAuthStep('phone_otp');
+  };
+
+  // OTP Verified -> Start Analysis
+  const handlePhoneOtpComplete = async (userId: string) => {
+    console.log('[App] Phone OTP verified, userId:', userId);
+
+    if (!userInfo) {
+      console.error('[App] No user info found');
+      return;
+    }
+
+    const fullName = `${userInfo.firstName} ${userInfo.lastName}`;
 
     // Upsert user profile
-    await upsertUserProfile(authData.userId, authData.email, authData.name);
+    await upsertUserProfile(userId, userInfo.email, fullName);
 
     // Store auth data for later use
+    const authData = {
+      email: userInfo.email,
+      name: fullName,
+      userId,
+      phone: userInfo.phone,
+    };
     sessionStorage.setItem('authData', JSON.stringify(authData));
 
     // Restore scan data from sessionStorage
@@ -828,14 +855,24 @@ const App: React.FC = () => {
         )}
 
 
-        {/* OAUTH GATE */}
+        {/* AUTH GATE */}
         {appState === 'AUTH_GATE' && (
           <div className="w-full min-h-screen relative flex items-center justify-center animate-in fade-in duration-700 bg-[#F7F8FA]">
             <div className="relative z-20 px-6 w-full max-w-xl">
-              <SocialAuthModal
-                onComplete={handleAuthComplete}
-                lang={lang}
-              />
+              {authStep === 'user_info' && (
+                <UserInfoModal
+                  onComplete={handleUserInfoComplete}
+                  lang={lang}
+                />
+              )}
+              {authStep === 'phone_otp' && userInfo && (
+                <AuthOTPModal
+                  phone={userInfo.phone}
+                  onComplete={handlePhoneOtpComplete}
+                  onBack={() => setAuthStep('user_info')}
+                  lang={lang}
+                />
+              )}
             </div>
           </div>
         )}
