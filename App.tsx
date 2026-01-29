@@ -47,6 +47,30 @@ const App: React.FC = () => {
   const { logAnalysis, updateActivity } = useSession();
   const t = translations[lang];
 
+  // Upsert user profile in database
+  const upsertUserProfile = async (userId: string, email: string, name?: string) => {
+    try {
+      console.log('[App] Upserting user profile:', { userId, email, name });
+
+      const { error } = await supabase.rpc('upsert_user_profile', {
+        p_user_id: userId,
+        p_email: email,
+        p_full_name: name || email.split('@')[0],
+        p_avatar_url: null,
+        p_phone: null,
+        p_metadata: {}
+      });
+
+      if (error) {
+        console.error('[App] Error upserting profile:', error);
+      } else {
+        console.log('[App] Profile upserted successfully');
+      }
+    } catch (err) {
+      console.error('[App] Failed to upsert profile:', err);
+    }
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [appState]);
@@ -197,6 +221,13 @@ const App: React.FC = () => {
               });
 
               if (restoredPhotos.length > 0) {
+                // Upsert user profile
+                await upsertUserProfile(
+                  data.session.user.id,
+                  data.session.user.email || '',
+                  data.session.user.user_metadata?.full_name
+                );
+
                 // Store auth data
                 sessionStorage.setItem('authData', JSON.stringify({
                   email: data.session.user.email || '',
@@ -344,6 +375,9 @@ const App: React.FC = () => {
   // Auth Complete -> Start Analysis -> Go to Intake
   const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
     console.log('[App] Auth complete called:', authData.email);
+
+    // Upsert user profile
+    await upsertUserProfile(authData.userId, authData.email, authData.name);
 
     // Store auth data for later use
     sessionStorage.setItem('authData', JSON.stringify(authData));
