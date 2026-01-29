@@ -10,7 +10,7 @@ import PatientPortalScreen from './components/PatientPortalScreen';
 import ClinicLandingScreen from './components/ClinicLandingScreen';
 import ClinicScreen from './components/ClinicScreen';
 import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
-import PreReportIntakeScreen from './components/PreReportIntakeScreen';
+// PreReportIntakeScreen removed - intake flow skipped
 import BlogScreen from './components/BlogScreen';
 import MonitoringDashboard from './components/MonitoringDashboard';
 import AdminDebugScreen from './components/AdminDebugScreen';
@@ -124,7 +124,27 @@ const App: React.FC = () => {
                 // Start analysis
                 setAppState('ANALYZING');
                 runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(() => {
-                  setAppState('INTAKE');
+                  // Skip INTAKE - create default intake data and finalize lead
+                  const authDataRaw = sessionStorage.getItem('authData');
+                  if (authDataRaw) {
+                    const authData = JSON.parse(authDataRaw);
+                    const defaultIntakeData: IntakeData = {
+                      consent: true,
+                      kvkk: true,
+                      gender: 'Male',
+                      history: 'none',
+                    };
+                    const mergedData: any = {
+                      ...defaultIntakeData,
+                      contactMethod: 'email',
+                      contactValue: authData.email,
+                      userName: authData.name,
+                      userId: authData.userId,
+                      verified: true,
+                    };
+                    finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+                    sessionStorage.removeItem('authData');
+                  }
 
                   // Clean up scan data
                   sessionStorage.removeItem('pendingScanData');
@@ -230,42 +250,7 @@ const App: React.FC = () => {
     setAppState('AUTH_GATE');
   };
 
-  // Intake Complete -> Finalize Lead Creation
-  const handleIntakeComplete = (data: IntakeData) => {
-    setIntakeData(data);
-
-    // Get auth data from sessionStorage
-    try {
-      const authDataRaw = sessionStorage.getItem('authData');
-      if (!authDataRaw) {
-        console.error('[App] No auth data found after intake');
-        setError(lang === 'TR' ? 'Oturum verisi bulunamadı.' : 'Session data not found.');
-        setAppState('LANDING');
-        return;
-      }
-
-      const authData = JSON.parse(authDataRaw);
-
-      // Combine Intake Data + Auth Data
-      const mergedData: any = {
-        ...data,
-        contactMethod: 'email',
-        contactValue: authData.email,
-        userName: authData.name,
-        userId: authData.userId,
-        verified: true,
-      };
-
-      console.log('[App] Creating lead with merged data');
-      finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
-
-      // Clean up
-      sessionStorage.removeItem('authData');
-    } catch (e) {
-      console.error('[App] Failed to finalize lead:', e);
-      setError(lang === 'TR' ? 'Kayıt oluşturulamadı.' : 'Failed to create lead.');
-    }
-  };
+  // handleIntakeComplete removed - intake flow skipped
 
   // Auth Complete -> Start Analysis -> Go to Intake
   const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
@@ -312,8 +297,23 @@ const App: React.FC = () => {
       setAppState('ANALYZING');
       await runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false);
 
-      // After analysis completes, go to intake
-      setAppState('INTAKE');
+      // Skip INTAKE - create default intake data and finalize lead
+      const defaultIntakeData: IntakeData = {
+        consent: true,
+        kvkk: true,
+        gender: 'Male',
+        history: 'none',
+      };
+      const mergedData: any = {
+        ...defaultIntakeData,
+        contactMethod: 'email',
+        contactValue: authData.email,
+        userName: authData.name,
+        userId: authData.userId,
+        verified: true,
+      };
+      finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+      sessionStorage.removeItem('authData');
 
       // Clean up scan data
       sessionStorage.removeItem('pendingScanData');
@@ -707,28 +707,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* INTAKE PHASE (After Analysis) */}
-        {appState === 'INTAKE' && (
-          <div className="w-full min-h-screen bg-[#F7F8FA] px-6 pt-28 pb-10">
-            <div className="max-w-2xl mx-auto">
-              {error && (
-                <div className="mb-4 rounded-2xl border border-red-200 bg-white p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-red-600">
-                    {lang === 'TR' ? 'Bir sorun oldu' : 'Something went wrong'}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-700">{error}</div>
-                </div>
-              )}
-
-              <div className="rounded-2xl bg-white shadow-sm border border-slate-200">
-                <PreReportIntakeScreen
-                  lang={lang}
-                  onComplete={handleIntakeComplete}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        {/* INTAKE PHASE REMOVED - Flow goes directly from ANALYZING to RESULT */}
 
         {appState === 'RESULT' && (
           <div className="w-full max-w-7xl mx-auto py-32 px-6">
