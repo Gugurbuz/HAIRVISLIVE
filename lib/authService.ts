@@ -3,48 +3,52 @@ import { supabase } from './supabase';
 interface AuthResponse {
   success: boolean;
   error?: string;
-  userId?: string;
+  data?: any;
 }
 
-export const sendPhoneOtp = async (phone: string): Promise<AuthResponse> => {
+export const signInWithGoogle = async (): Promise<AuthResponse> => {
   try {
-    const { error } = await supabase.auth.signInWithOtp({
-      phone,
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
     });
 
     if (error) {
-      console.error('Phone OTP Send Error:', error.message);
+      console.error('Google Sign In Error:', error.message);
       return { success: false, error: error.message };
     }
 
-    return { success: true };
+    return { success: true, data };
   } catch (error: any) {
-    console.error('Unexpected Error (Phone OTP):', error);
-    return { success: false, error: 'SMS gönderilirken bir hata oluştu.' };
+    console.error('Unexpected Error (Google):', error);
+    return { success: false, error: 'Google ile giriş yapılırken bir hata oluştu.' };
   }
 };
 
-export const verifyPhoneOtp = async (phone: string, token: string): Promise<AuthResponse> => {
+export const signInWithApple = async (): Promise<AuthResponse> => {
   try {
-    const { data, error } = await supabase.auth.verifyOtp({
-      phone,
-      token,
-      type: 'sms',
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: {
+        redirectTo: window.location.origin,
+      },
     });
 
     if (error) {
-      console.error('Phone OTP Verify Error:', error.message);
+      console.error('Apple Sign In Error:', error.message);
       return { success: false, error: error.message };
     }
 
-    if (!data.user) {
-      return { success: false, error: 'Kullanıcı bilgisi alınamadı.' };
-    }
-
-    return { success: true, userId: data.user.id };
+    return { success: true, data };
   } catch (error: any) {
-    console.error('Unexpected Error (Verify OTP):', error);
-    return { success: false, error: 'Kod doğrulanırken bir hata oluştu.' };
+    console.error('Unexpected Error (Apple):', error);
+    return { success: false, error: 'Apple ile giriş yapılırken bir hata oluştu.' };
   }
 };
 
