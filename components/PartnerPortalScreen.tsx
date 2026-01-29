@@ -1,18 +1,23 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutGrid, Users, Settings, Bell, Lock, Unlock, 
-  MapPin, Activity, Phone, Mail, ArrowLeft, 
-  ShieldCheck, UserCheck, Stethoscope, LogOut, Plus, X, 
-  ClipboardList, AlertCircle, CheckCircle2, Building2, 
+import {
+  LayoutGrid, Users, Settings, Bell, Lock, Unlock,
+  MapPin, Activity, Phone, Mail, ArrowLeft,
+  ShieldCheck, UserCheck, Stethoscope, LogOut, Plus, X,
+  ClipboardList, AlertCircle, CheckCircle2, Building2,
   ArrowRight, Info, BrainCircuit, FileText, Check, AlertTriangle,
   Crown, Star, Clock, Zap, BarChart3, Sparkles, MessageSquare, Pencil, Save,
   Camera, Upload, Trash2, Image as ImageIcon, Globe, Wifi, Car, Coffee, Scissors, Microscope,
-  Calendar, Pill, History, Maximize2, Eye, Youtube, Play
+  Calendar, Pill, History, Maximize2, Eye, Youtube, Play, ShoppingCart, Package
 } from 'lucide-react';
 import { LanguageCode } from '../translations';
 import { useLeads, LeadData, ClinicResponse, ClinicTier, Suitability, DonorBand } from '../context/LeadContext';
+import { supabase } from '../lib/supabase';
+import { clinicManagementService } from '../lib/clinicManagementService';
+import { ClinicProfileEditor } from './clinic/ClinicProfileEditor';
+import { ClinicMediaManager } from './clinic/ClinicMediaManager';
+import { LeadMarketplace } from './clinic/LeadMarketplace';
 
 // --- TYPES & INTERFACES ---
 
@@ -190,14 +195,101 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({ reason, onClose, onUpgrade,
 
 // --- AUTH MOCK (Simplified) ---
 const ClinicAuth = ({ onLoginSuccess, onBack }: any) => {
+    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState('demo@hairclinic.com');
+    const [password, setPassword] = useState('demo123');
+
+    const handleDemoLogin = async () => {
+        setLoading(true);
+
+        try {
+            // Sign in with demo credentials
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (authError) throw authError;
+
+            if (authData.user) {
+                // Check if user has a clinic assigned
+                const { data: userRole } = await supabase
+                    .from('user_roles')
+                    .select('clinic_id')
+                    .eq('user_id', authData.user.id)
+                    .eq('role', 'clinic')
+                    .maybeSingle();
+
+                // If no clinic assigned, assign the demo clinic (HairTech Istanbul)
+                if (!userRole) {
+                    await supabase
+                        .from('user_roles')
+                        .insert({
+                            user_id: authData.user.id,
+                            role: 'clinic',
+                            clinic_id: 'bd5f2a0c-f20f-4fe6-8add-70b74abb0009',
+                        });
+                }
+
+                onLoginSuccess();
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            alert('Login failed. Using demo mode.');
+            onLoginSuccess();
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="h-screen flex items-center justify-center bg-[#050B14] p-6">
-           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
-              <Activity className="w-12 h-12 text-teal-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-6">Partner Portal</h2>
-              <button onClick={onLoginSuccess} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold">Log In (Demo)</button>
-              <button onClick={onBack} className="mt-4 text-slate-500 text-xs">Back</button>
-           </div>
+            <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl">
+                <Activity className="w-12 h-12 text-teal-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white mb-2 text-center">Partner Portal</h2>
+                <p className="text-slate-400 text-sm text-center mb-6">Sign in to access your clinic dashboard</p>
+
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-400 mb-2">Email</label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            placeholder="your@email.com"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-slate-400 mb-2">Password</label>
+                        <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            placeholder="••••••••"
+                        />
+                    </div>
+
+                    <button
+                        onClick={handleDemoLogin}
+                        disabled={loading}
+                        className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? 'Signing in...' : 'Sign In'}
+                    </button>
+
+                    <div className="text-center">
+                        <p className="text-xs text-slate-500 mb-2">Demo Credentials:</p>
+                        <p className="text-xs text-slate-400">demo@hairclinic.com / demo123</p>
+                    </div>
+                </div>
+
+                <button onClick={onBack} className="mt-6 w-full text-slate-500 text-xs hover:text-slate-400 transition-colors">
+                    Back to Home
+                </button>
+            </div>
         </div>
     );
 };
@@ -854,11 +946,16 @@ const ClinicProfileEditor = () => {
 
 const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }> = ({ lang, onBack }) => {
   const { leads, clinicTier, setClinicTier, unlockLead, submitClinicResponse } = useLeads();
-  
+
   const [view, setView] = useState<'login' | 'dashboard'>('login');
-  const [activeTab, setActiveTab] = useState<'inbox' | 'my_cases' | 'my_clinic' | 'settings'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'my_cases' | 'my_clinic' | 'profile' | 'media' | 'marketplace' | 'settings'>('inbox');
   const [selectedCase, setSelectedCase] = useState<LeadData | null>(null);
   const [credits, setCredits] = useState(120);
+
+  // Clinic state from database
+  const [clinicId, setClinicId] = useState<string | null>(null);
+  const [clinic, setClinic] = useState<any>(null);
+  const [clinicSubTab, setClinicSubTab] = useState<'profile' | 'media' | 'marketplace'>('profile');
   
   // Monetization / Modal State
   const [activeModal, setActiveModal] = useState<UpgradeReason | null>(null);
@@ -890,6 +987,29 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
           });
       }
   }, [selectedCase]);
+
+  // Load clinic data on login
+  useEffect(() => {
+    if (view === 'dashboard') {
+      loadClinicData();
+    }
+  }, [view]);
+
+  const loadClinicData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: clinic } = await clinicManagementService.getClinicByUserId(user.id);
+    if (clinic) {
+      setClinic(clinic);
+      setClinicId(clinic.id);
+      setCredits(Number(clinic.credits) || 0);
+    }
+  };
+
+  const handlePurchaseComplete = (newCredits: number) => {
+    setCredits(newCredits);
+  };
 
   // Actions
   const handleUpgrade = () => {
@@ -1002,23 +1122,24 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
             <nav className="flex-1 px-4 py-6 space-y-2">
                 <NavButton active={activeTab === 'inbox'} onClick={() => {setActiveTab('inbox'); setSelectedCase(null);}} icon={ClipboardList} label="Inbox" count={leads.filter(l => !l.isUnlocked).length} />
                 <NavButton active={activeTab === 'my_cases'} onClick={() => {setActiveTab('my_cases'); setSelectedCase(null);}} icon={UserCheck} label="My Cases" count={leads.filter(l => l.isUnlocked).length} />
-                <NavButton active={activeTab === 'my_clinic'} onClick={() => {setActiveTab('my_clinic'); setSelectedCase(null);}} icon={Building2} label="My Clinic" />
+                <NavButton active={activeTab === 'marketplace'} onClick={() => {setActiveTab('marketplace'); setSelectedCase(null);}} icon={ShoppingCart} label="Lead Marketplace" />
+                <NavButton active={activeTab === 'my_clinic'} onClick={() => {setActiveTab('my_clinic'); setClinicSubTab('profile'); setSelectedCase(null);}} icon={Building2} label="My Clinic" />
                 <NavButton active={activeTab === 'settings'} onClick={() => {setActiveTab('settings'); setSelectedCase(null);}} icon={Settings} label="Settings" />
             </nav>
 
             <div className="p-6 border-t border-slate-50">
-                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 mb-4">
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-2xl p-5 border border-amber-200 mb-4">
                     <div className="flex justify-between items-center mb-1">
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Engagement Passes</p>
+                        <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Credits</p>
                         {clinicTier === 'CoE' && (
-                            <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">30 included</span>
+                            <span className="text-[9px] font-bold text-amber-600 bg-white px-2 py-0.5 rounded-full border border-amber-200">CoE Member</span>
                         )}
                     </div>
                     <div className="flex items-end justify-between">
-                        <span className="text-2xl font-black text-[#0E1A2B]">{credits}</span>
-                        <button className="text-[10px] font-bold text-teal-600 hover:underline">+ Top up</button>
+                        <span className="text-3xl font-black text-amber-900">{credits}</span>
+                        <button className="text-[10px] font-bold text-amber-700 hover:underline">+ Buy Credits</button>
                     </div>
-                    <p className="text-[9px] text-slate-400 mt-2 leading-tight">Use a pass to start a professional conversation.</p>
+                    <p className="text-[9px] text-amber-700 mt-2 leading-tight">Use credits to unlock leads and view full contact details.</p>
                 </div>
                 <button onClick={() => setView('login')} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-colors">
                     <LogOut size={14} /> Sign Out
@@ -1029,7 +1150,7 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
         {/* MAIN CONTENT */}
         <main className="flex-1 lg:ml-72 flex flex-col h-screen overflow-hidden">
             {/* Header */}
-            {activeTab !== 'my_clinic' && (
+            {activeTab !== 'my_clinic' && activeTab !== 'marketplace' && (
                 <header className="bg-white border-b border-slate-100 px-8 py-5 flex justify-between items-center z-40">
                     <div>
                         <div className="flex items-center gap-3">
@@ -1039,7 +1160,7 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
                                 </button>
                             )}
                             <h1 className="text-xl font-black text-[#0E1A2B] uppercase tracking-tight">
-                                {selectedCase ? `Case Assessment: ${selectedCase.id}` : activeTab === 'inbox' ? 'Case Inbox' : activeTab === 'my_cases' ? 'My Active Cases' : activeTab === 'settings' ? 'Clinic Settings' : 'My Clinic'}
+                                {selectedCase ? `Case Assessment: ${selectedCase.id}` : activeTab === 'inbox' ? 'Case Inbox' : activeTab === 'my_cases' ? 'My Active Cases' : activeTab === 'settings' ? 'Clinic Settings' : 'Dashboard'}
                             </h1>
                         </div>
                         {selectedCase && (
@@ -1055,9 +1176,69 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
                 </header>
             )}
 
-            <div className={`flex-1 overflow-y-auto relative bg-[#F7F8FA] ${activeTab === 'my_clinic' ? 'p-0' : selectedCase ? 'p-0' : 'p-8'}`}>
-                {activeTab === 'my_clinic' ? (
-                    <ClinicProfileEditor />
+            <div className={`flex-1 overflow-y-auto relative bg-[#F7F8FA] ${activeTab === 'my_clinic' || activeTab === 'marketplace' ? 'p-0' : selectedCase ? 'p-0' : 'p-8'}`}>
+                {activeTab === 'marketplace' ? (
+                    <div className="p-8">
+                        {clinicId ? (
+                            <LeadMarketplace
+                                clinicId={clinicId}
+                                clinicCredits={credits}
+                                onPurchase={handlePurchaseComplete}
+                            />
+                        ) : (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        )}
+                    </div>
+                ) : activeTab === 'my_clinic' ? (
+                    <div className="min-h-screen bg-[#F7F8FA]">
+                        {/* Clinic Sub-Navigation */}
+                        <div className="bg-white border-b border-slate-200 px-8 py-4">
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setClinicSubTab('profile')}
+                                    className={`px-6 py-3 rounded-xl text-sm font-bold transition-colors ${
+                                        clinicSubTab === 'profile'
+                                            ? 'bg-teal-500 text-white shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <Building2 size={16} className="inline mr-2" />
+                                    Profile
+                                </button>
+                                <button
+                                    onClick={() => setClinicSubTab('media')}
+                                    className={`px-6 py-3 rounded-xl text-sm font-bold transition-colors ${
+                                        clinicSubTab === 'media'
+                                            ? 'bg-teal-500 text-white shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                                    }`}
+                                >
+                                    <ImageIcon size={16} className="inline mr-2" />
+                                    Media
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Clinic Content */}
+                        <div className="p-8">
+                            {clinicId ? (
+                                <>
+                                    {clinicSubTab === 'profile' && (
+                                        <ClinicProfileEditor clinicId={clinicId} onSave={loadClinicData} />
+                                    )}
+                                    {clinicSubTab === 'media' && (
+                                        <ClinicMediaManager clinicId={clinicId} />
+                                    )}
+                                </>
+                            ) : (
+                                <div className="flex items-center justify-center py-12">
+                                    <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 ) : activeTab === 'settings' ? (
                     <div className="max-w-3xl mx-auto space-y-8 p-8">
                         <div className="bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm">
