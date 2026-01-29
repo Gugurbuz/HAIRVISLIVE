@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [planningImage, setPlanningImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
+  const [currentLeadData, setCurrentLeadData] = useState<LeadData | null>(null);
 
   // retry için son scan’i tut
   const lastScanRef = useRef<{ photos: any[]; skip: boolean } | null>(null);
@@ -49,6 +50,89 @@ const App: React.FC = () => {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [appState]);
+
+  // Load report from URL if present
+  useEffect(() => {
+    const loadReportFromUrl = async () => {
+      const path = window.location.pathname;
+      const reportMatch = path.match(/^\/report\/([a-f0-9-]+)$/i);
+
+      if (reportMatch && reportMatch[1]) {
+        const leadId = reportMatch[1];
+        console.log('[App] Loading report from URL:', leadId);
+
+        try {
+          const { data: lead, error } = await supabase
+            .from('leads')
+            .select('*')
+            .eq('id', leadId)
+            .maybeSingle();
+
+          if (error) {
+            console.error('[App] Error loading lead:', error);
+            setError(lang === 'TR' ? 'Rapor yüklenemedi.' : 'Failed to load report.');
+            setAppState('LANDING');
+            return;
+          }
+
+          if (!lead) {
+            console.error('[App] Lead not found');
+            setError(lang === 'TR' ? 'Rapor bulunamadı.' : 'Report not found.');
+            setAppState('LANDING');
+            return;
+          }
+
+          console.log('[App] Lead loaded:', lead.id);
+
+          // Map database lead to LeadData format
+          const mappedLead: LeadData = {
+            id: lead.id,
+            countryCode: lead.country_code || '',
+            age: lead.age,
+            gender: lead.gender,
+            norwoodScale: lead.norwood_scale || '',
+            estimatedGrafts: lead.estimated_grafts || '',
+            registrationDate: new Date(lead.created_at).toLocaleDateString(),
+            timestamp: new Date(lead.created_at).getTime(),
+            thumbnailUrl: lead.thumbnail_url || '',
+            status: lead.status,
+            price: lead.price || 0,
+            proposalPrice: lead.proposal_price || 0,
+            isUnlocked: lead.is_unlocked || false,
+            isNegotiable: lead.is_negotiable || false,
+            patientDetails: lead.patient_details,
+            analysisData: lead.analysis_data,
+            intake: lead.intake_data,
+            name: lead.name,
+            email: lead.email,
+            phone: lead.phone,
+            concerns: lead.concerns || [],
+            source: lead.source,
+            clinicId: lead.clinic_id,
+            scanData: lead.scan_data,
+            metadata: lead.metadata,
+          };
+
+          setCurrentLeadData(mappedLead);
+
+          // Restore state from lead data
+          if (lead.analysis_data) {
+            setAnalysisResult(lead.analysis_data);
+            setAfterImage(lead.analysis_data.simulation_image || null);
+            setPlanningImage(lead.analysis_data.surgical_plan_image || null);
+          }
+
+          setAppState('RESULT');
+        } catch (err) {
+          console.error('[App] Failed to load report:', err);
+          setError(lang === 'TR' ? 'Rapor yüklenirken hata oluştu.' : 'Error loading report.');
+          setAppState('LANDING');
+        }
+      }
+    };
+
+    loadReportFromUrl();
+  }, []);
 
   // Global Supabase auth listener
   useEffect(() => {
@@ -79,6 +163,13 @@ const App: React.FC = () => {
           hashParams.has('access_token') ||
           hashParams.has('error');
 
+        // If we have pending scan data, immediately show ANALYZING state
+        const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
+        if (hasOAuthArtifacts && pendingScanDataRaw) {
+          console.log('[OAuth] OAuth callback detected with pending scan data - showing ANALYZING state');
+          setAppState('ANALYZING');
+        }
+
         // Exchange PKCE code for session if present
         if (searchParams.has('code')) {
           console.log('[OAuth] Exchanging code for session...');
@@ -89,7 +180,6 @@ const App: React.FC = () => {
             console.log('[OAuth] Session established:', data.session.user.email);
 
             // Check if we have pending scan data (user came from scan flow)
-            const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
             if (pendingScanDataRaw) {
               console.log('[OAuth] Pending scan data found, starting analysis...');
 
@@ -121,9 +211,8 @@ const App: React.FC = () => {
                 // Clean URL
                 window.history.replaceState({}, document.title, window.location.pathname);
 
-                // Start analysis
-                setAppState('ANALYZING');
-                runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(() => {
+                // Already in ANALYZING state, start analysis
+                runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(async () => {
                   // Skip INTAKE - create default intake data and finalize lead
                   const authDataRaw = sessionStorage.getItem('authData');
                   if (authDataRaw) {
@@ -142,7 +231,7 @@ const App: React.FC = () => {
                       userId: authData.userId,
                       verified: true,
                     };
-                    finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+                    await finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
                     sessionStorage.removeItem('authData');
                   }
 
@@ -312,7 +401,7 @@ const App: React.FC = () => {
         userId: authData.userId,
         verified: true,
       };
-      finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
+      await finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
       sessionStorage.removeItem('authData');
 
       // Clean up scan data
@@ -490,7 +579,7 @@ const App: React.FC = () => {
     }
   };
 
-  const finalizeLeadCreation = (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
+  const finalizeLeadCreation = async (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
     console.log('[App] Finalizing lead creation...');
 
     // (3) LEAD GUARD'LARI — zorunlu kriterler
@@ -583,7 +672,22 @@ const App: React.FC = () => {
     };
 
     console.log('[App] Adding lead and navigating to RESULT');
-    addLead(newLead);
+    try {
+      const leadId = await addLead(newLead);
+      if (leadId) {
+        console.log('[App] Lead created with ID:', leadId);
+        // Update lead with real ID
+        newLead.id = leadId;
+        setCurrentLeadData(newLead);
+        // Update URL to include lead ID
+        window.history.pushState({}, '', `/report/${leadId}`);
+      } else {
+        setCurrentLeadData(newLead);
+      }
+    } catch (err) {
+      console.error('[App] Failed to create lead:', err);
+      setCurrentLeadData(newLead);
+    }
     setAppState('RESULT');
   };
 
@@ -718,7 +822,7 @@ const App: React.FC = () => {
               planningImage={planningImage || ''}
               afterImage={afterImage || ''}
               error={error}
-              leadData={useLeads().leads[0]}
+              leadData={currentLeadData || useLeads().leads[0]}
             />
           </div>
         )}
