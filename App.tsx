@@ -96,65 +96,11 @@ const App: React.FC = () => {
             };
             sessionStorage.setItem('authData', JSON.stringify(authData));
 
-            // Restore pending data from sessionStorage - pass directly to avoid closure issues
-            const storedAnalysis = sessionStorage.getItem('pendingAnalysisResult');
-            const storedIntake = sessionStorage.getItem('pendingIntakeData');
-            const storedPhotos = sessionStorage.getItem('pendingScanData');
-
-            console.log('[OAuth] Restoring pending data:', {
-              hasAnalysis: !!storedAnalysis,
-              hasIntake: !!storedIntake,
-              hasPhotos: !!storedPhotos,
-            });
-
-            let restoredAnalysis = null;
-            let restoredIntake = null;
-            let restoredPhotos: any[] = [];
-
-            if (storedAnalysis) {
-              try {
-                restoredAnalysis = JSON.parse(storedAnalysis);
-                console.log('[OAuth] Analysis result parsed:', !!restoredAnalysis?.diagnosis);
-              } catch (e) {
-                console.error('[OAuth] Failed to parse stored analysis:', e);
-              }
-            }
-
-            if (storedIntake) {
-              try {
-                restoredIntake = JSON.parse(storedIntake);
-                console.log('[OAuth] Intake data parsed');
-              } catch (e) {
-                console.error('[OAuth] Failed to parse stored intake:', e);
-              }
-            }
-
-            if (storedPhotos) {
-              try {
-                const scanData = JSON.parse(storedPhotos);
-                scanData.capturedPhotos?.forEach((p: any, idx: number) => {
-                  const preview = sessionStorage.getItem(`scan_photo_${idx}`);
-                  if (preview) {
-                    restoredPhotos.push({ ...p, preview });
-                  }
-                });
-                console.log('[OAuth] Photos parsed:', restoredPhotos.length);
-              } catch (e) {
-                console.error('[OAuth] Failed to restore photos:', e);
-              }
-            }
-
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
 
-            // Pass restored data directly to handleAuthComplete to avoid closure issues
-            // The data is passed as a parameter, not relying on React state which may not be updated yet
-            console.log('[OAuth] Calling handleAuthComplete with restored data directly');
-            handleAuthComplete(authData, {
-              analysis: restoredAnalysis,
-              intake: restoredIntake,
-              photos: restoredPhotos.length > 0 ? restoredPhotos : undefined,
-            });
+            // Call handleAuthComplete to proceed with simulation
+            handleAuthComplete(authData);
             return;
           }
         }
@@ -282,14 +228,6 @@ const App: React.FC = () => {
 
       setAnalysisResult(result);
 
-      // Save to sessionStorage for OAuth redirect recovery
-      try {
-        sessionStorage.setItem('pendingAnalysisResult', JSON.stringify(result));
-        console.log('[App] Analysis result saved to sessionStorage');
-      } catch (e) {
-        console.warn('[App] Could not save analysis result to sessionStorage:', e);
-      }
-
       await logAnalysis({
         operationType: 'scalp_analysis',
         inputData: { viewTypes: Object.keys(viewImages) },
@@ -311,122 +249,27 @@ const App: React.FC = () => {
   // Intake Complete -> Go to Auth Gate
   const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
-
-    // Save to sessionStorage for OAuth redirect recovery
-    try {
-      sessionStorage.setItem('pendingIntakeData', JSON.stringify(data));
-      console.log('[App] Intake data saved to sessionStorage');
-    } catch (e) {
-      console.warn('[App] Could not save intake data to sessionStorage:', e);
-    }
-
-    // Check if analysis completed - if not, show error
-    if (!analysisResult || !analysisResult.norwoodScale) {
-      console.error('[App] Cannot proceed to auth - analysis not completed');
-      setError(lang === 'TR'
-        ? 'Analiz tamamlanamadı. Lütfen tekrar deneyin.'
-        : 'Analysis could not be completed. Please try again.');
-      return;
-    }
-
     console.log('[App] Intake complete, moving to auth gate');
     setAppState('AUTH_GATE');
   };
 
   // Auth Complete -> Generate Simulation -> Finalize Lead
-  // Optional params allow passing restored data directly (avoids closure issues with OAuth redirect)
-  const handleAuthComplete = async (
-    authData: { email: string; name: string; userId: string },
-    restoredData?: { analysis?: any; intake?: IntakeData; photos?: any[] }
-  ) => {
+  const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
     console.log('[App] Auth complete called:', authData.email);
-    console.log('[App] Restored data provided:', {
-      hasAnalysis: !!restoredData?.analysis,
-      hasIntake: !!restoredData?.intake,
-      hasPhotos: !!restoredData?.photos?.length,
-    });
 
     // Store auth data
     sessionStorage.setItem('authData', JSON.stringify(authData));
 
-    // Use restored data if provided, otherwise try state, then sessionStorage
-    let currentAnalysis = restoredData?.analysis || analysisResult;
-    let currentIntake = restoredData?.intake || intakeData;
-    let currentPhotos = restoredData?.photos || capturedPhotos;
-
-    // Fallback to sessionStorage if still empty
-    if (!currentAnalysis) {
-      const storedAnalysis = sessionStorage.getItem('pendingAnalysisResult');
-      if (storedAnalysis) {
-        try {
-          currentAnalysis = JSON.parse(storedAnalysis);
-          console.log('[App] Analysis restored from sessionStorage in handleAuthComplete');
-        } catch (e) {
-          console.error('[App] Failed to parse stored analysis:', e);
-        }
-      }
-    }
-
-    if (!currentIntake) {
-      const storedIntake = sessionStorage.getItem('pendingIntakeData');
-      if (storedIntake) {
-        try {
-          currentIntake = JSON.parse(storedIntake);
-          console.log('[App] Intake restored from sessionStorage in handleAuthComplete');
-        } catch (e) {
-          console.error('[App] Failed to parse stored intake:', e);
-        }
-      }
-    }
-
-    if (!currentPhotos || currentPhotos.length === 0) {
-      const storedPhotos = sessionStorage.getItem('pendingScanData');
-      if (storedPhotos) {
-        try {
-          const scanData = JSON.parse(storedPhotos);
-          const restoredPhotos: any[] = [];
-          scanData.capturedPhotos?.forEach((p: any, idx: number) => {
-            const preview = sessionStorage.getItem(`scan_photo_${idx}`);
-            if (preview) {
-              restoredPhotos.push({ ...p, preview });
-            }
-          });
-          if (restoredPhotos.length > 0) {
-            currentPhotos = restoredPhotos;
-            console.log('[App] Photos restored from sessionStorage in handleAuthComplete');
-          }
-        } catch (e) {
-          console.error('[App] Failed to restore photos:', e);
-        }
-      }
-    }
-
-    // Update state with current values
-    if (currentAnalysis) setAnalysisResult(currentAnalysis);
-    if (currentIntake) setIntakeData(currentIntake);
-    if (currentPhotos?.length) setCapturedPhotos(currentPhotos);
-
-    console.log('[App] Validation check:', {
-      hasAnalysis: !!currentAnalysis,
-      analysisKeys: currentAnalysis ? Object.keys(currentAnalysis) : [],
-      hasNorwood: !!currentAnalysis?.norwoodScale,
-      hasIntake: !!currentIntake,
-      photosCount: currentPhotos?.length || 0,
-    });
-
-    // Validate we have analysis result - check for norwoodScale (per schema)
-    if (!currentAnalysis || !currentAnalysis.norwoodScale) {
-      console.error('[App] No analysis result found after auth:', {
-        currentAnalysis,
-        fromRestoredData: !!restoredData?.analysis,
-      });
+    // Validate we have analysis result
+    if (!analysisResult || !analysisResult.diagnosis?.norwood_scale) {
+      console.error('[App] No analysis result found after auth');
       setError(lang === 'TR' ? 'Analiz verisi bulunamadı. Lütfen tekrar deneyin.' : 'Analysis data not found. Please try again.');
       setAppState('LANDING');
       return;
     }
 
     // Validate we have intake data
-    if (!currentIntake) {
+    if (!intakeData) {
       console.error('[App] No intake data found after auth');
       setError(lang === 'TR' ? 'Soru cevapları bulunamadı. Lütfen tekrar deneyin.' : 'Intake data not found. Please try again.');
       setAppState('LANDING');
@@ -439,17 +282,17 @@ const App: React.FC = () => {
     setIsAnalyzing(true);
 
     try {
-      const mainPhoto = currentPhotos[0]?.preview.split(',')[1] || '';
+      const mainPhoto = capturedPhotos[0]?.preview.split(',')[1] || '';
 
       // STEP 2: Surgical Plan Generation
-      const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, currentAnalysis);
+      const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, analysisResult);
       setPlanningImage(planImage);
-      (currentAnalysis as any).surgical_plan_image = planImage || undefined;
+      (analysisResult as any).surgical_plan_image = planImage || undefined;
 
       // STEP 3: Simulation
-      const simImage = await geminiService.generateSimulation(mainPhoto, planImage, currentAnalysis);
+      const simImage = await geminiService.generateSimulation(mainPhoto, planImage, analysisResult);
       setAfterImage(simImage);
-      (currentAnalysis as any).simulation_image = simImage || undefined;
+      (analysisResult as any).simulation_image = simImage || undefined;
 
       await logAnalysis({
         operationType: 'simulation_generation',
@@ -461,7 +304,7 @@ const App: React.FC = () => {
 
       // Combine data and create lead
       const mergedData: any = {
-        ...currentIntake,
+        ...intakeData,
         contactMethod: 'email',
         contactValue: authData.email,
         userName: authData.name,
@@ -470,17 +313,11 @@ const App: React.FC = () => {
       };
 
       console.log('[App] Creating lead with merged data');
-      finalizeLeadCreation(currentAnalysis, simImage, planImage, mergedData);
+      finalizeLeadCreation(analysisResult, simImage, planImage, mergedData);
 
-      // Clean up all pending data from sessionStorage
+      // Clean up
       sessionStorage.removeItem('authData');
       sessionStorage.removeItem('pendingScanData');
-      sessionStorage.removeItem('pendingAnalysisResult');
-      sessionStorage.removeItem('pendingIntakeData');
-      // Clean up photo storage
-      for (let i = 0; i < 10; i++) {
-        sessionStorage.removeItem(`scan_photo_${i}`);
-      }
     } catch (err: any) {
       console.error('Simulation Error:', err);
       const userMsg = classifyUserError(err);

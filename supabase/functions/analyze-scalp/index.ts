@@ -102,19 +102,8 @@ Deno.serve(async (req: Request) => {
         estimatedGrafts: 2750,
         graftsRange: { min: 2500, max: 3000 },
         confidence: 85,
-        recommendations: {
-          primary: 'Sapphire FUE Hair Transplant',
-          alternative: ['DHI Hair Transplant'],
-          medicalTreatment: ['PRP Therapy', 'Finasteride'],
-          lifestyle: ['Balanced diet', 'Stress management'],
-        },
-        analysis: {
-          hairDensity: 'Medium',
-          scalpHealth: 'Good',
-          donorAreaQuality: 'Good',
-          candidacy: 'Good',
-          notes: 'Mock analysis response for testing. Patient shows typical male pattern baldness.',
-        },
+        recommendations: { primary: 'Sapphire FUE Hair Transplant', supporting: ['PRP Therapy', 'Finasteride'] },
+        analysis: { summary: 'Mock analysis response for testing' },
       };
 
       return new Response(JSON.stringify(mockResponse), {
