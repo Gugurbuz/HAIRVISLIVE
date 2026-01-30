@@ -320,6 +320,15 @@ const App: React.FC = () => {
       console.warn('[App] Could not save intake data to sessionStorage:', e);
     }
 
+    // Check if analysis completed - if not, show error
+    if (!analysisResult || !analysisResult.norwoodScale) {
+      console.error('[App] Cannot proceed to auth - analysis not completed');
+      setError(lang === 'TR'
+        ? 'Analiz tamamlanamadı. Lütfen tekrar deneyin.'
+        : 'Analysis could not be completed. Please try again.');
+      return;
+    }
+
     console.log('[App] Intake complete, moving to auth gate');
     setAppState('AUTH_GATE');
   };
@@ -397,9 +406,20 @@ const App: React.FC = () => {
     if (currentIntake) setIntakeData(currentIntake);
     if (currentPhotos?.length) setCapturedPhotos(currentPhotos);
 
-    // Validate we have analysis result
-    if (!currentAnalysis || !currentAnalysis.diagnosis?.norwood_scale) {
-      console.error('[App] No analysis result found after auth');
+    console.log('[App] Validation check:', {
+      hasAnalysis: !!currentAnalysis,
+      analysisKeys: currentAnalysis ? Object.keys(currentAnalysis) : [],
+      hasNorwood: !!currentAnalysis?.norwoodScale,
+      hasIntake: !!currentIntake,
+      photosCount: currentPhotos?.length || 0,
+    });
+
+    // Validate we have analysis result - check for norwoodScale (per schema)
+    if (!currentAnalysis || !currentAnalysis.norwoodScale) {
+      console.error('[App] No analysis result found after auth:', {
+        currentAnalysis,
+        fromRestoredData: !!restoredData?.analysis,
+      });
       setError(lang === 'TR' ? 'Analiz verisi bulunamadı. Lütfen tekrar deneyin.' : 'Analysis data not found. Please try again.');
       setAppState('LANDING');
       return;
