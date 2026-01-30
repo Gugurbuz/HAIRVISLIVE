@@ -134,7 +134,7 @@ Deno.serve(async (req: Request) => {
     if (images.right) parts.push(toInlinePart(images.right));
 
     const result = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'gemini-3-pro-preview',
       contents: [{ role: 'user', parts }],
       config: {
         thinkingConfig: { thinkingLevel: 'low' }, // hızlı cevap
@@ -169,7 +169,7 @@ Deno.serve(async (req: Request) => {
         promptName: 'scalp_analysis',
         promptVersion: version,
         executionTimeMs: executionTime,
-        model: 'gemini-3-pro-image-preview',
+        model: 'gemini-3-pro-preview',
         success: validation.success,
         errorMessage: validation.success ? undefined : formatValidationErrors(validation.errors!),
         inputHash,
