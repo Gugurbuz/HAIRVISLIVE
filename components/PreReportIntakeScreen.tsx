@@ -37,6 +37,9 @@ interface StepConfig {
 interface PreReportIntakeScreenProps {
   lang: 'EN' | 'TR';
   onComplete: (data: IntakeData) => void;
+  onAnalyzeRequest?: () => Promise<void>;
+  analysisResult?: any;
+  isAnalyzing?: boolean;
 }
 
 type Message =
@@ -45,7 +48,13 @@ type Message =
 
 const uid = () => `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
-export default function PreReportIntakeScreen({ lang, onComplete }: PreReportIntakeScreenProps) {
+export default function PreReportIntakeScreen({
+  lang,
+  onComplete,
+  onAnalyzeRequest,
+  analysisResult,
+  isAnalyzing = false
+}: PreReportIntakeScreenProps) {
   const isTR = lang === 'TR';
 
   const steps: StepConfig[] = useMemo(() => ([
@@ -214,6 +223,33 @@ export default function PreReportIntakeScreen({ lang, onComplete }: PreReportInt
     scrollToBottom('smooth');
   }, [messages, isTyping, stepIndex]);
 
+  // Show analysis result in chat when it becomes available
+  const [hasShownAnalysis, setHasShownAnalysis] = useState(false);
+  const prevAnalysisRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Only show when analysis completes (transitions from null to having data) and we're on consent step
+    const isConsentStep = stepIndex === steps.length - 1;
+    const analysisJustCompleted = !prevAnalysisRef.current && analysisResult;
+
+    if (analysisJustCompleted && !hasShownAnalysis && isConsentStep) {
+      setHasShownAnalysis(true);
+      prevAnalysisRef.current = analysisResult;
+
+      const norwood = analysisResult.diagnosis?.norwood_scale || 'NW?';
+      const graftsMin = analysisResult.technical_metrics?.graft_count_min || '?';
+      const graftsMax = analysisResult.technical_metrics?.graft_count_max || '?';
+
+      const resultMessage = isTR
+        ? `Analiz tamamlandı! 📊\n\n• Kellik Derecesi: ${norwood}\n• Tahmini Greft: ${graftsMin}-${graftsMax}\n\nOnayları tamamladıktan sonra hesap oluşturup simülasyonu hazırlayacağım.`
+        : `Analysis complete! 📊\n\n• Hair Loss Level: ${norwood}\n• Estimated Grafts: ${graftsMin}-${graftsMax}\n\nOnce you complete the consents, we'll create your account and prepare the simulation.`;
+
+      setTimeout(() => {
+        setMessages(prev => [...prev, { id: uid(), role: 'assistant', text: resultMessage }]);
+      }, 800);
+    }
+  }, [analysisResult, hasShownAnalysis, stepIndex, steps.length, isTR]);
+
   const pushAssistant = async (text: string) => {
     setIsTyping(true);
     await new Promise(r => setTimeout(r, 350));
@@ -226,6 +262,15 @@ export default function PreReportIntakeScreen({ lang, onComplete }: PreReportInt
   };
 
   const goNext = async () => {
+    // Check if we're moving to the consent step (last step)
+    if (stepIndex === steps.length - 2) {
+      // Trigger analysis before showing consent screen
+      if (!analysisResult && onAnalyzeRequest && !isAnalyzing) {
+        console.log('[PreReportIntake] Triggering analysis before consent step...');
+        onAnalyzeRequest();
+      }
+    }
+
     if (stepIndex >= steps.length - 1) {
       const finalData: IntakeData = {
         ...data,
@@ -234,7 +279,11 @@ export default function PreReportIntakeScreen({ lang, onComplete }: PreReportInt
       } as any;
 
       pushUser(isTR ? 'Onaylıyorum.' : 'I agree.');
-      await pushAssistant(isTR ? 'Harika. Raporunu hazırlıyorum…' : 'Great. Preparing your report…');
+
+      // Proceed to auth gate
+      await pushAssistant(
+        isTR ? 'Harika! Şimdi hesap oluşturup simülasyonu hazırlayabiliriz.' : 'Great! Now let\'s create your account and prepare the simulation.'
+      );
       setTimeout(() => onComplete(finalData), 900);
       return;
     }
@@ -352,7 +401,7 @@ export default function PreReportIntakeScreen({ lang, onComplete }: PreReportInt
               ))}
 
               <AnimatePresence>
-                {isTyping && (
+                {(isTyping || isAnalyzing) && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -360,11 +409,20 @@ export default function PreReportIntakeScreen({ lang, onComplete }: PreReportInt
                     className="w-full flex justify-start"
                   >
                     <div className="bg-white border border-slate-100 rounded-3xl px-5 py-4 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" />
-                        <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce [animation-delay:120ms]" />
-                        <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce [animation-delay:240ms]" />
-                      </div>
+                      {isAnalyzing ? (
+                        <div className="flex items-center gap-3">
+                          <div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                          <span className="text-xs font-medium text-slate-600">
+                            {isTR ? 'Fotoğraflar analiz ediliyor...' : 'Analyzing photos...'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce" />
+                          <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce [animation-delay:120ms]" />
+                          <div className="w-2 h-2 bg-teal-500 rounded-full animate-bounce [animation-delay:240ms]" />
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -506,6 +564,35 @@ export default function PreReportIntakeScreen({ lang, onComplete }: PreReportInt
                 {/* CONSENT */}
                 {step.type === 'consent' && (
                   <div className="space-y-3">
+                    {/* Show analysis results if available */}
+                    {analysisResult && (
+                      <div className="mb-4 p-4 bg-teal-50 border border-teal-200 rounded-2xl">
+                        <div className="text-xs font-black uppercase tracking-widest text-teal-700 mb-2 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4" />
+                          {isTR ? 'ANALİZ SONUÇLARI' : 'ANALYSIS RESULTS'}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white p-3 rounded-xl">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">
+                              {isTR ? 'Kellik Derecesi' : 'Hair Loss Level'}
+                            </div>
+                            <div className="text-lg font-black text-[#0E1A2B]">
+                              {analysisResult.diagnosis?.norwood_scale || 'NW?'}
+                            </div>
+                          </div>
+                          <div className="bg-white p-3 rounded-xl">
+                            <div className="text-[9px] font-bold text-slate-400 uppercase mb-1">
+                              {isTR ? 'Tahmini Greft' : 'Est. Grafts'}
+                            </div>
+                            <div className="text-lg font-black text-teal-600">
+                              {analysisResult.technical_metrics?.graft_count_min || '?'}-
+                              {analysisResult.technical_metrics?.graft_count_max || '?'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <button
                       onClick={() => setConsentKVKK(v => !v)}
                       className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border transition-all ${
@@ -550,14 +637,18 @@ export default function PreReportIntakeScreen({ lang, onComplete }: PreReportInt
 
                     <button
                       onClick={goNext}
-                      disabled={!consentKVKK}
+                      disabled={!consentKVKK || isAnalyzing}
                       className={`w-full px-6 py-4 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg transition-all ${
-                        consentKVKK
+                        consentKVKK && !isAnalyzing
                           ? 'bg-[#0E1A2B] text-white hover:shadow-xl active:scale-95'
                           : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       }`}
                     >
-                      {isTR ? 'Raporu Hazırla' : 'Generate Report'}
+                      {isAnalyzing
+                        ? (isTR ? 'Analiz Devam Ediyor...' : 'Analysis In Progress...')
+                        : analysisResult
+                        ? (isTR ? 'Simülasyon Hazırla' : 'Prepare Simulation')
+                        : (isTR ? 'Raporu Hazırla' : 'Generate Report')}
                     </button>
 
                     <p className="text-[10px] text-slate-400 font-medium leading-relaxed">

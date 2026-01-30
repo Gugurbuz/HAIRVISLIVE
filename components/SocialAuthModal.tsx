@@ -88,12 +88,12 @@ export default function SocialAuthModal({ onComplete, lang }: SocialAuthModalPro
             <CheckCircle className="w-8 h-8 text-teal-600" />
           </div>
           <h2 className="text-2xl font-bold text-slate-900 mb-2">
-            {isTR ? 'Giriş Yap' : 'Sign In'}
+            {isTR ? 'Hesap Oluştur' : 'Create Account'}
           </h2>
-          <p className="text-slate-600">
+          <p className="text-sm text-slate-600">
             {isTR
-              ? 'Analiz sonucunuzu kaydetmek için giriş yapın.'
-              : 'Sign in to save your analysis results.'}
+              ? 'Simülasyonunuzu görmek için hesap oluşturun. Binlerce hasta yapay zeka ile gelecek sonuçlarını görüntülüyor.'
+              : 'Join thousands of patients using AI to visualize their future results.'}
           </p>
         </div>
 
@@ -161,11 +161,22 @@ export default function SocialAuthModal({ onComplete, lang }: SocialAuthModalPro
           </button>
         </div>
 
-        <p className="text-xs text-slate-500 text-center mt-6">
-          {isTR
-            ? 'Giriş yaparak KVKK ve Gizlilik Politikasını kabul etmiş olursunuz.'
-            : 'By signing in, you agree to our Privacy Policy and Terms.'}
-        </p>
+        <div className="mt-6 text-center space-y-3">
+          <p className="text-xs text-slate-500">
+            {isTR
+              ? 'Giriş yaparak KVKK ve Gizlilik Politikasını kabul etmiş olursunuz.'
+              : 'By signing in, you agree to our Privacy Policy and Terms.'}
+          </p>
+          <p className="text-sm text-slate-600">
+            {isTR ? 'Hesabınız var mı? ' : 'Already have an account? '}
+            <button
+              onClick={() => {}}
+              className="font-semibold text-teal-600 hover:underline"
+            >
+              {isTR ? 'Giriş Yap' : 'Sign in'}
+            </button>
+          </p>
+        </div>
       </div>
     </div>
   );

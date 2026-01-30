@@ -88,54 +88,20 @@ const App: React.FC = () => {
           } else if (data?.session) {
             console.log('[OAuth] Session established:', data.session.user.email);
 
-            // Check if we have pending scan data (user came from scan flow)
-            const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
-            if (pendingScanDataRaw) {
-              console.log('[OAuth] Pending scan data found, starting analysis...');
+            // Store auth data
+            const authData = {
+              email: data.session.user.email || '',
+              name: data.session.user.user_metadata?.full_name || data.session.user.email || 'User',
+              userId: data.session.user.id,
+            };
+            sessionStorage.setItem('authData', JSON.stringify(authData));
 
-              const savedScanData = JSON.parse(pendingScanDataRaw);
-              const restoredPhotos: any[] = [];
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname);
 
-              savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
-                const preview = sessionStorage.getItem(`scan_photo_${idx}`);
-                if (preview) {
-                  restoredPhotos.push({
-                    ...placeholder,
-                    preview,
-                  });
-                }
-              });
-
-              if (restoredPhotos.length > 0) {
-                // Store auth data
-                sessionStorage.setItem('authData', JSON.stringify({
-                  email: data.session.user.email || '',
-                  name: data.session.user.user_metadata?.full_name || data.session.user.email || 'User',
-                  userId: data.session.user.id,
-                }));
-
-                // Restore photos
-                setCapturedPhotos(restoredPhotos);
-                lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
-
-                // Clean URL
-                window.history.replaceState({}, document.title, window.location.pathname);
-
-                // Start analysis
-                setAppState('ANALYZING');
-                runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false).then(() => {
-                  setAppState('INTAKE');
-
-                  // Clean up scan data
-                  sessionStorage.removeItem('pendingScanData');
-                  savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
-                    sessionStorage.removeItem(`scan_photo_${idx}`);
-                  });
-                });
-
-                return;
-              }
-            }
+            // Call handleAuthComplete to proceed with simulation
+            handleAuthComplete(authData);
+            return;
           }
         }
 
@@ -204,7 +170,7 @@ const App: React.FC = () => {
     // retry için sakla
     lastScanRef.current = { photos, skip };
 
-    // Save photos to sessionStorage for post-auth analysis
+    // Save photos to sessionStorage
     try {
       const stateToSave = {
         capturedPhotos: photos.map(p => ({ id: p.id, label: p.label })),
@@ -226,13 +192,65 @@ const App: React.FC = () => {
       console.error('[App] Failed to save scan data:', e);
     }
 
-    // Go to auth first, then analyze
-    setAppState('AUTH_GATE');
+    // Go directly to intake (chat questions), then analyze during chat
+    setAppState('INTAKE');
   };
 
-  // Intake Complete -> Finalize Lead Creation
+  // Trigger scalp analysis (called from intake screen after chat is complete)
+  const handleAnalyzeScalp = async () => {
+    console.log('[App] Starting scalp analysis during intake...');
+    setIsAnalyzing(true);
+
+    try {
+      const photos = capturedPhotos;
+      if (!photos || photos.length === 0) {
+        throw new Error('No photos available for analysis');
+      }
+
+      const getPhoto = (id: string) =>
+        photos.find((p) => p.id === id)?.preview.split(',')[1] ||
+        photos[0]?.preview.split(',')[1] ||
+        '';
+
+      const viewImages: ScalpImages = {
+        front: getPhoto('front'),
+        left: getPhoto('left'),
+        right: getPhoto('right'),
+        crown: getPhoto('top'),
+        donor: getPhoto('donor'),
+        macro: getPhoto('hairline_macro'),
+      };
+
+      const analysisStartTime = Date.now();
+      const result = await geminiService.analyzeScalp(viewImages);
+
+      if (!result) throw new Error('Analysis failed');
+
+      setAnalysisResult(result);
+
+      await logAnalysis({
+        operationType: 'scalp_analysis',
+        inputData: { viewTypes: Object.keys(viewImages) },
+        outputData: result,
+        imageUrls: capturedPhotos.map(p => p.id),
+        durationMs: Date.now() - analysisStartTime,
+      });
+
+      console.log('[App] Scalp analysis complete');
+    } catch (err: any) {
+      console.error('Analysis Error:', err);
+      const userMsg = classifyUserError(err);
+      setError(userMsg);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Intake Complete -> Go to Auth Gate
   const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
+    console.log('[App] Intake complete, moving to auth gate');
+    setAppState('AUTH_GATE');
 
     // Get auth data from sessionStorage
     try {
@@ -267,63 +285,78 @@ const App: React.FC = () => {
     }
   };
 
-  // Auth Complete -> Start Analysis -> Go to Intake
+  // Auth Complete -> Generate Simulation -> Finalize Lead
   const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
     console.log('[App] Auth complete called:', authData.email);
 
-    // Store auth data for later use
+    // Store auth data
     sessionStorage.setItem('authData', JSON.stringify(authData));
 
-    // Restore scan data from sessionStorage
-    try {
-      const pendingScanDataRaw = sessionStorage.getItem('pendingScanData');
-      if (!pendingScanDataRaw) {
-        console.error('[App] No pending scan data found after auth');
-        setError(lang === 'TR' ? 'Scan verisi bulunamadı. Lütfen tekrar scan yapın.' : 'Scan data not found. Please scan again.');
-        setAppState('LANDING');
-        return;
-      }
-
-      const savedScanData = JSON.parse(pendingScanDataRaw);
-      const restoredPhotos: any[] = [];
-
-      savedScanData.capturedPhotos.forEach((placeholder: any, idx: number) => {
-        const preview = sessionStorage.getItem(`scan_photo_${idx}`);
-        if (preview) {
-          restoredPhotos.push({
-            ...placeholder,
-            preview,
-          });
-        }
-      });
-
-      if (restoredPhotos.length === 0) {
-        console.error('[App] No photos could be restored');
-        setError(lang === 'TR' ? 'Fotoğraflar yüklenemedi. Lütfen tekrar scan yapın.' : 'Photos could not be loaded. Please scan again.');
-        setAppState('LANDING');
-        return;
-      }
-
-      console.log('[App] Restored photos:', restoredPhotos.length);
-      setCapturedPhotos(restoredPhotos);
-      lastScanRef.current = { photos: restoredPhotos, skip: savedScanData.skipAnalysis || false };
-
-      // Start analysis
-      setAppState('ANALYZING');
-      await runBackgroundAnalysis(restoredPhotos, savedScanData.skipAnalysis || false);
-
-      // After analysis completes, go to intake
-      setAppState('INTAKE');
-
-      // Clean up scan data
-      sessionStorage.removeItem('pendingScanData');
-      savedScanData.capturedPhotos.forEach((_: any, idx: number) => {
-        sessionStorage.removeItem(`scan_photo_${idx}`);
-      });
-    } catch (e) {
-      console.error('[App] Failed to restore scan data:', e);
-      setError(lang === 'TR' ? 'Scan verisi yüklenemedi.' : 'Failed to load scan data.');
+    // Validate we have analysis result
+    if (!analysisResult || !analysisResult.diagnosis?.norwood_scale) {
+      console.error('[App] No analysis result found after auth');
+      setError(lang === 'TR' ? 'Analiz verisi bulunamadı. Lütfen tekrar deneyin.' : 'Analysis data not found. Please try again.');
       setAppState('LANDING');
+      return;
+    }
+
+    // Validate we have intake data
+    if (!intakeData) {
+      console.error('[App] No intake data found after auth');
+      setError(lang === 'TR' ? 'Soru cevapları bulunamadı. Lütfen tekrar deneyin.' : 'Intake data not found. Please try again.');
+      setAppState('LANDING');
+      return;
+    }
+
+    // Now generate simulation
+    console.log('[App] Starting simulation generation...');
+    setAppState('ANALYZING');
+    setIsAnalyzing(true);
+
+    try {
+      const mainPhoto = capturedPhotos[0]?.preview.split(',')[1] || '';
+
+      // STEP 2: Surgical Plan Generation
+      const planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, analysisResult);
+      setPlanningImage(planImage);
+      (analysisResult as any).surgical_plan_image = planImage || undefined;
+
+      // STEP 3: Simulation
+      const simImage = await geminiService.generateSimulation(mainPhoto, planImage, analysisResult);
+      setAfterImage(simImage);
+      (analysisResult as any).simulation_image = simImage || undefined;
+
+      await logAnalysis({
+        operationType: 'simulation_generation',
+        inputData: { planImageAvailable: !!planImage },
+        outputData: { simulationGenerated: !!simImage },
+        imageUrls: simImage ? [simImage] : [],
+        durationMs: Date.now(),
+      });
+
+      // Combine data and create lead
+      const mergedData: any = {
+        ...intakeData,
+        contactMethod: 'email',
+        contactValue: authData.email,
+        userName: authData.name,
+        userId: authData.userId,
+        verified: true,
+      };
+
+      console.log('[App] Creating lead with merged data');
+      finalizeLeadCreation(analysisResult, simImage, planImage, mergedData);
+
+      // Clean up
+      sessionStorage.removeItem('authData');
+      sessionStorage.removeItem('pendingScanData');
+    } catch (err: any) {
+      console.error('Simulation Error:', err);
+      const userMsg = classifyUserError(err);
+      setError(userMsg);
+      setAppState('RESULT');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -707,7 +740,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* INTAKE PHASE (After Analysis) */}
+        {/* INTAKE PHASE (Chat Questions + Analysis) */}
         {appState === 'INTAKE' && (
           <div className="w-full min-h-screen bg-[#F7F8FA] px-6 pt-28 pb-10">
             <div className="max-w-2xl mx-auto">
@@ -724,6 +757,9 @@ const App: React.FC = () => {
                 <PreReportIntakeScreen
                   lang={lang}
                   onComplete={handleIntakeComplete}
+                  onAnalyzeRequest={handleAnalyzeScalp}
+                  analysisResult={analysisResult}
+                  isAnalyzing={isAnalyzing}
                 />
               </div>
             </div>
