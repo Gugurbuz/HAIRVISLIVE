@@ -679,14 +679,12 @@ const App: React.FC = () => {
 
         {/* OAUTH GATE */}
         {appState === 'AUTH_GATE' && (
-          <div className="w-full min-h-screen relative flex items-center justify-center animate-in fade-in duration-700 bg-[#F7F8FA]">
-            <div className="relative z-20 px-6 w-full max-w-xl">
-              <SocialAuthModal
-                onComplete={handleAuthComplete}
-                lang={lang}
-              />
-            </div>
-          </div>
+          <SocialAuthModal
+            onComplete={handleAuthComplete}
+            onBack={() => setAppState('LANDING')}
+            lang={lang}
+            mode="signup"
+          />
         )}
 
         {/* ANALYZING (Loading after auth) */}
