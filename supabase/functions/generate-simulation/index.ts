@@ -38,10 +38,6 @@ function toInlineImagePart(dataUrl: string) {
       mimeType: 'image/jpeg',
       data: base64,
     },
-    // Optional: keep high vision fidelity
-    mediaResolution: {
-      level: 'media_resolution_high',
-    },
   };
 }
 
@@ -117,8 +113,7 @@ Generate a realistic "after" simulation image (12 months after), preserving iden
 
     const fullPrompt = `${prompt}\n\n${contextText}`;
 
-    // v1alpha for mediaResolution; image model is fine
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY, apiVersion: 'v1alpha' });
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
     const parts: any[] = [{ text: fullPrompt }, toInlineImagePart(mainImage)];
 
@@ -127,18 +122,11 @@ Generate a realistic "after" simulation image (12 months after), preserving iden
     if (contextImages?.left) parts.push(toInlineImagePart(contextImages.left));
     if (contextImages?.right) parts.push(toInlineImagePart(contextImages.right));
 
-    // IMPORTANT:
-    // - gemini-3-pro-image-preview supports imageConfig
-    // - DO NOT send thinkingConfig (your previous 400)
     const result = await ai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
+      model: 'gemini-2.0-flash-exp-image-generation',
       contents: [{ role: 'user', parts }],
       config: {
-        // Gemini 3 guide: Image generation config
-        imageConfig: {
-          aspectRatio: '4:5',
-          imageSize: '2K', // change to "4K" if you want
-        },
+        responseModalities: ['image', 'text'],
       },
     });
 
@@ -160,7 +148,7 @@ Generate a realistic "after" simulation image (12 months after), preserving iden
         promptName: 'hair_simulation',
         promptVersion: version,
         executionTimeMs,
-        model: 'gemini-3-pro-image-preview',
+        model: 'gemini-2.0-flash-exp-image-generation',
         success: true,
         inputHash,
         outputSizeBytes: imageUrl.length,
@@ -181,7 +169,7 @@ Generate a realistic "after" simulation image (12 months after), preserving iden
         promptName: 'hair_simulation',
         promptVersion: 'v1.0.0',
         executionTimeMs,
-        model: 'gemini-3-pro-image-preview',
+        model: 'gemini-2.0-flash-exp-image-generation',
         success: false,
         errorMessage: error instanceof Error ? error.message : 'Unknown error',
         outputSizeBytes: 0,
