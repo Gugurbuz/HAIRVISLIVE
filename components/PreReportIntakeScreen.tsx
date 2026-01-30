@@ -6,8 +6,6 @@ import { IntakeData } from '../context/LeadContext';
 type StepKey =
   | 'gender'
   | 'ageRange'
-  | 'hairLossStage'
-  | 'donorQuality'
   | 'transplantHistory'
   | 'goal'
   | 'budget'
@@ -81,30 +79,6 @@ export default function PreReportIntakeScreen({
         { value: '25-34', label: '25–34' },
         { value: '35-44', label: '35–44' },
         { value: '45+', label: '45+' },
-      ],
-    },
-    {
-      key: 'hairLossStage',
-      title: isTR ? 'Dökülme seviyesi' : 'Hair loss level',
-      subtitle: isTR ? 'Tahmini greft dağılımı için.' : 'For estimated graft distribution.',
-      type: 'single',
-      field: 'hairLossStage' as any,
-      options: [
-        { value: 'Mild', label: isTR ? 'Hafif' : 'Mild' },
-        { value: 'Moderate', label: isTR ? 'Orta' : 'Moderate' },
-        { value: 'Advanced', label: isTR ? 'İleri' : 'Advanced' },
-      ],
-    },
-    {
-      key: 'donorQuality',
-      title: isTR ? 'Donör bölge' : 'Donor area quality',
-      subtitle: isTR ? 'Planın kalitesini etkiler.' : 'Impacts surgical plan quality.',
-      type: 'single',
-      field: 'donorQuality' as any,
-      options: [
-        { value: 'Good', label: isTR ? 'İyi' : 'Good' },
-        { value: 'Average', label: isTR ? 'Orta' : 'Average' },
-        { value: 'Weak', label: isTR ? 'Zayıf' : 'Weak' },
       ],
     },
     {
@@ -263,7 +237,8 @@ export default function PreReportIntakeScreen({
 
   const goNext = async () => {
     // Check if we're moving to the consent step (last step)
-    if (stepIndex === steps.length - 2) {
+    // stepIndex + 1 will be the next step, if that's the consent step, trigger analysis
+    if (stepIndex + 1 === steps.length - 1) {
       // Trigger analysis before showing consent screen
       if (!analysisResult && onAnalyzeRequest && !isAnalyzing) {
         console.log('[PreReportIntake] Triggering analysis before consent step...');

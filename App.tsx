@@ -251,38 +251,6 @@ const App: React.FC = () => {
     setIntakeData(data);
     console.log('[App] Intake complete, moving to auth gate');
     setAppState('AUTH_GATE');
-
-    // Get auth data from sessionStorage
-    try {
-      const authDataRaw = sessionStorage.getItem('authData');
-      if (!authDataRaw) {
-        console.error('[App] No auth data found after intake');
-        setError(lang === 'TR' ? 'Oturum verisi bulunamadı.' : 'Session data not found.');
-        setAppState('LANDING');
-        return;
-      }
-
-      const authData = JSON.parse(authDataRaw);
-
-      // Combine Intake Data + Auth Data
-      const mergedData: any = {
-        ...data,
-        contactMethod: 'email',
-        contactValue: authData.email,
-        userName: authData.name,
-        userId: authData.userId,
-        verified: true,
-      };
-
-      console.log('[App] Creating lead with merged data');
-      finalizeLeadCreation(analysisResult, afterImage, planningImage, mergedData);
-
-      // Clean up
-      sessionStorage.removeItem('authData');
-    } catch (e) {
-      console.error('[App] Failed to finalize lead:', e);
-      setError(lang === 'TR' ? 'Kayıt oluşturulamadı.' : 'Failed to create lead.');
-    }
   };
 
   // Auth Complete -> Generate Simulation -> Finalize Lead
