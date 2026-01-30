@@ -96,7 +96,7 @@ const App: React.FC = () => {
             };
             sessionStorage.setItem('authData', JSON.stringify(authData));
 
-            // Restore pending data from sessionStorage
+            // Restore pending data from sessionStorage - pass directly to avoid closure issues
             const storedAnalysis = sessionStorage.getItem('pendingAnalysisResult');
             const storedIntake = sessionStorage.getItem('pendingIntakeData');
             const storedPhotos = sessionStorage.getItem('pendingScanData');
@@ -107,11 +107,14 @@ const App: React.FC = () => {
               hasPhotos: !!storedPhotos,
             });
 
+            let restoredAnalysis = null;
+            let restoredIntake = null;
+            let restoredPhotos: any[] = [];
+
             if (storedAnalysis) {
               try {
-                const restoredAnalysis = JSON.parse(storedAnalysis);
-                setAnalysisResult(restoredAnalysis);
-                console.log('[OAuth] Analysis result restored');
+                restoredAnalysis = JSON.parse(storedAnalysis);
+                console.log('[OAuth] Analysis result parsed:', !!restoredAnalysis?.diagnosis);
               } catch (e) {
                 console.error('[OAuth] Failed to parse stored analysis:', e);
               }
@@ -119,9 +122,8 @@ const App: React.FC = () => {
 
             if (storedIntake) {
               try {
-                const restoredIntake = JSON.parse(storedIntake);
-                setIntakeData(restoredIntake);
-                console.log('[OAuth] Intake data restored');
+                restoredIntake = JSON.parse(storedIntake);
+                console.log('[OAuth] Intake data parsed');
               } catch (e) {
                 console.error('[OAuth] Failed to parse stored intake:', e);
               }
@@ -130,17 +132,13 @@ const App: React.FC = () => {
             if (storedPhotos) {
               try {
                 const scanData = JSON.parse(storedPhotos);
-                const restoredPhotos: any[] = [];
                 scanData.capturedPhotos?.forEach((p: any, idx: number) => {
                   const preview = sessionStorage.getItem(`scan_photo_${idx}`);
                   if (preview) {
                     restoredPhotos.push({ ...p, preview });
                   }
                 });
-                if (restoredPhotos.length > 0) {
-                  setCapturedPhotos(restoredPhotos);
-                  console.log('[OAuth] Photos restored:', restoredPhotos.length);
-                }
+                console.log('[OAuth] Photos parsed:', restoredPhotos.length);
               } catch (e) {
                 console.error('[OAuth] Failed to restore photos:', e);
               }
@@ -149,10 +147,14 @@ const App: React.FC = () => {
             // Clean URL
             window.history.replaceState({}, document.title, window.location.pathname);
 
-            // Use setTimeout to ensure state updates are processed before handleAuthComplete
-            setTimeout(() => {
-              handleAuthComplete(authData);
-            }, 100);
+            // Pass restored data directly to handleAuthComplete to avoid closure issues
+            // The data is passed as a parameter, not relying on React state which may not be updated yet
+            console.log('[OAuth] Calling handleAuthComplete with restored data directly');
+            handleAuthComplete(authData, {
+              analysis: restoredAnalysis,
+              intake: restoredIntake,
+              photos: restoredPhotos.length > 0 ? restoredPhotos : undefined,
+            });
             return;
           }
         }
@@ -323,24 +325,32 @@ const App: React.FC = () => {
   };
 
   // Auth Complete -> Generate Simulation -> Finalize Lead
-  const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
+  // Optional params allow passing restored data directly (avoids closure issues with OAuth redirect)
+  const handleAuthComplete = async (
+    authData: { email: string; name: string; userId: string },
+    restoredData?: { analysis?: any; intake?: IntakeData; photos?: any[] }
+  ) => {
     console.log('[App] Auth complete called:', authData.email);
+    console.log('[App] Restored data provided:', {
+      hasAnalysis: !!restoredData?.analysis,
+      hasIntake: !!restoredData?.intake,
+      hasPhotos: !!restoredData?.photos?.length,
+    });
 
     // Store auth data
     sessionStorage.setItem('authData', JSON.stringify(authData));
 
-    // Try to get analysis result from state or sessionStorage
-    let currentAnalysis = analysisResult;
-    let currentIntake = intakeData;
-    let currentPhotos = capturedPhotos;
+    // Use restored data if provided, otherwise try state, then sessionStorage
+    let currentAnalysis = restoredData?.analysis || analysisResult;
+    let currentIntake = restoredData?.intake || intakeData;
+    let currentPhotos = restoredData?.photos || capturedPhotos;
 
-    // Fallback to sessionStorage if state is empty (OAuth redirect scenario)
+    // Fallback to sessionStorage if still empty
     if (!currentAnalysis) {
       const storedAnalysis = sessionStorage.getItem('pendingAnalysisResult');
       if (storedAnalysis) {
         try {
           currentAnalysis = JSON.parse(storedAnalysis);
-          setAnalysisResult(currentAnalysis);
           console.log('[App] Analysis restored from sessionStorage in handleAuthComplete');
         } catch (e) {
           console.error('[App] Failed to parse stored analysis:', e);
@@ -353,7 +363,6 @@ const App: React.FC = () => {
       if (storedIntake) {
         try {
           currentIntake = JSON.parse(storedIntake);
-          setIntakeData(currentIntake);
           console.log('[App] Intake restored from sessionStorage in handleAuthComplete');
         } catch (e) {
           console.error('[App] Failed to parse stored intake:', e);
@@ -375,7 +384,6 @@ const App: React.FC = () => {
           });
           if (restoredPhotos.length > 0) {
             currentPhotos = restoredPhotos;
-            setCapturedPhotos(currentPhotos);
             console.log('[App] Photos restored from sessionStorage in handleAuthComplete');
           }
         } catch (e) {
@@ -383,6 +391,11 @@ const App: React.FC = () => {
         }
       }
     }
+
+    // Update state with current values
+    if (currentAnalysis) setAnalysisResult(currentAnalysis);
+    if (currentIntake) setIntakeData(currentIntake);
+    if (currentPhotos?.length) setCapturedPhotos(currentPhotos);
 
     // Validate we have analysis result
     if (!currentAnalysis || !currentAnalysis.diagnosis?.norwood_scale) {
