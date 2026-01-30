@@ -1,18 +1,20 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  LayoutGrid, Users, Settings, Bell, Lock, Unlock, 
-  MapPin, Activity, Phone, Mail, ArrowLeft, 
-  ShieldCheck, UserCheck, Stethoscope, LogOut, Plus, X, 
-  ClipboardList, AlertCircle, CheckCircle2, Building2, 
+import {
+  LayoutGrid, Users, Settings, Bell, Lock, Unlock,
+  MapPin, Activity, Phone, Mail, ArrowLeft,
+  ShieldCheck, UserCheck, Stethoscope, LogOut, Plus, X,
+  ClipboardList, AlertCircle, CheckCircle2, Building2,
   ArrowRight, Info, BrainCircuit, FileText, Check, AlertTriangle,
   Crown, Star, Clock, Zap, BarChart3, Sparkles, MessageSquare, Pencil, Save,
   Camera, Upload, Trash2, Image as ImageIcon, Globe, Wifi, Car, Coffee, Scissors, Microscope,
-  Calendar, Pill, History, Maximize2, Eye, Youtube, Play
+  Calendar, Pill, History, Maximize2, Eye, Youtube, Play, Loader2
 } from 'lucide-react';
 import { LanguageCode } from '../translations';
 import { useLeads, LeadData, ClinicResponse, ClinicTier, Suitability, DonorBand } from '../context/LeadContext';
+import { supabase } from '../lib/supabase';
+import SocialAuthModal from './SocialAuthModal';
 
 // --- TYPES & INTERFACES ---
 
@@ -188,19 +190,17 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({ reason, onClose, onUpgrade,
     );
 };
 
-// --- AUTH MOCK (Simplified) ---
-const ClinicAuth = ({ onLoginSuccess, onBack }: any) => {
-    return (
-        <div className="h-screen flex items-center justify-center bg-[#050B14] p-6">
-           <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
-              <Activity className="w-12 h-12 text-teal-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-white mb-6">Partner Portal</h2>
-              <button onClick={onLoginSuccess} className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold">Log In (Demo)</button>
-              <button onClick={onBack} className="mt-4 text-slate-500 text-xs">Back</button>
-           </div>
-        </div>
-    );
-};
+interface UserRole {
+  role: 'admin' | 'clinic' | 'patient';
+  clinic_id: string | null;
+}
+
+interface AuthState {
+  user: any | null;
+  userRole: UserRole | null;
+  loading: boolean;
+  error: string | null;
+}
 
 // --- CLINIC PROFILE EDITOR COMPONENT ---
 const ClinicProfileEditor = () => {
@@ -854,11 +854,98 @@ const ClinicProfileEditor = () => {
 
 const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }> = ({ lang, onBack }) => {
   const { leads, clinicTier, setClinicTier, unlockLead, submitClinicResponse } = useLeads();
-  
-  const [view, setView] = useState<'login' | 'dashboard'>('login');
+
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    userRole: null,
+    loading: true,
+    error: null,
+  });
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'my_cases' | 'my_clinic' | 'settings'>('inbox');
   const [selectedCase, setSelectedCase] = useState<LeadData | null>(null);
   const [credits, setCredits] = useState(120);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role, clinic_id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          if (roleData && (roleData.role === 'clinic' || roleData.role === 'admin')) {
+            setAuthState({
+              user: session.user,
+              userRole: roleData as UserRole,
+              loading: false,
+              error: null,
+            });
+          } else {
+            setAuthState({
+              user: null,
+              userRole: null,
+              loading: false,
+              error: 'You do not have permission to access this portal.',
+            });
+          }
+        } else {
+          setAuthState({ user: null, userRole: null, loading: false, error: null });
+        }
+      } catch (err) {
+        console.error('Session check error:', err);
+        setAuthState({ user: null, userRole: null, loading: false, error: null });
+      }
+    };
+
+    checkSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const { data: roleData } = await supabase
+          .from('user_roles')
+          .select('role, clinic_id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (roleData && (roleData.role === 'clinic' || roleData.role === 'admin')) {
+          setAuthState({
+            user: session.user,
+            userRole: roleData as UserRole,
+            loading: false,
+            error: null,
+          });
+          setShowAuthModal(false);
+        } else {
+          setAuthState({
+            user: null,
+            userRole: null,
+            loading: false,
+            error: 'You do not have clinic or admin access. Please contact support.',
+          });
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setAuthState({ user: null, userRole: null, loading: false, error: null });
+      }
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setAuthState({ user: null, userRole: null, loading: false, error: null });
+  };
+
+  const handleAuthComplete = () => {
+    setShowAuthModal(false);
+  };
   
   // Monetization / Modal State
   const [activeModal, setActiveModal] = useState<UpgradeReason | null>(null);
@@ -976,7 +1063,55 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
   const analysis = selectedCase?.analysisData || {} as any;
   const metrics = analysis.technical_metrics || {};
 
-  if (view === 'login') return <ClinicAuth onLoginSuccess={() => setView('dashboard')} onBack={onBack} />;
+  if (authState.loading) {
+    return (
+      <div className="min-h-screen bg-[#050B14] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-teal-500 animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!authState.user) {
+    if (showAuthModal) {
+      return (
+        <SocialAuthModal
+          onComplete={handleAuthComplete}
+          onBack={() => setShowAuthModal(false)}
+          lang={lang}
+          mode="signin"
+        />
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-[#050B14] flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-center">
+          <Activity className="w-12 h-12 text-teal-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-white mb-2">Partner Portal</h2>
+          <p className="text-slate-400 text-sm mb-6">Sign in to access your clinic dashboard</p>
+
+          {authState.error && (
+            <div className="mb-6 p-4 bg-red-900/30 border border-red-800 rounded-xl">
+              <p className="text-red-400 text-sm">{authState.error}</p>
+            </div>
+          )}
+
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-500 transition-colors"
+          >
+            Sign In
+          </button>
+          <button onClick={onBack} className="mt-4 text-slate-500 text-xs hover:text-slate-300 transition-colors">
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F8FA] flex font-sans text-slate-800">
@@ -1020,7 +1155,10 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
                     </div>
                     <p className="text-[9px] text-slate-400 mt-2 leading-tight">Use a pass to start a professional conversation.</p>
                 </div>
-                <button onClick={() => setView('login')} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-colors">
+                <div className="mb-4 text-xs text-slate-500 truncate">
+                  {authState.user?.email}
+                </div>
+                <button onClick={handleLogout} className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-red-500 transition-colors">
                     <LogOut size={14} /> Sign Out
                 </button>
             </div>
