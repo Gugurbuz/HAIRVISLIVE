@@ -23,6 +23,7 @@ import { useLeads, LeadData, IntakeData } from './context/LeadContext';
 import { useSession } from './context/SessionContext';
 import { AppState } from './types';
 import { supabase } from './lib/supabase';
+import { logger } from './lib/logger';
 
 // Session Storage Keys
 const STORAGE_KEYS = {
@@ -60,10 +61,9 @@ const App: React.FC = () => {
     window.scrollTo(0, 0);
   }, [appState]);
 
-  // Global Supabase auth listener
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[App] Global auth state change:', event, session?.user?.email);
+      logger.debug(`Auth state change: ${event} ${session?.user?.email || ''}`, 'App');
     });
 
     return () => {
@@ -71,11 +71,10 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // 1. ADIM: Sayfa yüklendiğinde State'i Geri Yükle (Hydration)
   useEffect(() => {
     const restoreState = () => {
       try {
-        console.log('[App] Attempting to restore state from storage...');
+        logger.debug('Attempting to restore state from storage', 'App');
         
         const storedPhotos = sessionStorage.getItem(STORAGE_KEYS.PHOTOS);
         const storedIntake = sessionStorage.getItem(STORAGE_KEYS.INTAKE);
@@ -97,7 +96,7 @@ const App: React.FC = () => {
         }
         
       } catch (e) {
-        console.error('[App] Failed to restore state:', e);
+        logger.error('Failed to restore state', 'App', e);
       } finally {
         setIsRestoring(false);
       }
@@ -112,7 +111,7 @@ const App: React.FC = () => {
 
     const resumePendingAuthFlow = async () => {
       try {
-        console.log('[OAuth] Checking for OAuth callback...');
+        logger.debug('Checking for OAuth callback', 'OAuth');
         const url = new URL(window.location.href);
         const searchParams = url.searchParams;
         const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''));
@@ -123,16 +122,15 @@ const App: React.FC = () => {
           searchParams.has('access_token') ||
           hashParams.has('access_token');
 
-        // Exchange PKCE code for session if present
         if (searchParams.has('code')) {
-          console.log('[OAuth] Exchanging code for session...');
+          logger.debug('Exchanging code for session', 'OAuth');
           const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(window.location.href);
-          
+
           if (exchangeError) {
-            console.error('[OAuth] Code exchange failed:', exchangeError);
+            logger.error('Code exchange failed', 'OAuth', exchangeError);
             setError('Auth exchange failed');
           } else if (data?.session) {
-            console.log('[OAuth] Session established:', data.session.user.email);
+            logger.debug(`Session established: ${data.session.user.email}`, 'OAuth');
 
             // Store auth data temporarily
             const authData = {
@@ -157,7 +155,7 @@ const App: React.FC = () => {
         }
 
       } catch (e) {
-        console.error('[OAuth] Failed to resume pending auth flow:', e);
+        logger.error('Failed to resume pending auth flow', 'OAuth', e);
       }
     };
 
@@ -226,14 +224,13 @@ const App: React.FC = () => {
             skipAnalysis: skip,
             createdAt: Date.now(),
         }));
-    } catch(e) { console.error('Storage error', e)}
+    } catch(e) { logger.error('Storage error', 'App', e); }
 
     setAppState('INTAKE');
   };
 
-  // Trigger scalp analysis (called from intake screen after chat is complete)
   const handleAnalyzeScalp = async () => {
-    console.log('[App] Starting scalp analysis during intake...');
+    logger.debug('Starting scalp analysis during intake', 'App');
     setIsAnalyzing(true);
 
     try {
@@ -273,9 +270,9 @@ const App: React.FC = () => {
         durationMs: Date.now() - analysisStartTime,
       });
 
-      console.log('[App] Scalp analysis complete');
+      logger.debug('Scalp analysis complete', 'App');
     } catch (err: any) {
-      console.error('Analysis Error:', err);
+      logger.error('Analysis Error', 'App', err);
       const userMsg = classifyUserError(err);
       setError(userMsg);
     } finally {
@@ -283,24 +280,18 @@ const App: React.FC = () => {
     }
   };
 
-  // Intake Complete -> Go to Auth Gate
   const handleIntakeComplete = (data: IntakeData) => {
     setIntakeData(data);
-    // SAVE STATE: Intake datasını kaydet
     sessionStorage.setItem(STORAGE_KEYS.INTAKE, JSON.stringify(data));
-    
-    console.log('[App] Intake complete, moving to auth gate');
+    logger.debug('Intake complete, moving to auth gate', 'App');
     setAppState('AUTH_GATE');
   };
 
-  // Auth Complete -> Generate Simulation -> Finalize Lead
   const handleAuthComplete = async (authData: { email: string; name: string; userId: string }) => {
-    console.log('[App] Auth complete called:', authData.email);
+    logger.debug(`Auth complete called: ${authData.email}`, 'App');
 
-    // Validate we have analysis result
-    // Not: isRestoring false olduğu için state'ler session'dan gelmiş olmalı
     if (!analysisResult || !analysisResult.diagnosis?.norwood_scale) {
-      console.error('[App] No analysis result found after auth', { analysisResult, capturedPhotosLength: capturedPhotos.length });
+      logger.error('No analysis result found after auth', 'App');
       
       // Fallback: Eğer analysisResult yoksa ama fotolar varsa, analizi tekrar tetiklemeyi deneyebiliriz
       // Ancak basit çözüm olarak hata veriyoruz.
@@ -310,38 +301,35 @@ const App: React.FC = () => {
     }
 
     if (!intakeData) {
-      console.error('[App] No intake data found after auth');
+      logger.error('No intake data found after auth', 'App');
       setError(lang === 'TR' ? 'Soru cevapları bulunamadı.' : 'Intake data not found.');
       setAppState('LANDING');
       return;
     }
 
-    // Now generate simulation
-    console.log('[App] Starting simulation generation...');
+    logger.debug('Starting simulation generation', 'App');
     setAppState('ANALYZING');
     setIsAnalyzing(true);
 
     try {
       const mainPhoto = capturedPhotos[0]?.preview.split(',')[1] || '';
 
-      // STEP 2: Surgical Plan Generation
       let planImage = null;
       try {
         planImage = await geminiService.generateSurgicalPlanImage(mainPhoto, analysisResult);
         setPlanningImage(planImage);
         (analysisResult as any).surgical_plan_image = planImage || undefined;
       } catch (planErr) {
-        console.warn('Plan generation failed, continuing...', planErr);
+        logger.warn('Plan generation failed, continuing', 'App', planErr);
       }
 
-      // STEP 3: Simulation
       let simImage = null;
       try {
         simImage = await geminiService.generateSimulation(mainPhoto, planImage, analysisResult);
         setAfterImage(simImage);
         (analysisResult as any).simulation_image = simImage || undefined;
       } catch (simErr) {
-        console.warn('Simulation generation failed, continuing...', simErr);
+        logger.warn('Simulation generation failed, continuing', 'App', simErr);
       }
 
       await logAnalysis({
@@ -352,7 +340,6 @@ const App: React.FC = () => {
         durationMs: Date.now(),
       });
 
-      // Combine data and create lead
       const mergedData: any = {
         ...intakeData,
         contactMethod: 'email',
@@ -362,7 +349,7 @@ const App: React.FC = () => {
         verified: true,
       };
 
-      console.log('[App] Creating lead with merged data');
+      logger.debug('Creating lead with merged data', 'App');
       finalizeLeadCreation(analysisResult, simImage, planImage, mergedData);
 
       // Clean up storage ONLY after success
@@ -372,7 +359,7 @@ const App: React.FC = () => {
       sessionStorage.removeItem(STORAGE_KEYS.PENDING_SCAN);
       
     } catch (err: any) {
-      console.error('Simulation Error:', err);
+      logger.error('Simulation Error', 'App', err);
       const userMsg = classifyUserError(err);
       setError(userMsg);
       setAppState('RESULT');
@@ -431,9 +418,7 @@ const App: React.FC = () => {
   };
 
   const finalizeLeadCreation = (result: any, simImg: string | null, planImg: string | null, mergedData: any) => {
-    console.log('[App] Finalizing lead creation...');
-
-    // (3) LEAD GUARD'LARI
+    logger.debug('Finalizing lead creation', 'App');
     const verified = mergedData?.verified === true;
     const consent = mergedData?.consent === true;
     // KVKK check sometimes comes from intakeData

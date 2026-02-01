@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { logger } from './logger';
 
 interface AuthResponse {
   success: boolean;
@@ -20,13 +21,13 @@ export const signInWithGoogle = async (): Promise<AuthResponse> => {
     });
 
     if (error) {
-      console.error('Google Sign In Error:', error.message);
+      logger.error('Google sign in error', 'AuthService', error);
       return { success: false, error: error.message };
     }
 
     return { success: true, data };
   } catch (error: any) {
-    console.error('Unexpected Error (Google):', error);
+    logger.error('Unexpected error during Google sign in', 'AuthService', error);
     return { success: false, error: 'Google ile giriş yapılırken bir hata oluştu.' };
   }
 };
@@ -41,13 +42,13 @@ export const signInWithApple = async (): Promise<AuthResponse> => {
     });
 
     if (error) {
-      console.error('Apple Sign In Error:', error.message);
+      logger.error('Apple sign in error', 'AuthService', error);
       return { success: false, error: error.message };
     }
 
     return { success: true, data };
   } catch (error: any) {
-    console.error('Unexpected Error (Apple):', error);
+    logger.error('Unexpected error during Apple sign in', 'AuthService', error);
     return { success: false, error: 'Apple ile giriş yapılırken bir hata oluştu.' };
   }
 };
@@ -57,13 +58,13 @@ export const signOut = async (): Promise<AuthResponse> => {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.error('Sign Out Error:', error.message);
+      logger.error('Sign out error', 'AuthService', error);
       return { success: false, error: error.message };
     }
 
     return { success: true };
   } catch (error: any) {
-    console.error('Unexpected Error (Sign Out):', error);
+    logger.error('Unexpected error during sign out', 'AuthService', error);
     return { success: false, error: 'Çıkış yapılırken bir hata oluştu.' };
   }
 };
@@ -73,13 +74,13 @@ export const getCurrentUser = async () => {
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (error) {
-      console.error('Get User Error:', error.message);
+      logger.error('Get user error', 'AuthService', error);
       return null;
     }
 
     return user;
   } catch (error: any) {
-    console.error('Unexpected Error (Get User):', error);
+    logger.error('Unexpected error getting user', 'AuthService', error);
     return null;
   }
 };

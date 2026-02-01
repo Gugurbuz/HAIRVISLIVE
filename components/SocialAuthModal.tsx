@@ -3,6 +3,7 @@ import { Loader2, ArrowLeft, Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-
 import { signInWithGoogle, signInWithApple } from '../lib/authService';
 import { LanguageCode } from '../translations';
 import { supabase } from '../lib/supabase';
+import { logger } from '../lib/logger';
 
 interface SocialAuthModalProps {
   onComplete: (authData: { email: string; name: string; userId: string }) => void;
@@ -26,10 +27,10 @@ export default function SocialAuthModal({ onComplete, onBack, lang, mode = 'sign
 
   useEffect(() => {
     const checkExistingSession = async () => {
-      console.log('[SocialAuthModal] Checking for existing session...');
+      logger.debug('Checking for existing session', 'SocialAuthModal');
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        console.log('[SocialAuthModal] Existing session found:', session.user.email);
+        logger.debug(`Existing session found: ${session.user.email}`, 'SocialAuthModal');
         const user = session.user;
         onComplete({
           email: user.email || '',
@@ -42,7 +43,7 @@ export default function SocialAuthModal({ onComplete, onBack, lang, mode = 'sign
     checkExistingSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[SocialAuthModal] Auth state change:', event, session?.user?.email);
+      logger.debug(`Auth state change: ${event} ${session?.user?.email || ''}`, 'SocialAuthModal');
       if (event === 'SIGNED_IN' && session?.user) {
         const user = session.user;
         onComplete({
@@ -132,7 +133,7 @@ export default function SocialAuthModal({ onComplete, onBack, lang, mode = 'sign
         }
       }
     } catch (err: any) {
-      console.error('[EmailAuth] Error:', err);
+      logger.error('Email auth error', 'SocialAuthModal', err);
       setError(err.message || (isTR ? 'Bir hata oluştu.' : 'An error occurred.'));
     } finally {
       setLoading(false);

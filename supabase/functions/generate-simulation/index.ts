@@ -3,12 +3,7 @@ import { GoogleGenAI } from 'npm:@google/genai';
 import { getPrompt } from '../_shared/prompts.ts';
 import { logPromptUsage, createInputHash } from '../_shared/logger.ts';
 import { isFeatureEnabled } from '../_shared/feature-flags.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
-};
+import { corsHeaders, handleCors, jsonResponse, errorResponse } from '../_shared/cors.ts';
 
 const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 

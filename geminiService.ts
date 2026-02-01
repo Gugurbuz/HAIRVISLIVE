@@ -13,11 +13,6 @@ export type ScalpImages = {
 
 export type ScalpAnalysisResult = ValidationScalpAnalysisResult;
 
-// Edge function isimlerin: analyze-scalp, generate-simulation
-// App.tsx ayrıca generateSurgicalPlanImage çağırıyor -> sende edge'de yok.
-// Şimdilik stub (plan image) olarak mainPhoto döndüreceğiz ki akış kırılmasın.
-// Sonra Sprint 2’de bunu ayrı edge function yaparız.
-
 export const geminiService = {
   async analyzeScalp(images: ScalpImages): Promise<ScalpAnalysisResult> {
     const { data, error } = await supabase.functions.invoke<ScalpAnalysisResult>('analyze-scalp', {
@@ -29,8 +24,9 @@ export const geminiService = {
     return data;
   },
 
-  async generateSurgicalPlanImage(mainPhotoBase64: string, analysisResult: ScalpAnalysisResult): Promise<string> {
-    return `data:image/jpeg;base64,${mainPhotoBase64}`;
+  async generateSurgicalPlanImage(mainPhotoBase64: string, _analysisResult: ScalpAnalysisResult): Promise<string> {
+    const hasDataPrefix = mainPhotoBase64.startsWith('data:');
+    return hasDataPrefix ? mainPhotoBase64 : `data:image/jpeg;base64,${mainPhotoBase64}`;
   },
 
   async generateSimulation(mainPhotoBase64: string, planningImage: string, analysisResult: ScalpAnalysisResult): Promise<string> {

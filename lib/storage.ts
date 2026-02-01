@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { logger } from './logger';
 
 export const uploadLeadImage = async (
   leadId: string,
@@ -23,7 +24,7 @@ export const uploadLeadImage = async (
       });
 
     if (error) {
-      console.error('Error uploading image:', error);
+      logger.error('Error uploading image', 'Storage', error);
       return null;
     }
 
@@ -33,7 +34,7 @@ export const uploadLeadImage = async (
 
     return urlData.publicUrl;
   } catch (error) {
-    console.error('Error processing image upload:', error);
+    logger.error('Error processing image upload', 'Storage', error);
     return null;
   }
 };
@@ -55,13 +56,13 @@ export const deleteLeadImages = async (leadId: string): Promise<boolean> => {
       .remove(filePaths);
 
     if (deleteError) {
-      console.error('Error deleting images:', deleteError);
+      logger.error('Error deleting images', 'Storage', deleteError);
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error('Error processing image deletion:', error);
+    logger.error('Error processing image deletion', 'Storage', error);
     return false;
   }
 };
