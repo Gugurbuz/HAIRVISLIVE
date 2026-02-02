@@ -1,7 +1,22 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ScalpAnalysisResult } from '../geminiService';
 import { supabase } from '../lib/supabase';
+
+export type ClinicTier = 'BASIC' | 'PROFESSIONAL' | 'PREMIUM' | 'ENTERPRISE' | 'CoE' | 'Free';
+export type Suitability = 'EXCELLENT' | 'GOOD' | 'MODERATE' | 'POOR' | 'NOT_SUITABLE' | 'suitable' | 'borderline' | 'not_suitable';
+export type DonorBand = 'EXCELLENT' | 'GOOD' | 'MODERATE' | 'LIMITED' | 'POOR';
+
+export interface ClinicResponse {
+  clinicId: string;
+  leadId: string;
+  response: 'INTERESTED' | 'NOT_INTERESTED' | 'PROPOSAL_SENT';
+  notes?: string;
+  proposalDetails?: ProposalDetails;
+  timestamp: number;
+  opinion?: string;
+  approach?: string;
+  proposal?: Record<string, unknown>;
+}
 
 export interface ProposalDetails {
   clinicName: string;
@@ -66,7 +81,7 @@ export interface LeadData {
     previousTransplant?: string;
   };
   isNegotiable: boolean;
-  analysisData?: ScalpAnalysisResult;
+  analysisData?: ScalpAnalysisResult & { simulation_image?: string };
   intake?: IntakeData;
   name?: string;
   email?: string;
@@ -76,6 +91,9 @@ export interface LeadData {
   clinicId?: string;
   scanData?: Record<string, any>;
   metadata?: Record<string, any>;
+  suitability?: Suitability;
+  donorBand?: DonorBand;
+  leadScore?: number;
 }
 
 interface LeadContextType {
@@ -87,6 +105,9 @@ interface LeadContextType {
   updateLeadStatus: (id: string, status: LeadData['status'], bid?: number, proposalDetails?: ProposalDetails) => Promise<void>;
   getLeadByIdOrEmail: (identifier: string) => LeadData | undefined;
   refreshLeads: () => Promise<void>;
+  clinicTier: ClinicTier;
+  setClinicTier: (tier: ClinicTier) => void;
+  submitClinicResponse: (response: ClinicResponse) => Promise<void>;
 }
 
 const LeadContext = createContext<LeadContextType | undefined>(undefined);
@@ -95,6 +116,7 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [clinicTier, setClinicTier] = useState<ClinicTier>('BASIC');
 
   const mapDbLeadToLeadData = (dbLead: any): LeadData => {
     const timeAgo = Math.floor((Date.now() - new Date(dbLead.created_at).getTime()) / 60000);
@@ -272,6 +294,10 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetchLeads();
   };
 
+  const submitClinicResponse = async (response: ClinicResponse) => {
+    console.log('Clinic response submitted:', response);
+  };
+
   return (
     <LeadContext.Provider value={{
       leads,
@@ -281,7 +307,10 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       unlockLead,
       updateLeadStatus,
       getLeadByIdOrEmail,
-      refreshLeads
+      refreshLeads,
+      clinicTier,
+      setClinicTier,
+      submitClinicResponse,
     }}>
       {children}
     </LeadContext.Provider>

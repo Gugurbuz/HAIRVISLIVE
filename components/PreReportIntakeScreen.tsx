@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ShieldCheck, ArrowRight, Sparkles, Lock } from 'lucide-react';
 import { IntakeData } from '../context/LeadContext';
+import { LanguageCode } from '../translations';
 
 type StepKey =
   | 'gender'
@@ -33,7 +34,7 @@ interface StepConfig {
 }
 
 interface PreReportIntakeScreenProps {
-  lang: 'EN' | 'TR';
+  lang: LanguageCode;
   onComplete: (data: IntakeData) => void;
   onAnalyzeRequest?: () => Promise<void>;
   analysisResult?: any;

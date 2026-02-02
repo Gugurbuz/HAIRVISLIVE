@@ -113,6 +113,9 @@ export interface Language {
     compareTitle: string;
     compareSubtitle: string;
     goldenSentence: string;
+    clinicConnect: string;
+    clinicConnectDesc: string;
+    unlockSharing: string;
   };
   story: {
     slide1_title: string;
@@ -308,7 +311,10 @@ export const translations: Record<LanguageCode, Language> = {
       dataRetention: "Data stored temporarily for analysis.",
       compareTitle: "Compare Proposals",
       compareSubtitle: "Compare how clinics approach your case — not just prices.",
-      goldenSentence: "Recommendations are earned through clarity and fit — not bought."
+      goldenSentence: "Recommendations are earned through clarity and fit — not bought.",
+      clinicConnect: "Share with Clinics",
+      clinicConnectDesc: "Allow verified clinics to view your analysis and provide tailored treatment recommendations.",
+      unlockSharing: "Enable Clinic Sharing"
     },
     story: {
         slide1_title: "Analysis Complete",
@@ -502,7 +508,10 @@ export const translations: Record<LanguageCode, Language> = {
       dataRetention: "Veriler analiz için geçici saklanır.",
       compareTitle: "Teklifleri Karşılaştır",
       compareSubtitle: "Sadece fiyatları değil, kliniklerin vakanıza yaklaşımını karşılaştırın.",
-      goldenSentence: "Öneriler ödeme ile değil, netlik ve uyum ile kazanılır."
+      goldenSentence: "Öneriler ödeme ile değil, netlik ve uyum ile kazanılır.",
+      clinicConnect: "Kliniklerle Paylaş",
+      clinicConnectDesc: "Doğrulanmış kliniklerin analizinizi görüntülemesine ve kişiselleştirilmiş tedavi önerileri sunmasına izin verin.",
+      unlockSharing: "Klinik Paylaşımını Etkinleştir"
     },
     story: {
         slide1_title: "Analiz Tamamlandı",
@@ -696,7 +705,10 @@ export const translations: Record<LanguageCode, Language> = {
       dataRetention: "Daten temporär gespeichert.",
       compareTitle: "Angebote vergleichen",
       compareSubtitle: "Vergleichen Sie Ansätze, nicht nur Preise.",
-      goldenSentence: "Empfehlungen werden durch Klarheit verdient – nicht gekauft."
+      goldenSentence: "Empfehlungen werden durch Klarheit verdient – nicht gekauft.",
+      clinicConnect: "Mit Kliniken teilen",
+      clinicConnectDesc: "Erlauben Sie verifizierten Kliniken, Ihre Analyse einzusehen und maßgeschneiderte Behandlungsempfehlungen zu geben.",
+      unlockSharing: "Klinik-Freigabe aktivieren"
     },
     story: {
         slide1_title: "Analyse abgeschlossen",
@@ -890,7 +902,10 @@ export const translations: Record<LanguageCode, Language> = {
       dataRetention: "Données stockées temporairement.",
       compareTitle: "Comparer les offres",
       compareSubtitle: "Comparez les approches, pas seulement les prix.",
-      goldenSentence: "Les recommandations se méritent par la clarté, pas par l'argent."
+      goldenSentence: "Les recommandations se méritent par la clarté, pas par l'argent.",
+      clinicConnect: "Partager avec les cliniques",
+      clinicConnectDesc: "Permettez aux cliniques vérifiées de consulter votre analyse et de fournir des recommandations de traitement personnalisées.",
+      unlockSharing: "Activer le partage clinique"
     },
     story: {
         slide1_title: "Analyse Terminée",
@@ -1084,7 +1099,10 @@ export const translations: Record<LanguageCode, Language> = {
       dataRetention: "Dane przechowywane tymczasowo.",
       compareTitle: "Porównaj Oferty",
       compareSubtitle: "Porównaj podejścia, nie tylko ceny.",
-      goldenSentence: "Rekomendacje zdobywa się jasnością, a nie kupuje."
+      goldenSentence: "Rekomendacje zdobywa się jasnością, a nie kupuje.",
+      clinicConnect: "Udostępnij klinikom",
+      clinicConnectDesc: "Pozwól zweryfikowanym klinikom zobaczyć Twoją analizę i przedstawić spersonalizowane zalecenia dotyczące leczenia.",
+      unlockSharing: "Włącz udostępnianie klinikom"
     },
     story: {
         slide1_title: "Analiz Tamamlandı",
@@ -1278,7 +1296,10 @@ export const translations: Record<LanguageCode, Language> = {
       dataRetention: "يتم تخزين البيانات مؤقتًا.",
       compareTitle: "مقارنة العروض",
       compareSubtitle: "قارن النهج، ليس فقط السعر.",
-      goldenSentence: "التوصيات تُكسب بالوضوح، لا تُشترى."
+      goldenSentence: "التوصيات تُكسب بالوضوح، لا تُشترى.",
+      clinicConnect: "المشاركة مع العيادات",
+      clinicConnectDesc: "اسمح للعيادات الموثقة بعرض تحليلك وتقديم توصيات علاجية مخصصة.",
+      unlockSharing: "تفعيل المشاركة مع العيادات"
     },
     story: {
         slide1_title: "اكتمل التحليل",

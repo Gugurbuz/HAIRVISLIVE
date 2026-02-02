@@ -84,3 +84,82 @@ export const getCurrentUser = async () => {
     return null;
   }
 };
+
+export const sendOtp = async (email: string): Promise<AuthResponse> => {
+  try {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+      },
+    });
+
+    if (error) {
+      logger.error('Send OTP error', 'AuthService', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    logger.error('Unexpected error sending OTP', 'AuthService', error);
+    return { success: false, error: 'OTP gönderilirken bir hata oluştu.' };
+  }
+};
+
+export const verifyOtp = async (email: string, token: string): Promise<AuthResponse> => {
+  try {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
+
+    if (error) {
+      logger.error('Verify OTP error', 'AuthService', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    logger.error('Unexpected error verifying OTP', 'AuthService', error);
+    return { success: false, error: 'OTP doğrulanırken bir hata oluştu.' };
+  }
+};
+
+export const signInWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      logger.error('Email sign in error', 'AuthService', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    logger.error('Unexpected error during email sign in', 'AuthService', error);
+    return { success: false, error: 'Giriş yapılırken bir hata oluştu.' };
+  }
+};
+
+export const signUpWithEmail = async (email: string, password: string): Promise<AuthResponse> => {
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      logger.error('Email sign up error', 'AuthService', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    logger.error('Unexpected error during email sign up', 'AuthService', error);
+    return { success: false, error: 'Kayıt olurken bir hata oluştu.' };
+  }
+};

@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { FileText } from 'lucide-react';
 import { useLeads, LeadData } from '../context/LeadContext';
 import DashboardScreen from './DashboardScreen';
 import { LanguageCode } from '../translations';

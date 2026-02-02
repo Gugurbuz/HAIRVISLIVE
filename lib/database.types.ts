@@ -21,13 +21,21 @@ export interface Database {
           estimated_grafts: string
           thumbnail_url: string | null
           status: 'AVAILABLE' | 'PURCHASED' | 'NEGOTIATING'
-          price: number
-          proposal_price: number
-          is_unlocked: boolean
-          is_negotiable: boolean
+          price: number | null
+          proposal_price: number | null
+          is_unlocked: boolean | null
+          is_negotiable: boolean | null
           patient_details: Json
           analysis_data: Json | null
           intake_data: Json | null
+          name: string | null
+          email: string | null
+          phone: string | null
+          concerns: string[] | null
+          source: string | null
+          scan_data: Json | null
+          metadata: Json | null
+          clinic_id: string | null
         }
         Insert: {
           id?: string
@@ -40,13 +48,21 @@ export interface Database {
           estimated_grafts: string
           thumbnail_url?: string | null
           status?: 'AVAILABLE' | 'PURCHASED' | 'NEGOTIATING'
-          price?: number
-          proposal_price?: number
-          is_unlocked?: boolean
-          is_negotiable?: boolean
+          price?: number | null
+          proposal_price?: number | null
+          is_unlocked?: boolean | null
+          is_negotiable?: boolean | null
           patient_details: Json
           analysis_data?: Json | null
           intake_data?: Json | null
+          name?: string | null
+          email?: string | null
+          phone?: string | null
+          concerns?: string[] | null
+          source?: string | null
+          scan_data?: Json | null
+          metadata?: Json | null
+          clinic_id?: string | null
         }
         Update: {
           id?: string
@@ -59,13 +75,21 @@ export interface Database {
           estimated_grafts?: string
           thumbnail_url?: string | null
           status?: 'AVAILABLE' | 'PURCHASED' | 'NEGOTIATING'
-          price?: number
-          proposal_price?: number
-          is_unlocked?: boolean
-          is_negotiable?: boolean
+          price?: number | null
+          proposal_price?: number | null
+          is_unlocked?: boolean | null
+          is_negotiable?: boolean | null
           patient_details?: Json
           analysis_data?: Json | null
           intake_data?: Json | null
+          name?: string | null
+          email?: string | null
+          phone?: string | null
+          concerns?: string[] | null
+          source?: string | null
+          scan_data?: Json | null
+          metadata?: Json | null
+          clinic_id?: string | null
         }
       }
       clinics: {
@@ -80,6 +104,20 @@ export interface Database {
           total_spent: number
           status: 'ACTIVE' | 'PENDING' | 'SUSPENDED'
           clinic_info: Json
+          slug: string | null
+          location: string | null
+          description: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          logo_url: string | null
+          metadata: Json | null
+          founding_year: number | null
+          languages_spoken: string[] | null
+          response_time_hours: number | null
+          social_media: Json | null
+          operating_hours: Json | null
+          tier: string | null
+          is_verified: boolean | null
         }
         Insert: {
           id?: string
@@ -92,6 +130,20 @@ export interface Database {
           total_spent?: number
           status?: 'ACTIVE' | 'PENDING' | 'SUSPENDED'
           clinic_info?: Json
+          slug?: string | null
+          location?: string | null
+          description?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          logo_url?: string | null
+          metadata?: Json | null
+          founding_year?: number | null
+          languages_spoken?: string[] | null
+          response_time_hours?: number | null
+          social_media?: Json | null
+          operating_hours?: Json | null
+          tier?: string | null
+          is_verified?: boolean | null
         }
         Update: {
           id?: string
@@ -104,6 +156,264 @@ export interface Database {
           total_spent?: number
           status?: 'ACTIVE' | 'PENDING' | 'SUSPENDED'
           clinic_info?: Json
+          slug?: string | null
+          location?: string | null
+          description?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          logo_url?: string | null
+          metadata?: Json | null
+          founding_year?: number | null
+          languages_spoken?: string[] | null
+          response_time_hours?: number | null
+          social_media?: Json | null
+          operating_hours?: Json | null
+          tier?: string | null
+          is_verified?: boolean | null
+        }
+      }
+      sessions: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string | null
+          anonymous_id: string
+          metadata: Json | null
+          last_activity_at: string | null
+          ended_at: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          anonymous_id: string
+          metadata?: Json | null
+          last_activity_at?: string | null
+          ended_at?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          anonymous_id?: string
+          metadata?: Json | null
+          last_activity_at?: string | null
+          ended_at?: string | null
+        }
+      }
+      analysis_logs: {
+        Row: {
+          id: string
+          created_at: string
+          session_id: string | null
+          operation_type: string
+          input_data: Json | null
+          output_data: Json | null
+          image_urls: string[] | null
+          feature_flags: Json | null
+          duration_ms: number | null
+          error: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          session_id?: string | null
+          operation_type: string
+          input_data?: Json | null
+          output_data?: Json | null
+          image_urls?: string[] | null
+          feature_flags?: Json | null
+          duration_ms?: number | null
+          error?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          session_id?: string | null
+          operation_type?: string
+          input_data?: Json | null
+          output_data?: Json | null
+          image_urls?: string[] | null
+          feature_flags?: Json | null
+          duration_ms?: number | null
+          error?: string | null
+        }
+      }
+      feature_flags: {
+        Row: {
+          id: string
+          created_at: string
+          name: string
+          enabled: boolean
+          config: Json | null
+          description: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          name: string
+          enabled?: boolean
+          config?: Json | null
+          description?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          name?: string
+          enabled?: boolean
+          config?: Json | null
+          description?: string | null
+        }
+      }
+      user_roles: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string
+          role: string
+          clinic_id: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id: string
+          role: string
+          clinic_id?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string
+          role?: string
+          clinic_id?: string | null
+        }
+      }
+      user_profiles: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          full_name: string | null
+          avatar_url: string | null
+          phone: string | null
+          preferences: Json | null
+        }
+        Insert: {
+          id: string
+          created_at?: string
+          updated_at?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          phone?: string | null
+          preferences?: Json | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          full_name?: string | null
+          avatar_url?: string | null
+          phone?: string | null
+          preferences?: Json | null
+        }
+      }
+      clinic_images: {
+        Row: {
+          id: string
+          created_at: string
+          clinic_id: string
+          image_url: string
+          image_type: 'gallery' | 'team' | 'hero' | 'before_after' | 'certificate' | 'facility'
+          caption: string | null
+          display_order: number | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          clinic_id: string
+          image_url: string
+          image_type: 'gallery' | 'team' | 'hero' | 'before_after' | 'certificate' | 'facility'
+          caption?: string | null
+          display_order?: number | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          clinic_id?: string
+          image_url?: string
+          image_type?: 'gallery' | 'team' | 'hero' | 'before_after' | 'certificate' | 'facility'
+          caption?: string | null
+          display_order?: number | null
+        }
+      }
+      clinic_videos: {
+        Row: {
+          id: string
+          created_at: string
+          clinic_id: string
+          video_url: string
+          thumbnail_url: string | null
+          title: string | null
+          description: string | null
+          video_type: string | null
+          display_order: number | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          clinic_id: string
+          video_url: string
+          thumbnail_url?: string | null
+          title?: string | null
+          description?: string | null
+          video_type?: string | null
+          display_order?: number | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          clinic_id?: string
+          video_url?: string
+          thumbnail_url?: string | null
+          title?: string | null
+          description?: string | null
+          video_type?: string | null
+          display_order?: number | null
+        }
+      }
+      clinic_team_members: {
+        Row: {
+          id: string
+          created_at: string
+          clinic_id: string
+          name: string
+          role: string
+          bio: string | null
+          photo_url: string | null
+          credentials: string[] | null
+          display_order: number | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          clinic_id: string
+          name: string
+          role: string
+          bio?: string | null
+          photo_url?: string | null
+          credentials?: string[] | null
+          display_order?: number | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          clinic_id?: string
+          name?: string
+          role?: string
+          bio?: string | null
+          photo_url?: string | null
+          credentials?: string[] | null
+          display_order?: number | null
         }
       }
       proposals: {
