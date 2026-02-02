@@ -37,6 +37,30 @@ const useIsMobile = () => {
   return isMobile;
 };
 
+// --- NEW COMPONENT: PREMIUM CTA BUTTON ---
+const PremiumCTA = ({ onClick, label, className }: { onClick: () => void, label: string, className?: string }) => (
+  <div className={`relative group cursor-pointer ${className}`}>
+    {/* 1. Outer Glow (Pulse) - UPDATED: Always visible (opacity-60) and pulsing, removed hover dependency */}
+    <div className="absolute -inset-2 bg-yellow-400/30 rounded-[2.5rem] blur-xl opacity-60 animate-pulse pointer-events-none" />
+    
+    {/* 2. Button Container */}
+    <button
+      onClick={onClick}
+      className="relative z-10 w-full h-full px-12 py-5 bg-gradient-to-r from-yellow-400 to-amber-500 text-[#0E1A2B] rounded-[2rem] font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-3 overflow-hidden shadow-[0_10px_30px_rgba(245,158,11,0.25)] transition-all duration-300 hover:shadow-[0_20px_40px_rgba(245,158,11,0.4)] hover:-translate-y-1 active:scale-95 active:shadow-none ring-2 ring-white/20"
+    >
+      {/* 3. Shimmer Overlay - Wider width for softer edge */}
+      <div 
+        className="absolute top-0 left-0 w-[80%] h-full bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-[-25deg] shimmer-active pointer-events-none"
+      />
+
+      {/* 4. Text Content */}
+      <span className="relative z-20 flex items-center gap-2">
+        {label} <ChevronRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
+      </span>
+    </button>
+  </div>
+);
+
 interface LandingScreenProps {
   onStart: () => void;
   onVisitClinic: () => void;
@@ -280,9 +304,9 @@ const TopClinics = ({
             <Trophy className="w-3.5 h-3.5 text-yellow-400" /> HairVis Network Partners
           </div>
           <h2 className="text-5xl md:text-7xl font-black text-[#0E1A2B] tracking-tighter leading-[0.9]">
-            Listed Centers of <br />
+            Global <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">
-              Excellence
+              Clinic Directory
             </span>
           </h2>
         </div>
@@ -399,7 +423,7 @@ const TopClinics = ({
       <div className="flex justify-center pt-4">
         <button
           onClick={onBrowseDirectory}
-          className="px-10 py-5 bg-white border border-slate-200 text-[#0E1A2B] rounded-[2rem] font-black text-[10px] uppercase tracking-[0.2em] hover:border-teal-500 hover:text-teal-600 hover:bg-teal-50 transition-all flex items-center gap-3 shadow-lg shadow-slate-200/50"
+          className="px-10 py-5 bg-white border border-slate-200 text-teal-600 rounded-[2rem] font-black text-[10px] uppercase tracking-[0.2em] hover:border-teal-500 hover:bg-teal-50 transition-all flex items-center gap-3 shadow-lg shadow-slate-200/50"
         >
           <PlusCircle className="w-4 h-4" /> Find Clinics Now
         </button>
@@ -413,37 +437,28 @@ interface ShowcaseCardProps {
   title: string;
   description: string;
   icon: React.ReactNode;
-  image: string;
   proof: string;
 }
 
-const ShowcaseCard = ({ step, title, description, icon, image, proof }: ShowcaseCardProps) => (
-  <div className="group bg-white border border-slate-100 rounded-[3.5rem] overflow-hidden surgical-shadow transition-all duration-500 text-left hover:border-teal-500/30 flex flex-col h-full transform-gpu">
-    <div className="aspect-[4/3] relative overflow-hidden">
-      <img
-        src={image}
-        alt={title}
-        loading="lazy"
-        decoding="async"
-        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 will-change-transform"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent opacity-90" />
-      <div className="absolute top-8 left-8 w-14 h-14 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl flex items-center justify-center text-[#0E1A2B]">
-        {icon}
-      </div>
-      <div className="absolute bottom-8 left-10">
-        <span className="text-6xl font-black text-slate-100 uppercase tracking-tighter opacity-70 group-hover:opacity-100 transition-opacity">
-          {step}
-        </span>
-      </div>
+const ShowcaseCard = ({ step, title, description, icon, proof }: ShowcaseCardProps) => (
+  <div className="group bg-white border border-slate-100 rounded-[2.5rem] p-8 md:p-10 transition-all duration-500 text-left hover:border-teal-500/30 hover:shadow-2xl flex flex-col h-full relative overflow-hidden">
+    
+    {/* Decorative Background Number */}
+    <div className="absolute top-4 right-6 text-8xl font-black text-slate-50 pointer-events-none select-none transition-colors group-hover:text-slate-100/50">
+      {step}
     </div>
-    <div className="p-10 space-y-5 flex-1 flex flex-col">
-      <h3 className="text-3xl font-bold text-[#0E1A2B] leading-tight">{title}</h3>
-      <p className="text-sm text-slate-400 leading-relaxed font-light">{description}</p>
 
-      <div className="mt-auto pt-6 border-t border-slate-50">
-        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-teal-600">
-          <CheckCircle2 size={12} className="fill-teal-100" /> {proof}
+    <div className="relative z-10 flex flex-col h-full">
+      <div className="w-16 h-16 bg-[#0E1A2B]/5 rounded-2xl flex items-center justify-center text-[#0E1A2B] mb-8 group-hover:bg-[#0E1A2B] group-hover:text-white transition-all duration-300">
+        {React.cloneElement(icon as React.ReactElement<any>, { size: 28 })}
+      </div>
+
+      <h3 className="text-2xl font-bold text-[#0E1A2B] leading-tight mb-4">{title}</h3>
+      <p className="text-slate-500 leading-relaxed font-medium text-sm flex-1">{description}</p>
+
+      <div className="mt-8 pt-6 border-t border-slate-100">
+        <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-teal-600 bg-teal-50 px-3 py-1.5 rounded-lg w-fit">
+          <CheckCircle2 size={12} /> {proof}
         </div>
       </div>
     </div>
@@ -538,13 +553,7 @@ const WhyChooseSection: React.FC<WhyChooseProps> = ({ lang, onStart }) => {
         </div>
 
         <div className="flex lg:justify-end">
-          <button
-            onClick={onStart}
-            className="w-full lg:w-auto px-10 py-5 bg-[#0E1A2B] text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-teal-500 transition-all shadow-2xl shadow-slate-900/20 flex items-center justify-center gap-3 group"
-          >
-            {copy.cta}
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </button>
+          <PremiumCTA onClick={onStart} label={copy.cta} />
         </div>
       </div>
 
@@ -605,8 +614,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
   const actionCopy = useMemo(() => {
     const TR = {
       badge: 'Rapor + Klinik Eşleştirme',
-      title1: 'Sadece bir rapor değil.',
-      title2: 'Tam bir aksiyon planı.',
+      title1: 'Sadece simüle bir fotoğraf değil.',
+      title2: 'Kapsamlı, yapılandırılmış bir rapor.',
       desc:
         'Tarama sonrası raporun oluşur ve durumuna uygun bulunan kliniklerle paylaşılır. Böylece teklifler aynı rapora göre gelir ve kolayca karşılaştırırsın.',
       bullets: [
@@ -630,8 +639,8 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
 
     const EN = {
       badge: 'Report + Clinic Matching',
-      title1: 'Not just a report.',
-      title2: 'A Full Action Plan.',
+      title1: 'Not just a simulated photo.',
+      title2: 'A Full structured report.',
       desc:
         'After your scan, we generate a structured report and share it with best-fit clinics. Offers come in based on the same report, so you can compare fast.',
       bullets: [
@@ -693,19 +702,22 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
               transition={{ delay: 0.3 }}
               className="flex flex-col sm:flex-row items-start gap-4"
             >
-              <button
-                onClick={onStart}
-                className="px-10 py-5 bg-[#0E1A2B] text-white rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-teal-500 hover:text-white transition-all shadow-2xl shadow-slate-900/20 flex items-center gap-3 group"
-              >
-                {t.startBtn} <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
+              {/* Enhanced Premium CTA */}
+              <PremiumCTA onClick={onStart} label={t.startBtn} />
+            </motion.div>
 
-              <button
-                onClick={scrollToShowcase}
-                className="px-10 py-5 bg-white text-[#0E1A2B] border border-slate-200 rounded-[2rem] font-black text-[11px] uppercase tracking-[0.25em] hover:bg-slate-50 transition-all flex items-center gap-3"
-              >
-                <Microscope className="w-4 h-4" /> {t.methodBtn}
-              </button>
+            {/* Added Directory CTA */}
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                className="pt-2 flex flex-col sm:flex-row items-center gap-3 text-sm font-medium text-slate-500"
+            >
+                <span>Or go directly to clinic directory:</span>
+                {/* UPDATED: Teal BROWSE CLINICS button */}
+                <button onClick={onBrowseDirectory} className="px-6 py-3 bg-teal-50 border border-teal-200 rounded-full shadow-sm hover:shadow-md hover:bg-teal-100 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-teal-700">
+                    BROWSE CLINICS
+                </button>
             </motion.div>
           </div>
 
@@ -730,31 +742,43 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
           </div>
         </div>
 
+        {/* SHOWCASE HEADER */}
+        <div ref={showcaseRef} className="max-w-7xl mx-auto px-6 mb-16 pt-20 scroll-mt-20">
+            <div className="text-center max-w-3xl mx-auto space-y-4">
+                 <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white/70 backdrop-blur-md rounded-full border border-slate-200 text-[#0E1A2B] text-[10px] font-black uppercase tracking-widest shadow-lg mb-6">
+                    3 Simple Steps
+                </div>
+                <h2 className="text-5xl md:text-6xl font-black text-[#0E1A2B] tracking-tighter leading-[0.95]">
+                  How it <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-blue-600">
+                    Works
+                  </span>
+                </h2>
+            </div>
+        </div>
+
         {/* SHOWCASE */}
-        <div ref={showcaseRef} className="max-w-7xl mx-auto grid md:grid-cols-3 gap-8 scroll-mt-32 mb-32">
+        <div className="max-w-7xl mx-auto grid md:grid-cols-3 gap-6 scroll-mt-32 mb-32">
           <ShowcaseCard
             step="01"
             title={t.showcaseTitle1}
             description={t.showcaseDesc1}
-            icon={<ScanFace className="w-6 h-6" />}
-            image="https://images.unsplash.com/photo-1588776814546-1ffcf47267a5?auto=format&fit=crop&q=80&w=800"
-            proof="Angle-locked capture (FaceMesh)"
+            icon={<ScanFace />}
+            proof="Angle-locked capture"
           />
           <ShowcaseCard
             step="02"
             title={t.showcaseTitle2}
             description={t.showcaseDesc2}
-            icon={<Scale className="w-6 h-6" />}
-            image="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=800"
-            proof="Zone-based graft planning"
+            icon={<Scale />}
+            proof="Zone-based planning"
           />
           <ShowcaseCard
             step="03"
             title={t.showcaseTitle3}
             description={t.showcaseDesc3}
-            icon={<Sparkles className="w-6 h-6" />}
-            image="https://images.unsplash.com/photo-1618077360395-f3068be8e001?auto=format&fit=crop&q=80&w=800"
-            proof="12-month projection + timeline"
+            icon={<Sparkles />}
+            proof="12-month projection"
           />
         </div>
 
@@ -887,12 +911,10 @@ const LandingScreen: React.FC<LandingScreenProps> = ({ onStart, onVisitClinic, o
               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ready?</span>
               <span className="text-sm font-bold text-[#0E1A2B]">Get your free analysis</span>
             </div>
-            <button
-              onClick={onStart}
-              className="px-6 py-3 bg-[#0E1A2B] text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg"
-            >
-              Start Now
-            </button>
+            {/* Sticky Mobile CTA using Premium Style (Scaled Down) */}
+            <div className="w-32 h-10">
+                <PremiumCTA onClick={onStart} label="Start" className="scale-90 origin-right" />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
