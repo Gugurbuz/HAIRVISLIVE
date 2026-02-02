@@ -12,7 +12,7 @@ import {
   Calendar, Pill, History, Maximize2, Eye, Youtube, Play, Loader2
 } from 'lucide-react';
 import { LanguageCode } from '../translations';
-import { useLeads, LeadData, ClinicResponse, ClinicTier, Suitability, DonorBand } from '../context/LeadContext';
+import { useLeads, LeadData, ClinicResponse, ClinicTier, Suitability, DonorBand, ApproachDetails, ProposalFormData } from '../context/LeadContext';
 import { supabase } from '../lib/supabase';
 import SocialAuthModal from './SocialAuthModal';
 
@@ -1037,8 +1037,8 @@ const PartnerPortalScreen: React.FC<{ lang: LanguageCode; onBack: () => void; }>
           clinicName: clinicTier === 'CoE' ? 'HairMedico (CoE)' : 'Standard Clinic',
           clinicTier: clinicTier,
           opinion: responseForm.opinion,
-          approach: responseForm.approach as any,
-          proposal: proposalPayload as any,
+          approach: responseForm.approach,
+          proposal: proposalPayload,
           medicalCorrection: correctionPayload
       });
       

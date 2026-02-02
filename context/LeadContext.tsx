@@ -6,16 +6,41 @@ export type ClinicTier = 'BASIC' | 'PROFESSIONAL' | 'PREMIUM' | 'ENTERPRISE' | '
 export type Suitability = 'EXCELLENT' | 'GOOD' | 'MODERATE' | 'POOR' | 'NOT_SUITABLE' | 'suitable' | 'borderline' | 'not_suitable';
 export type DonorBand = 'EXCELLENT' | 'GOOD' | 'MODERATE' | 'LIMITED' | 'POOR';
 
+export interface ApproachDetails {
+  hairline: string;
+  crown: string;
+  sessions: string;
+  notes: string;
+}
+
+export interface ProposalFormData {
+  graftRange: string;
+  priceRange: string;
+  currency: string;
+}
+
+export interface MedicalCorrection {
+  isCorrected: boolean;
+  originalNorwood: string;
+  correctedNorwood: string;
+  originalGraftEstimate: string;
+  correctedGraftEstimate: string;
+  doctorComment: string;
+}
+
 export interface ClinicResponse {
   clinicId: string;
-  leadId: string;
-  response: 'INTERESTED' | 'NOT_INTERESTED' | 'PROPOSAL_SENT';
+  leadId?: string;
+  response?: 'INTERESTED' | 'NOT_INTERESTED' | 'PROPOSAL_SENT';
   notes?: string;
   proposalDetails?: ProposalDetails;
-  timestamp: number;
+  timestamp?: number;
   opinion?: string;
-  approach?: string;
-  proposal?: Record<string, unknown>;
+  approach?: ApproachDetails;
+  proposal?: ProposalFormData;
+  clinicName?: string;
+  clinicTier?: ClinicTier;
+  medicalCorrection?: MedicalCorrection;
 }
 
 export interface ProposalDetails {
@@ -107,7 +132,7 @@ interface LeadContextType {
   refreshLeads: () => Promise<void>;
   clinicTier: ClinicTier;
   setClinicTier: (tier: ClinicTier) => void;
-  submitClinicResponse: (response: ClinicResponse) => Promise<void>;
+  submitClinicResponse: (leadId: string, response: Partial<ClinicResponse>) => Promise<void>;
 }
 
 const LeadContext = createContext<LeadContextType | undefined>(undefined);
@@ -294,8 +319,8 @@ export const LeadProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetchLeads();
   };
 
-  const submitClinicResponse = async (response: ClinicResponse) => {
-    console.log('Clinic response submitted:', response);
+  const submitClinicResponse = async (leadId: string, response: Partial<ClinicResponse>) => {
+    console.log('Clinic response submitted for lead:', leadId, response);
   };
 
   return (

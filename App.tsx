@@ -1,19 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import LandingScreen from './components/LandingScreen';
-import ScannerScreen from './components/ScannerScreen';
 import PreScanScreen from './components/PreScanScreen';
 import SocialAuthModal from './components/SocialAuthModal';
-import DashboardScreen from './components/DashboardScreen';
-import PartnerPortalScreen from './components/PartnerPortalScreen';
-import PartnerJoinScreen from './components/PartnerJoinScreen';
-import PatientPortalScreen from './components/PatientPortalScreen';
 import ClinicLandingScreen from './components/ClinicLandingScreen';
-import ClinicScreen from './components/ClinicScreen';
-import ClinicDirectoryScreen from './components/ClinicDirectoryScreen';
 import PreReportIntakeScreen from './components/PreReportIntakeScreen';
-import BlogScreen from './components/BlogScreen';
-import MonitoringDashboard from './components/MonitoringDashboard';
-import AdminDebugScreen from './components/AdminDebugScreen';
 import Footer from './components/Footer';
 import TypeSelectionScreen from './components/TypeSelectionScreen';
 import { Header } from './components/Header';
@@ -24,6 +14,23 @@ import { useSession } from './context/SessionContext';
 import { AppState } from './types';
 import { supabase } from './lib/supabase';
 import { logger } from './lib/logger';
+
+const ScannerScreen = lazy(() => import('./components/ScannerScreen'));
+const DashboardScreen = lazy(() => import('./components/DashboardScreen'));
+const PartnerPortalScreen = lazy(() => import('./components/PartnerPortalScreen'));
+const PartnerJoinScreen = lazy(() => import('./components/PartnerJoinScreen'));
+const PatientPortalScreen = lazy(() => import('./components/PatientPortalScreen'));
+const ClinicScreen = lazy(() => import('./components/ClinicScreen'));
+const ClinicDirectoryScreen = lazy(() => import('./components/ClinicDirectoryScreen'));
+const BlogScreen = lazy(() => import('./components/BlogScreen'));
+const MonitoringDashboard = lazy(() => import('./components/MonitoringDashboard'));
+const AdminDebugScreen = lazy(() => import('./components/AdminDebugScreen'));
+
+const LoadingFallback = () => (
+  <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
+  </div>
+);
 
 // Session Storage Keys
 const STORAGE_KEYS = {
@@ -520,7 +527,11 @@ const App: React.FC = () => {
           />
         )}
 
-        {appState === 'PATIENT_PORTAL' && <PatientPortalScreen lang={lang} onExit={() => setAppState('LANDING')} />}
+        {appState === 'PATIENT_PORTAL' && (
+          <Suspense fallback={<LoadingFallback />}>
+            <PatientPortalScreen lang={lang} onExit={() => setAppState('LANDING')} />
+          </Suspense>
+        )}
 
         {appState === 'CLINIC_LANDING' && (
           <ClinicLandingScreen
@@ -531,35 +542,57 @@ const App: React.FC = () => {
         )}
 
         {appState === 'PARTNER_JOIN' && (
-          <PartnerJoinScreen
-            onSubmit={() => setAppState('PARTNER_PORTAL')}
-            onBack={() => setAppState('CLINIC_LANDING')}
-          />
+          <Suspense fallback={<LoadingFallback />}>
+            <PartnerJoinScreen
+              onSubmit={() => setAppState('PARTNER_PORTAL')}
+              onBack={() => setAppState('CLINIC_LANDING')}
+            />
+          </Suspense>
         )}
 
         {appState === 'DIRECTORY' && (
-          <ClinicDirectoryScreen
-            onBack={() => setAppState('LANDING')}
-            onVisitClinic={(clinicId) => {
-              setSelectedClinicId(clinicId);
-              setAppState('CLINIC_DETAILS');
-            }}
-          />
+          <Suspense fallback={<LoadingFallback />}>
+            <ClinicDirectoryScreen
+              onBack={() => setAppState('LANDING')}
+              onVisitClinic={(clinicId) => {
+                setSelectedClinicId(clinicId);
+                setAppState('CLINIC_DETAILS');
+              }}
+            />
+          </Suspense>
         )}
 
         {appState === 'CLINIC_DETAILS' && selectedClinicId && (
-          <ClinicScreen
-            lang={lang}
-            clinicId={selectedClinicId}
-            onBack={() => setAppState('DIRECTORY')}
-            onBook={handleStartSimulation}
-          />
+          <Suspense fallback={<LoadingFallback />}>
+            <ClinicScreen
+              lang={lang}
+              clinicId={selectedClinicId}
+              onBack={() => setAppState('DIRECTORY')}
+              onBook={handleStartSimulation}
+            />
+          </Suspense>
         )}
 
-        {appState === 'PARTNER_PORTAL' && <PartnerPortalScreen lang={lang} onBack={() => setAppState('LANDING')} />}
-        {appState === 'BLOG' && <BlogScreen onBack={() => setAppState('LANDING')} onNavigate={(p) => setAppState(p as any)} />}
-        {appState === 'MONITORING' && <MonitoringDashboard />}
-        {appState === 'ADMIN_DEBUG' && <AdminDebugScreen />}
+        {appState === 'PARTNER_PORTAL' && (
+          <Suspense fallback={<LoadingFallback />}>
+            <PartnerPortalScreen lang={lang} onBack={() => setAppState('LANDING')} />
+          </Suspense>
+        )}
+        {appState === 'BLOG' && (
+          <Suspense fallback={<LoadingFallback />}>
+            <BlogScreen onBack={() => setAppState('LANDING')} onNavigate={(p) => setAppState(p as any)} />
+          </Suspense>
+        )}
+        {appState === 'MONITORING' && (
+          <Suspense fallback={<LoadingFallback />}>
+            <MonitoringDashboard />
+          </Suspense>
+        )}
+        {appState === 'ADMIN_DEBUG' && (
+          <Suspense fallback={<LoadingFallback />}>
+            <AdminDebugScreen />
+          </Suspense>
+        )}
 
         {appState === 'PRE_SCAN' && (
           <PreScanScreen
@@ -572,7 +605,9 @@ const App: React.FC = () => {
         {appState === 'SCAN' && (
           <div className="w-full h-[100svh] flex flex-col items-center justify-center bg-[#F7F8FA] [padding-top:env(safe-area-inset-top)] [padding-bottom:env(safe-area-inset-bottom)]">
             <div className="relative w-full flex-1 lg:max-h-[85vh] lg:max-w-[440px] lg:rounded-[3.5rem] lg:border-[12px] lg:border-slate-800 overflow-hidden bg-black shadow-2xl">
-              <ScannerScreen onComplete={handleScanComplete} onExit={() => setAppState('LANDING')} lang={lang} />
+              <Suspense fallback={<LoadingFallback />}>
+                <ScannerScreen onComplete={handleScanComplete} onExit={() => setAppState('LANDING')} lang={lang} />
+              </Suspense>
             </div>
           </div>
         )}
@@ -631,15 +666,17 @@ const App: React.FC = () => {
 
         {appState === 'RESULT' && (
           <div className="w-full max-w-7xl mx-auto py-32 px-6">
-            <DashboardScreen
-              lang={lang}
-              analysis={analysisResult || {}}
-              capturedPhotos={capturedPhotos}
-              planningImage={planningImage || ''}
-              afterImage={afterImage || ''}
-              error={error}
-              leadData={useLeads().leads[0]}
-            />
+            <Suspense fallback={<LoadingFallback />}>
+              <DashboardScreen
+                lang={lang}
+                analysis={analysisResult || {}}
+                capturedPhotos={capturedPhotos}
+                planningImage={planningImage || ''}
+                afterImage={afterImage || ''}
+                error={error}
+                leadData={useLeads().leads[0]}
+              />
+            </Suspense>
           </div>
         )}
       </main>
